@@ -13,7 +13,7 @@ export class signingsService {
   async syncsignings() {
     let token = await this.token.getToken();
     let signings = await this.sql.runSql(
-      `select convert(nvarchar, tmst, 121) tmstStr, idr, tmst, accio, usuari, isnull(editor, '') editor, isnull(left(historial, 10), '') historial, isnull(lloc, '') lloc, isnull(left(comentari, 20), '') comentari, id from cdpDadesFichador where tmst>=(select timestamp from records where concepte='BC_CdpDadesFichador') and comentari not like '%365EquipoDeTrabajo%' order by tmst`,
+      `select convert(nvarchar, tmst, 121) tmstStr, idr, tmst, accio, usuari, isnull(editor, '') editor, isnull(left(historial, 10), '') historial, isnull(lloc, '') lloc, isnull(left(comentari, 20), '') comentari, id from cdpDadesFichador where tmst>=(select timestamp from records where concepte='BC_CdpDadesFichador') and comentari not like '%365EquipoDeTrabajo%' and year(tmst)<=year(getdate()) order by tmst`,
       'fac_tena',
     );
     for (let i = 0; i < signings.recordset.length; i++) {
