@@ -8,17 +8,20 @@ import { signingsController } from './signings/signings.controller';
 import { signingsService } from './signings/signings.service';
 import { customersController } from './customers/customers.controller';
 import { customersService } from './customers/customers.service';
+import { itemsController } from './items/items.controller';
+import { itemsService } from './items/items.service';
 
 
 @Module({
   imports: [ConfigModule.forRoot()],
-  controllers: [employeesController, signingsController, customersController],
+  controllers: [employeesController, signingsController, customersController,itemsController],
   providers: [
     employeesService,
     getTokenService,
     runSqlService,
     signingsService,
     customersService,
+    itemsService
   ],
 })
 export class AppModule {}
