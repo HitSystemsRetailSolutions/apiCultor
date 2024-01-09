@@ -13,7 +13,7 @@ export class employeesService {
   async syncEmployees() {
     let token = await this.token.getToken();
     let employees = await this.sql.runSql(
-      `SELECT cast(Codi as nvarchar) Codi, left(Nom, 30) Nom from dependentes order by nom`,
+      `select cast(Codi as nvarchar) Codi, left(Nom, 30) Nom from dependentes where codi in (select dependenta from [v_venut_2024-01] where botiga in (864,764,115)) order by nom`,
       'fac_tena',
     );
     for (let i = 0; i < employees.recordset.length; i++) {

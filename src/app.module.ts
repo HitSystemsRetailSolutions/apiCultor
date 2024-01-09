@@ -8,17 +8,33 @@ import { signingsController } from './signings/signings.controller';
 import { signingsService } from './signings/signings.service';
 import { customersController } from './customers/customers.controller';
 import { customersService } from './customers/customers.service';
+import { itemsController } from './items/items.controller';
+import { itemsService } from './items/items.service';
+import { itemCategoriesController } from './itemCategories/itemCategories.controller';
+import { itemCategoriesService } from './itemCategories/itemCategories.service';
+import { salesTicketsController } from './sales/salesTickets.controller';
+import { salesTicketsService } from './sales/salesTickets.service';
 
 
 @Module({
   imports: [ConfigModule.forRoot()],
-  controllers: [employeesController, signingsController, customersController],
+  controllers: [
+    employeesController, 
+    signingsController, 
+    customersController,
+    itemsController,
+    itemCategoriesController,
+    salesTicketsController
+  ],
   providers: [
     employeesService,
     getTokenService,
     runSqlService,
     signingsService,
     customersService,
+    itemsService,
+    itemCategoriesService,
+    salesTicketsService
   ],
 })
 export class AppModule {}

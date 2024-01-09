@@ -13,14 +13,16 @@ export class signingsService {
   async syncsignings() {
     let token = await this.token.getToken();
     let signings = await this.sql.runSql(
-      `select idr, tmst, accio, usuari, isnull(editor, '') editor, isnull(historial, '') historial, isnull(lloc, '') lloc, isnull(comentari, '') comentari, id from cdpDadesFichador where year(tmst)=2023 and month(tmst)=11 and day(tmst)=8 order by tmst`,
+      `select convert(nvarchar, tmst, 121) tmstStr, idr, tmst, accio, usuari, isnull(editor, '') editor, isnull(left(historial, 100), '') historial, isnull(lloc, '') lloc, isnull(left(comentari, 50), '') comentari, id from cdpDadesFichador where tmst>=(select timestamp from records where concepte='BC_CdpDadesFichador') and comentari not like '%365EquipoDeTrabajo%' and year(tmst)<=year(getdate()) order by tmst`,
       'fac_tena',
     );
     for (let i = 0; i < signings.recordset.length; i++) {
+
       let x = signings.recordset[i];
+      console.log(x.idr);      
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/CdpDadesFichador?$filter=idr eq '${x.idr}'`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${process.env.companyNAME}')/cdpDadesFichador2?$filter=idr eq '${x.idr}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -31,12 +33,13 @@ export class signingsService {
         .catch((error) => {
           throw new Error('Failed to obtain access token');
         });
+      //console.log(res);
 
       if (!res.data) throw new Error('Failed to obtain access token');
       if (res.data.value.length === 0) {
         let newSignings = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/CdpDadesFichador`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${process.env.companyNAME}')/cdpDadesFichador2`,
             {
               idr: x.idr,
               tmst: x.tmst,
@@ -55,6 +58,7 @@ export class signingsService {
               },
             },
           )
+
           .catch((error) => {
             throw new Error('Failed to obtain access token');
           });
@@ -69,11 +73,16 @@ export class signingsService {
             ((signings.recordset.length - i) * (0.5 / 60)).toFixed(2) +
             ' minutes',
         );
-      } else {
+        //console.log(`update records set timestamp='${x.tmstStr}' where Concepte='BC_CdpDadesFichador'`);
+        await this.sql.runSql(
+          `update records set timestamp='${x.tmstStr}' where Concepte='BC_CdpDadesFichador'`,
+          'fac_tena',
+        );
+      }/* else {
         let z = res.data.value[0]['@odata.etag'];
         let newSignings = await axios
           .patch(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/cdpDadesFichador(${res.data.value[0].idr})`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${process.env.companyNAME}')/cdpDadesFichador2(${res.data.value[0].idr})`,
             {
               idr: x.idr,
               tmst: x.tmst,
@@ -106,7 +115,7 @@ export class signingsService {
             ((signings.recordset.length - i) * (0.5 / 60)).toFixed(2) +
             ' minutes',
         );
-      }
+      }*/
     }
     return true;
   }
