@@ -4,12 +4,12 @@ import { runSqlService } from 'src/conection/sqlConection.service';
 import axios from 'axios';
 import { response } from 'express';
 @Injectable()
+
 export class salesTicketsService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
   ) {}
-
 
   async getCustomerFromAPI(codiHIT) {
     let customerId = '';
@@ -29,10 +29,10 @@ export class salesTicketsService {
         },
       )
       .catch((error) => {
-        throw new Error('Failed to obtain access token');
+        throw new Error('Failed to obtain customer');
       });
 
-    if (!res.data) throw new Error('Failed to obtain access token');
+    if (!res.data) throw new Error('Failed to obtain customer');
 
     if (res.data.value.length === 0) {
     } else {
@@ -59,10 +59,10 @@ async getItemFromAPI(codiHIT) {
         },
       )
       .catch((error) => {
-        throw new Error('Failed to obtain access token');
+        throw new Error('Failed to obtain item');
       });
 
-    if (!res.data) throw new Error('Failed to obtain access token');
+    if (!res.data) throw new Error('Failed to obtain item');
 
     if (res.data.value.length === 0) {
     } else {
@@ -73,12 +73,12 @@ async getItemFromAPI(codiHIT) {
 
   async syncSalesTickets() {
     let token = await this.token.getToken();
-    let tabVenut = "[V_VENUT_2023-11]";
-    let tabMoviments = "[V_MOVIMENTS_2023-11]";
-    let botiga = "764"; // FILAPEÑA: T--101(115) T--076(764) T--152(864)
+    let tabVenut = "[V_VENUT_2024-01]";
+    let tabMoviments = "[V_MOVIMENTS_2024-01]";
+    let botiga = "115"; // FILAPEÑA: T--101(115) T--076(764) T--152(864)
 
     let sqlQ;
-    sqlQ = "select num_tick nTickHit, convert(varchar, v.Data, 23) Data, concat(upper(c.nom), '_', num_tick) Num_tick, case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end FormaPago, isnull(c2.codi, '1314') Client, sum(v.import) Total ";
+    sqlQ = "select top 10 num_tick nTickHit, convert(varchar, v.Data, 23) Data, concat(upper(c.nom), '_', num_tick) Num_tick, case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end FormaPago, isnull(c2.codi, '1314') Client, sum(v.import) Total ";
     sqlQ = sqlQ + "From " + tabVenut + " v  ";
     sqlQ = sqlQ + "left join " + tabMoviments + " m on m.botiga=v.botiga and concat('Pagat Targeta: ', v.num_tick) = m.motiu ";
     sqlQ = sqlQ + "left join clients c on v.botiga=c.codi  ";
@@ -88,7 +88,7 @@ async getItemFromAPI(codiHIT) {
     sqlQ = sqlQ + "group by v.data, num_tick, concat(upper(c.nom), '_', num_tick), case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end, isnull(c2.codi, '1314') ";
     sqlQ = sqlQ + "order by v.data";
 
-    //console.log sqlQ;
+    //console.log (sqlQ);
 
     let tickets = await this.sql.runSql(
       sqlQ,
@@ -98,10 +98,11 @@ async getItemFromAPI(codiHIT) {
     for (let i = 0; i < tickets.recordset.length; i++) {
       let x = tickets.recordset[i];
       let customerId = await this.getCustomerFromAPI(x.Client);
-
+      //console.log("-------------------------" + customerId + "----------------------------");
+      console.log(x.Num_tick);
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/sales?$filter=externalDocumentNumber eq '${x.Num_tick}'`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -110,14 +111,14 @@ async getItemFromAPI(codiHIT) {
           },
         )
         .catch((error) => {
-          throw new Error('Failed to obtain access token');
+          throw new Error('Failed to obtain ticket');
         });
 
-      if (!res.data) throw new Error('Failed to obtain access token');
+      if (!res.data) throw new Error('Failed to obtain ticket');
       if (res.data.value.length === 0) {
         let newTickets = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/sales`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices`,
             {
                 externalDocumentNumber: x.Num_tick,
                 invoiceDate: x.Data,
@@ -132,40 +133,40 @@ async getItemFromAPI(codiHIT) {
             },
           )
           .catch((error) => {
-            throw new Error('Failed to obtain access token');
+            throw new Error('Failed post');
           });
 
         if (!newTickets.data)
-          return new Error('Failed to obtain access token');
+          return new Error('Failed post');
         else{
           let ticketId = newTickets.data.id;
           await this.synchronizeSalesTiquetsLines(tabVenut, botiga, x.nTickHit, ticketId).catch(console.error);
         }
 
-        console.log(
-          'Synchronizing tickets... -> ' +
-            i +
-            '/' +
-            tickets.recordset.length,
-          ' --- ',
-          ((i / tickets.recordset.length) * 100).toFixed(2) + '%',
-          ' | Time left: ' +
-            ((tickets.recordset.length - i) * (0.5 / 60)).toFixed(2) +
-            ' minutes',
-        );
+//        console.log(
+//          'Synchronizing tickets... -> ' +
+//            i +
+//            '/' +
+//            tickets.recordset.length,
+//          ' --- ',
+//          ((i / tickets.recordset.length) * 100).toFixed(2) + '%',
+//          ' | Time left: ' +
+//            ((tickets.recordset.length - i) * (0.5 / 60)).toFixed(2) +
+//            ' minutes',
+//        );
 
       } else {
         console.log('Ya existe el ticket');
-        }
-        return true;
+      }
     }
+    return true;
   }
 
   async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId) {
     let token = await this.token.getToken();
 
     let sqlQ;
-    sqlQ = "select concat(upper(c.nom), '_', num_tick) Num_tick, sum(v.Quantitat) Quantitat, CAST(v.Plu as varchar) Plu ";
+    sqlQ = "select concat(upper(c.nom), '_', num_tick) Num_tick, sum(v.Quantitat) Quantitat, sum(v.import)/sum(v.Quantitat) UnitPrice, CAST(v.Plu as varchar) Plu ";
     sqlQ = sqlQ + "From " + tabVenut + " v ";
     sqlQ = sqlQ + "left join clients c on v.botiga=c.codi  ";
     sqlQ = sqlQ + "where v.botiga=" + botiga + " and num_tick='" + nTickHit + "'";
@@ -178,12 +179,12 @@ async getItemFromAPI(codiHIT) {
 
     for (let i = 0; i < ticketsLines.recordset.length; i++) {
       let x = ticketsLines.recordset[i];
-
+      console.log("---" + x.Plu);
       const itemId = await this.getItemFromAPI(x.Plu);
-
+      //console.log(itemId);
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/sales(${ticketId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${ticketId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -192,19 +193,20 @@ async getItemFromAPI(codiHIT) {
           },
         )
         .catch((error) => {
-          throw new Error('Failed to obtain access token');
+          throw new Error('Failed to get ticket line');
         });
 
-      if (!res.data) throw new Error('Failed to obtain access token');
+      if (!res.data) throw new Error('Failed to get ticket line');
+
       if (res.data.value.length === 0) {
         let newTickets = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/sales(${ticketId})/salesLines`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${ticketId})/salesInvoiceLines`,
             {
                 documentId: ticketId,
                 itemId: itemId,
                 quantity: x.Quantitat,
-
+                unitPrice: x.UnitPrice
             },
             {
               headers: {
@@ -214,29 +216,25 @@ async getItemFromAPI(codiHIT) {
             },
           )
           .catch((error) => {
-            throw new Error('Failed to obtain access token');
+            throw new Error('Failed to post Ticket line');
           });
 
-        console.log(
-          'Synchronizing ticket lines... -> ' +
-            i +
-            '/' +
-            ticketsLines.recordset.length,
-          ' --- ',
-          ((i / ticketsLines.recordset.length) * 100).toFixed(2) + '%',
-          ' | Time left: ' +
-            ((ticketsLines.recordset.length - i) * (0.5 / 60)).toFixed(2) +
-            ' minutes',
-        );
+//        console.log(
+//          'Synchronizing ticket lines... -> ' +
+//            i +
+//            '/' +
+//            ticketsLines.recordset.length,
+//          ' --- ',
+//          ((i / ticketsLines.recordset.length) * 100).toFixed(2) + '%',
+//          ' | Time left: ' +
+//            ((ticketsLines.recordset.length - i) * (0.5 / 60)).toFixed(2) +
+//            ' minutes',
+//        );
 
       } else {
         console.log('Ya existe el ticket');
-        }
-        return true;
+      }
     }
+    return true;    
   }
-
-
-
-
 }
