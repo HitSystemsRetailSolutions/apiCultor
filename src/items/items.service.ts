@@ -16,7 +16,7 @@ export class itemsService {
     let itemId = '';
 
     let items = await this.sql.runSql(
-      'SELECT a.Codi, a.Nom, a.Preu/(1+(t.Iva/100)) PreuSinIva, a.Preu, left(a.Familia, 20) Familia, a.EsSumable, t.Iva FROM (select codi, nom, preu, familia, esSumable, tipoIva from Articles union all select codi, nom, preu, familia, esSumable, tipoIva from articles_Zombis) a left join tipusIva2012 t on a.Tipoiva=t.Tipus where a.codi>0 and a.codi in (Select distinct plu from [v_venut_2024-01] where botiga=115) order by a.codi',
+      'SELECT a.Codi, a.Nom, a.Preu/(1+(t.Iva/100)) PreuSinIva, a.Preu, left(a.Familia, 20) Familia, a.EsSumable, t.Iva FROM (select codi, nom, preu, familia, esSumable, tipoIva from Articles union all select codi, nom, preu, familia, esSumable, tipoIva from articles_Zombis) a left join tipusIva2012 t on a.Tipoiva=t.Tipus where a.codi>0 and t.iva<>4 order by a.codi',
       'fac_tena',
     );
 
@@ -59,7 +59,7 @@ export class itemsService {
               displayName: x.Nom,                        
               generalProductPostingGroupCode: 'IVA'+x.Iva,
               unitPrice: x.Preu,
-              priceIncludesTax: true,
+              //priceIncludesTax: true,
               //itemCategoryId: categoryId,
               baseUnitOfMeasureCode: baseUnitOfMeasure,
               //inventoryPostingGroupCode: '001',
