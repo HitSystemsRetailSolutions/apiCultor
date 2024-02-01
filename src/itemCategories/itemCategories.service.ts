@@ -17,7 +17,7 @@ export class itemCategoriesService {
 
     let categories = await this.sql.runSql(
       'SELECT left(nom, 20) Code, Nom FROM Families',
-      'fac_tena',
+      'fac_hitrs',
     );
 
     for (let i = 0; i < categories.recordset.length; i++) {
