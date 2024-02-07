@@ -2,6 +2,7 @@
   "name": "api-cultor",
   "version": "0.0.1",
   "description": "",
+  "main": "index.js",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
@@ -25,6 +26,7 @@
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
     "axios": "^1.6.1",
+    "mqtt": "^5.3.5",
     "mssql": "^10.0.1",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1"
