@@ -14,7 +14,7 @@ export class signingsService {
     let token = await this.token.getToken();
     let signings = await this.sql.runSql(
       `select convert(nvarchar, tmst, 121) tmstStr, idr, tmst, accio, usuari, isnull(editor, '') editor, isnull(left(historial, 100), '') historial, isnull(lloc, '') lloc, isnull(left(comentari, 50), '') comentari, id from cdpDadesFichador where tmst>=(select timestamp from records where concepte='BC_CdpDadesFichador') and comentari not like '%365EquipoDeTrabajo%' and year(tmst)<=year(getdate()) order by tmst`,
-      'fac_tena',
+      process.env.database,
     );
     for (let i = 0; i < signings.recordset.length; i++) {
 
@@ -76,7 +76,7 @@ export class signingsService {
         //console.log(`update records set timestamp='${x.tmstStr}' where Concepte='BC_CdpDadesFichador'`);
         await this.sql.runSql(
           `update records set timestamp='${x.tmstStr}' where Concepte='BC_CdpDadesFichador'`,
-          'fac_tena',
+          process.env.database,
         );
       }/* else {
         let z = res.data.value[0]['@odata.etag'];

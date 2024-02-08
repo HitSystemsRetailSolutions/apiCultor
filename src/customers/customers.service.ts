@@ -104,7 +104,7 @@ NOM: My Company ID:2f38b331-55e9-ed11-884e-6045bdc8c698*/
 
     let customers = await this.sql.runSql(
       `SELECT cast(c.Codi as nvarchar) Codi, upper(c.Nom) Nom, c.Adresa, c.Ciutat, c.CP, cc1.valor Tel, cc2.valor eMail from clients c left join constantsClient cc1 on c.codi= cc1.codi and cc1.variable='Tel' join constantsClient cc2 on c.codi= cc2.codi and cc2.variable='eMail' where c.codi in (1314) order by c.codi`,
-      'Fac_Tena',
+      process.env.database,
     );
 
     for (let i = 0; i < customers.recordset.length; i++) {

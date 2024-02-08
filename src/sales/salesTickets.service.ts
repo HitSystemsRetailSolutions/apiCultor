@@ -92,7 +92,7 @@ async getItemFromAPI(codiHIT) {
 
     let tickets = await this.sql.runSql(
       sqlQ,
-      'fac_tena',
+      process.env.database,
     );
 
     for (let i = 0; i < tickets.recordset.length; i++) {
@@ -174,7 +174,7 @@ async getItemFromAPI(codiHIT) {
 
     let ticketsLines = await this.sql.runSql(
       sqlQ,
-      'fac_tena',
+      process.env.database,
     );
 
     for (let i = 0; i < ticketsLines.recordset.length; i++) {
