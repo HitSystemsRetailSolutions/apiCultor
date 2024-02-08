@@ -5,9 +5,6 @@ const axios = require("axios")
 const employeesTime = 5 * (60 * 60 * 1000); // hours
 const signingsTime = 5 * (60 * 1000); // minutes
 const customersTime = 5 * (60 * 60 * 1000); // hours
-
-const mqtt = require('mqtt');
-
 // Definir la URL del broker MQTT
 const mqttBrokerUrl = 'mqtt://santaana2.nubehit.com'; // Cambia a la URL de tu broker MQTT
 
