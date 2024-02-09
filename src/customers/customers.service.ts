@@ -38,12 +38,6 @@ export class customersService {
         console.log(companies[i]);
       }
     }
-
-/*NOM: CRONUS ES ID:8586dd27-55e9-ed11-884e-6045bdc8c698
-NOM: FILA PEÑA, S.L. ID:c1fbfea4-f0aa-ee11-a568-000d3a660c9b
-NOM: HITSYSTEM_TEST ID:0d96d05c-2a10-ee11-8f6e-6045bd978b14
-NOM: My Company ID:2f38b331-55e9-ed11-884e-6045bdc8c698*/
-
   }
 
   //Obtener Id del modo de pago
@@ -98,13 +92,13 @@ NOM: My Company ID:2f38b331-55e9-ed11-884e-6045bdc8c698*/
     //this.getCompaniesId();    
 
     let payTermId = await this.getPaymentTermId('0D');
-    let taxId = await this.getTaxAreaId('UE');
+    let taxId = await this.getTaxAreaId('NAC');
 
     //console.log("-------------PAY TERM ID-----------------" + payTermId);
 
     let customers = await this.sql.runSql(
-      `SELECT cast(c.Codi as nvarchar) Codi, upper(c.Nom) Nom, c.Adresa, c.Ciutat, c.CP, cc1.valor Tel, cc2.valor eMail from clients c left join constantsClient cc1 on c.codi= cc1.codi and cc1.variable='Tel' join constantsClient cc2 on c.codi= cc2.codi and cc2.variable='eMail' where c.codi in (1314) order by c.codi`,
-      'Fac_Tena',
+      `SELECT cast(c.Codi as nvarchar) Codi, upper(c.Nom) Nom, c.Adresa, c.Ciutat, c.CP, cc1.valor Tel, cc2.valor eMail from clients c left join constantsClient cc1 on c.codi= cc1.codi and cc1.variable='Tel' join constantsClient cc2 on c.codi= cc2.codi and cc2.variable='eMail' order by c.codi`,
+      'Fac_Hitrs',
     );
 
     for (let i = 0; i < customers.recordset.length; i++) {

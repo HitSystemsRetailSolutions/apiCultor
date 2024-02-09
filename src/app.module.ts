@@ -14,6 +14,8 @@ import { itemCategoriesController } from './itemCategories/itemCategories.contro
 import { itemCategoriesService } from './itemCategories/itemCategories.service';
 import { salesTicketsController } from './sales/salesTickets.controller';
 import { salesTicketsService } from './sales/salesTickets.service';
+import { salesFacturasController } from './sales/salesFacturas.controller';
+import { salesFacturasService } from './sales/salesFacturas.service';
 
 
 @Module({
@@ -24,7 +26,8 @@ import { salesTicketsService } from './sales/salesTickets.service';
     customersController,
     itemsController,
     itemCategoriesController,
-    salesTicketsController
+    salesTicketsController,
+    salesFacturasController
   ],
   providers: [
     employeesService,
@@ -34,7 +37,8 @@ import { salesTicketsService } from './sales/salesTickets.service';
     customersService,
     itemsService,
     itemCategoriesService,
-    salesTicketsService
+    salesTicketsService,
+    salesFacturasService
   ],
 })
 export class AppModule {}
