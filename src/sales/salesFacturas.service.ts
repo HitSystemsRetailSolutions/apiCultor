@@ -98,7 +98,7 @@ async getItemFromAPI(codiHIT) {
     let token = await this.token.getToken();
     let sqlQ;
 
-    sqlQ = "select top 1 Id, HIT_IdFactura, HIT_EmpresaCodi , HIT_SerieFactura , HIT_NumFactura , convert(varchar, HIT_DataFactura, 23) HIT_DataFactura, HIT_Total, HIT_ClientCodi, HIT_ClientNom ";
+    sqlQ = "select Id, HIT_IdFactura, HIT_EmpresaCodi , HIT_SerieFactura , HIT_NumFactura , convert(varchar, HIT_DataFactura, 23) HIT_DataFactura, HIT_Total, HIT_ClientCodi, HIT_ClientNom ";
     sqlQ = sqlQ + "from [BC_SyncSales_2024] ";
     sqlQ = sqlQ + "where BC_IdSale is null  ";
     sqlQ = sqlQ + "order by  HIT_NumFactura, HIT_DataFactura";
@@ -160,7 +160,7 @@ async getItemFromAPI(codiHIT) {
         else{
           facturaId_BC = newFacturas.data.id;
           await this.synchronizeSalesFacturasLines(tabFacturacioDATA, x.HIT_IdFactura, facturaId_BC).catch(console.error);
-//console.log("------------------------------------------------------" + x.HIT_SerieFactura + x.HIT_NumFactura + "-------------------------------");
+          //console.log("------------------------------------------------------" + x.HIT_SerieFactura + x.HIT_NumFactura + "-------------------------------");
           let resSale = await this.getSaleFromAPI(x.HIT_SerieFactura + x.HIT_NumFactura);
           if (!resSale.data) throw new Error('Failed to obtain ticket BS');
           if (resSale.data.value.length != 0) {          
@@ -181,37 +181,12 @@ async getItemFromAPI(codiHIT) {
       } else {
         //YA ESTÁ LA FACTURA EN BC
         console.log('Ya existe la factura');
-/*      let z = res.data.value[0]['@odata.etag'];
-
-        let newItems = await axios
-          .patch(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${BC_facturaId})`,
-            {
-                externalDocumentNumber: x.HIT_SerieFactura + x.HIT_NumFactura,
-                invoiceDate: dataFactura,
-                postingDate: dataFactura,
-                customerId: customerId,
-            },
-            {
-              headers: {
-                Authorization: 'Bearer ' + token,
-                'Content-Type': 'application/json',
-                'if-Match': z,
-              },
-            },
-          )
-          .catch((error) => {
-            throw new Error('Failed to update SALE LINE');
-          });
-        if (!newItems.data)
-          return new Error('Failed to update SALE LINE');
-*/
-//console.log(res.data);
-        facturaId_BC = res.data.value[0]['id'];
-        await this.synchronizeSalesFacturasLines(tabFacturacioDATA, x.HIT_IdFactura, facturaId_BC).catch(console.error);
+        //console.log(res.data);
+        //facturaId_BC = res.data.value[0]['id'];
+        //await this.synchronizeSalesFacturasLines(tabFacturacioDATA, x.HIT_IdFactura, facturaId_BC).catch(console.error);
 
         //console.log(res.data);
-        sqlQ = "update [BC_SyncSales_2024] set ";
+        /*sqlQ = "update [BC_SyncSales_2024] set ";
         sqlQ = sqlQ + "BC_IdSale='" + res.data.value[0].id + "', ";
         sqlQ = sqlQ + "BC_Number='" + res.data.value[0].number + "', ";
         sqlQ = sqlQ + "BC_PostingDate='" + res.data.value[0].postingDate + "', ";
@@ -221,7 +196,7 @@ async getItemFromAPI(codiHIT) {
         let updBC = await this.sql.runSql(
           sqlQ,
           'fac_hitrs',
-        );
+        );*/
       }
     }
     return true;
