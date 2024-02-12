@@ -32,7 +32,6 @@ client.on('connect', function () {
 // Manejar mensajes recibidos
 client.on('message', async function (topic, message) {
     console.log('Mensaje recibido en el tema:', topic, '- Contenido:', message.toString())
-
     try {
         const msgJson = JSON.parse(message);
         console.log('Mensaje en modo JSON:', msgJson);

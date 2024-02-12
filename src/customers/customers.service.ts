@@ -92,8 +92,6 @@ NOM: My Company ID:2f38b331-55e9-ed11-884e-6045bdc8c698*/
 
   async syncCustomers() {
     let token = await this.token.getToken();
-    let customerId = '';
-
     //console.log("--------------TOKEN------------ " + token);
     //this.getCompaniesId();    
 
