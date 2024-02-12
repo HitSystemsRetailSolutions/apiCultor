@@ -49,10 +49,25 @@ client.on('connect', function () {
 
 // Manejar mensajes recibidos
 client.on('message', async function (topic, message) {
-    console.log('Mensaje recibido en el tema:', topic, '- Contenido:', message.toString())
+    if (debug){
+        console.log('Mensaje recibido en el tema:', topic, '- Contenido:', message.toString())
+    }
     try {
         const msgJson = JSON.parse(message);
         console.log('Mensaje en modo JSON:', msgJson);
+        if(msgJson.hasOwnProperty('debug')){
+            if (msgJson.debug == "true"){
+                console.log('Debug: activado')
+                debug = true;
+            }
+            else{
+                console.log('Debug: desactivado')
+                debug = false;
+            }
+        } else{
+            console.log('No hay debug: desactivado') //No enviar mensajes a /Hit/Serveis/Apicultor/Log
+            debug = false;
+        }
         if (msgJson.hasOwnProperty('companyID')) {
             console.log('El JSON recibido tiene el campo "companyID"');
             if(!isValidCompanyID(msgJson.companyID)){
@@ -127,7 +142,9 @@ client.on('message', async function (topic, message) {
         }
         
     } catch (error) {
-        console.log('Mensaje recibido como una cadena');
+        if (debug){
+            console.log('Mensaje recibido como una cadena');
+        }
     }
 });
 

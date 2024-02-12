@@ -19,6 +19,7 @@ export class itemsService {
   ) {}
 
   async syncItems(companyID: string, database: string) {
+    //En todo el documento process.env.database y process.env.companyID han sido sustituidos por database y companyID respectivamente
     console.log(companyID)
     console.log(database)
     let token = await this.token.getToken();
@@ -29,13 +30,13 @@ export class itemsService {
         'SELECT a.Codi, a.Nom, a.Preu/(1+(t.Iva/100)) PreuSinIva, a.Preu, left(a.Familia, 20) Familia, a.EsSumable, t.Iva FROM (select codi, nom, preu, familia, esSumable, tipoIva from Articles union all select codi, nom, preu, familia, esSumable, tipoIva from articles_Zombis) a left join tipusIva2012 t on a.Tipoiva=t.Tipus where a.codi>0 and a.codi in (Select distinct plu from [v_venut_2024-01] where botiga=115) order by a.codi',
         database,
       );
-    } catch (error){
+    } catch (error){ //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
       console.log('No existe la database')
       return false;
     }
     
-    if(items.recordset.length == 0){
+    if(items.recordset.length == 0){ //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
       console.log('No hay registros')
       return false;

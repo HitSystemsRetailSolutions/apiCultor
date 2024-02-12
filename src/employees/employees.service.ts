@@ -20,6 +20,7 @@ export class employeesService {
   ) {}
 
   async syncEmployees(companyID: string, database: string) {
+    //En todo el documento process.env.database y process.env.companyID han sido sustituidos por database y companyID respectivamente
     console.log('CompanyID: ', companyID)
     console.log('Database: ', database)
     let token = await this.token.getToken();
@@ -29,13 +30,13 @@ export class employeesService {
         `select cast(Codi as nvarchar) Codi, left(Nom, 30) Nom from dependentes where codi in (select dependenta from [v_venut_2024-01] where botiga in (864,764,115)) order by nom`,
         database,
       );
-    } catch (error){
+    } catch (error){ //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
       console.log('No existe la database')
       return false;
     }
     
-    if(employees.recordset.length == 0){
+    if(employees.recordset.length == 0){ //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
       console.log('No hay registros')
       return false;

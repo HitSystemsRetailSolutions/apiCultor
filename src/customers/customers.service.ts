@@ -4,14 +4,15 @@ import { runSqlService } from 'src/conection/sqlConection.service';
 import axios from 'axios';
 import { response } from 'express';
 
+//MQTT connect
 const mqtt = require('mqtt');
 const mqttBrokerUrl = 'mqtt://santaana2.nubehit.com';
 
 // Crear un cliente MQTT
 const client = mqtt.connect(mqttBrokerUrl);
 
-@Injectable()
 
+@Injectable()
 export class customersService {
   constructor(
     private token: getTokenService,
@@ -98,6 +99,7 @@ NOM: My Company ID:2f38b331-55e9-ed11-884e-6045bdc8c698*/
   }
 
   async syncCustomers(companyID: string, database: string) {
+    //En todo el documento process.env.database y process.env.companyID han sido sustituidos por database y companyID respectivamente
     console.log(companyID);
     console.log(database);
     let token = await this.token.getToken();
@@ -111,19 +113,20 @@ NOM: My Company ID:2f38b331-55e9-ed11-884e-6045bdc8c698*/
 
     //console.log("-------------PAY TERM ID-----------------" + payTermId);
     let customers;
+    
     try{
       customers = await this.sql.runSql(
         `SELECT cast(c.Codi as nvarchar) Codi, upper(c.Nom) Nom, c.Adresa, c.Ciutat, c.CP, cc1.valor Tel, cc2.valor eMail from clients c left join constantsClient cc1 on c.codi= cc1.codi and cc1.variable='Tel' join constantsClient cc2 on c.codi= cc2.codi and cc2.variable='eMail' where c.codi in (1314) order by c.codi`,
         database,
       );
-    } catch (error){
+    } catch (error){ //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
       console.log('No existe la database')
       return false;
     }
 
     
-    if(customers.recordset.length == 0){
+    if(customers.recordset.length == 0){ //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
       console.log('No hay registros')
       return false;

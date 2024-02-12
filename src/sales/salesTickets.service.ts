@@ -79,6 +79,7 @@ async getItemFromAPI(codiHIT, companyID) {
   }
 
   async syncSalesTickets(companyID: string, database: string) {
+    //En todo el documento process.env.database y process.env.companyID han sido sustituidos por database y companyID respectivamente
     console.log(companyID)
     console.log(database)
     let token = await this.token.getToken();
@@ -103,13 +104,13 @@ async getItemFromAPI(codiHIT, companyID) {
         sqlQ,
         database,
       );
-    } catch (error){
+    } catch (error){ //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
       console.log('No existe la database')
       return false;
     }
     
-    if(tickets.recordset.length == 0){
+    if(tickets.recordset.length == 0){ //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
       console.log('No hay registros')
       return false;
