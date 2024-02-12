@@ -3,6 +3,13 @@ import { getTokenService } from '../conection/getToken.service';
 import { runSqlService } from 'src/conection/sqlConection.service';
 import axios from 'axios';
 import { response } from 'express';
+
+const mqtt = require('mqtt');
+const mqttBrokerUrl = 'mqtt://santaana2.nubehit.com';
+
+// Crear un cliente MQTT
+const client = mqtt.connect(mqttBrokerUrl);
+
 @Injectable()
 export class signingsService {
   constructor(
@@ -10,14 +17,27 @@ export class signingsService {
     private sql: runSqlService,
   ) {}
 
-  async syncsignings() {
+  async syncsignings(companyID: string, database: string) {
+    console.log(companyID)
+    console.log(database)
     let token = await this.token.getToken();
-    let signings = await this.sql.runSql(
-      `select convert(nvarchar, tmst, 121) tmstStr, idr, tmst, accio, usuari, isnull(editor, '') editor, isnull(left(historial, 100), '') historial, isnull(lloc, '') lloc, isnull(left(comentari, 50), '') comentari, id from cdpDadesFichador where tmst>=(select timestamp from records where concepte='BC_CdpDadesFichador') and comentari not like '%365EquipoDeTrabajo%' and year(tmst)<=year(getdate()) order by tmst`,
-      process.env.database,
-    );
+    let signings;
+    try {
+      signings = await this.sql.runSql(
+        `select convert(nvarchar, tmst, 121) tmstStr, (select nom from dependentes where codi = usuari) as nombre, (SELECT valor FROM dependentesExtes WHERE id = usuari AND nom = 'DNI') as dni, idr, tmst, accio, usuari, isnull(editor, '') editor, isnull(left(historial, 100), '') historial, isnull(lloc, '') lloc, isnull(left(comentari, 50), '') comentari, id from cdpDadesFichador where tmst>=(select timestamp from records where concepte='BC_CdpDadesFichador') and comentari not like '%365EquipoDeTrabajo%' and year(tmst)<=year(getdate()) order by tmst`,
+       database,
+      );
+    } catch (error){
+      client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
+      console.log('No existe la database')
+      return false;
+    }
+    if(signings.recordset.length == 0){
+      client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
+      console.log('No hay registros')
+      return false;
+    }
     for (let i = 0; i < signings.recordset.length; i++) {
-
       let x = signings.recordset[i];
       console.log(x.idr);      
       let res = await axios
@@ -76,7 +96,7 @@ export class signingsService {
         //console.log(`update records set timestamp='${x.tmstStr}' where Concepte='BC_CdpDadesFichador'`);
         await this.sql.runSql(
           `update records set timestamp='${x.tmstStr}' where Concepte='BC_CdpDadesFichador'`,
-          process.env.database,
+         database,
         );
       }/* else {
         let z = res.data.value[0]['@odata.etag'];

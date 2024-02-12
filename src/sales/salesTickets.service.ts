@@ -3,6 +3,13 @@ import { getTokenService } from '../conection/getToken.service';
 import { runSqlService } from 'src/conection/sqlConection.service';
 import axios from 'axios';
 import { response } from 'express';
+
+const mqtt = require('mqtt');
+const mqttBrokerUrl = 'mqtt://santaana2.nubehit.com';
+
+// Crear un cliente MQTT
+const client = mqtt.connect(mqttBrokerUrl);
+
 @Injectable()
 
 export class salesTicketsService {
@@ -11,7 +18,7 @@ export class salesTicketsService {
     private sql: runSqlService,
   ) {}
 
-  async getCustomerFromAPI(codiHIT) {
+  async getCustomerFromAPI(codiHIT, companyID) {
     let customerId = '';
 
     // Get the authentication token
@@ -20,7 +27,7 @@ export class salesTicketsService {
     // Get Customer from API
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/customers?$filter=number eq '${codiHIT}'`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -41,7 +48,7 @@ export class salesTicketsService {
     return customerId;
   }
 
-async getItemFromAPI(codiHIT) {
+async getItemFromAPI(codiHIT, companyID) {
     let itemId = '';
 
     // Get the authentication token
@@ -50,7 +57,7 @@ async getItemFromAPI(codiHIT) {
     // Get Item from API
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/items?$filter=number eq 'CODI-${codiHIT}'`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${codiHIT}'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -71,7 +78,9 @@ async getItemFromAPI(codiHIT) {
     return itemId;
   }
 
-  async syncSalesTickets() {
+  async syncSalesTickets(companyID: string, database: string) {
+    console.log(companyID)
+    console.log(database)
     let token = await this.token.getToken();
     let tabVenut = "[V_VENUT_2024-01]";
     let tabMoviments = "[V_MOVIMENTS_2024-01]";
@@ -87,22 +96,33 @@ async getItemFromAPI(codiHIT) {
     sqlQ = sqlQ + "where v.botiga=" + botiga + " "; //" and num_tick > 265458 ";
     sqlQ = sqlQ + "group by v.data, num_tick, concat(upper(c.nom), '_', num_tick), case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end, isnull(c2.codi, '1314') ";
     sqlQ = sqlQ + "order by v.data";
-
-    //console.log (sqlQ);
-
-    let tickets = await this.sql.runSql(
-      sqlQ,
-      process.env.database,
-    );
+    
+    let tickets;
+    try {
+      tickets = await this.sql.runSql(
+        sqlQ,
+        database,
+      );
+    } catch (error){
+      client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
+      console.log('No existe la database')
+      return false;
+    }
+    
+    if(tickets.recordset.length == 0){
+      client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
+      console.log('No hay registros')
+      return false;
+    }
 
     for (let i = 0; i < tickets.recordset.length; i++) {
       let x = tickets.recordset[i];
-      let customerId = await this.getCustomerFromAPI(x.Client);
+      let customerId = await this.getCustomerFromAPI(x.Client, companyID);
       //console.log("-------------------------" + customerId + "----------------------------");
       console.log(x.Num_tick);
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -118,7 +138,7 @@ async getItemFromAPI(codiHIT) {
       if (res.data.value.length === 0) {
         let newTickets = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices`,
             {
                 externalDocumentNumber: x.Num_tick,
                 invoiceDate: x.Data,
@@ -140,7 +160,7 @@ async getItemFromAPI(codiHIT) {
           return new Error('Failed post');
         else{
           let ticketId = newTickets.data.id;
-          await this.synchronizeSalesTiquetsLines(tabVenut, botiga, x.nTickHit, ticketId).catch(console.error);
+          await this.synchronizeSalesTiquetsLines(tabVenut, botiga, x.nTickHit, ticketId, database, companyID).catch(console.error);
         }
 
 //        console.log(
@@ -162,7 +182,7 @@ async getItemFromAPI(codiHIT) {
     return true;
   }
 
-  async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId) {
+  async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, database, companyID) {
     let token = await this.token.getToken();
 
     let sqlQ;
@@ -174,17 +194,17 @@ async getItemFromAPI(codiHIT) {
 
     let ticketsLines = await this.sql.runSql(
       sqlQ,
-      process.env.database,
+      database,
     );
 
     for (let i = 0; i < ticketsLines.recordset.length; i++) {
       let x = ticketsLines.recordset[i];
       console.log("---" + x.Plu);
-      const itemId = await this.getItemFromAPI(x.Plu);
+      const itemId = await this.getItemFromAPI(x.Plu, companyID);
       //console.log(itemId);
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${ticketId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -201,7 +221,7 @@ async getItemFromAPI(codiHIT) {
       if (res.data.value.length === 0) {
         let newTickets = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${ticketId})/salesInvoiceLines`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines`,
             {
                 documentId: ticketId,
                 itemId: itemId,

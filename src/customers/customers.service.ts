@@ -3,6 +3,13 @@ import { getTokenService } from '../conection/getToken.service';
 import { runSqlService } from 'src/conection/sqlConection.service';
 import axios from 'axios';
 import { response } from 'express';
+
+const mqtt = require('mqtt');
+const mqttBrokerUrl = 'mqtt://santaana2.nubehit.com';
+
+// Crear un cliente MQTT
+const client = mqtt.connect(mqttBrokerUrl);
+
 @Injectable()
 
 export class customersService {
@@ -47,12 +54,12 @@ NOM: My Company ID:2f38b331-55e9-ed11-884e-6045bdc8c698*/
   }
 
   //Obtener Id del modo de pago
-  async getPaymentTermId(pTermCode) {
+  async getPaymentTermId(pTermCode, companyID) {
     let token = await this.token.getToken();
 
     // Get PaymentTerms from API
     let res = await axios.get(
-      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/paymentTerms?$filter=dueDateCalculation eq '` +
+      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/paymentTerms?$filter=dueDateCalculation eq '` +
           pTermCode +
         `'`,
       {
@@ -69,12 +76,12 @@ NOM: My Company ID:2f38b331-55e9-ed11-884e-6045bdc8c698*/
   }
 
   //Obtener Id de TaxArea
-  async getTaxAreaId(taxCode) {
+  async getTaxAreaId(taxCode, companyID) {
     let token = await this.token.getToken();
 
     // Get Tax from API
     let res = await axios.get(
-      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/taxAreas?$filter=code eq '` +
+      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/taxAreas?$filter=code eq '` +
         taxCode +
         `'`,
       {
@@ -90,27 +97,43 @@ NOM: My Company ID:2f38b331-55e9-ed11-884e-6045bdc8c698*/
     return taxId;
   }
 
-  async syncCustomers() {
+  async syncCustomers(companyID: string, database: string) {
+    console.log(companyID);
+    console.log(database);
     let token = await this.token.getToken();
+    let customerId = '';
+
     //console.log("--------------TOKEN------------ " + token);
     //this.getCompaniesId();    
 
-    let payTermId = await this.getPaymentTermId('0D');
-    let taxId = await this.getTaxAreaId('UE');
+    let payTermId = await this.getPaymentTermId('0D', companyID);
+    let taxId = await this.getTaxAreaId('UE', companyID);
 
     //console.log("-------------PAY TERM ID-----------------" + payTermId);
+    let customers;
+    try{
+      customers = await this.sql.runSql(
+        `SELECT cast(c.Codi as nvarchar) Codi, upper(c.Nom) Nom, c.Adresa, c.Ciutat, c.CP, cc1.valor Tel, cc2.valor eMail from clients c left join constantsClient cc1 on c.codi= cc1.codi and cc1.variable='Tel' join constantsClient cc2 on c.codi= cc2.codi and cc2.variable='eMail' where c.codi in (1314) order by c.codi`,
+        database,
+      );
+    } catch (error){
+      client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
+      console.log('No existe la database')
+      return false;
+    }
 
-    let customers = await this.sql.runSql(
-      `SELECT cast(c.Codi as nvarchar) Codi, upper(c.Nom) Nom, c.Adresa, c.Ciutat, c.CP, cc1.valor Tel, cc2.valor eMail from clients c left join constantsClient cc1 on c.codi= cc1.codi and cc1.variable='Tel' join constantsClient cc2 on c.codi= cc2.codi and cc2.variable='eMail' where c.codi in (1314) order by c.codi`,
-      process.env.database,
-    );
-
+    
+    if(customers.recordset.length == 0){
+      client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
+      console.log('No hay registros')
+      return false;
+    }
     for (let i = 0; i < customers.recordset.length; i++) {
       let x = customers.recordset[i];
       console.log("--------------------------" + x.Nom + "-----------------------");
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/customers?$filter=number eq '${x.Codi}'`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers?$filter=number eq '${x.Codi}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -127,7 +150,7 @@ NOM: My Company ID:2f38b331-55e9-ed11-884e-6045bdc8c698*/
       if (res.data.value.length === 0) { //NO ESTÁ EL CLIENTE EN BC, LO TENEMOS QUE TRASPASAR
         let newCustomers = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/customers`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers`,
             {
               number: x.Codi,
               displayName: x.Nom,
@@ -189,7 +212,7 @@ NOM: My Company ID:2f38b331-55e9-ed11-884e-6045bdc8c698*/
 
         let newCustomers = await axios
           .patch(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/customers(${res.data.value[0].id})`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`,
             {
               displayName: x.Nom,
               type: 'Company',
