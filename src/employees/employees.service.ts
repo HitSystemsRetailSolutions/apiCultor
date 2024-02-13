@@ -24,10 +24,11 @@ export class employeesService {
     console.log('CompanyID: ', companyID)
     console.log('Database: ', database)
     let token = await this.token.getToken();
+
     let employees;
     try{
       employees = await this.sql.runSql(
-        `select cast(Codi as nvarchar) Codi, left(Nom, 30) Nom from dependentes where codi in (select dependenta from [v_venut_2024-01] where botiga in (864,764,115)) order by nom`,
+        `select cast(Codi as nvarchar) Codi, left(Nom, 30) Nom from dependentes order by nom`,
         database,
       );
     } catch (error){ //Comprovacion de errores y envios a mqtt
@@ -41,6 +42,7 @@ export class employeesService {
       console.log('No hay registros')
       return false;
     }
+    
     for (let i = 0; i < employees.recordset.length; i++) {
       let x = employees.recordset[i];
       let res = await axios
@@ -54,10 +56,11 @@ export class employeesService {
           },
         )
         .catch((error) => {
-          throw new Error('Failed to obtain access token');
+          throw new Error('Failed to obtain employee ' +  x.Codi);
         });
 
-      if (!res.data) throw new Error('Failed to obtain access token');
+      if (!res.data) throw new Error('Failed to obtain employee ' +  x.Codi);
+      //No está dado de alta en BC
       if (res.data.value.length === 0) {
         let newEmployees = await axios
           .post(
@@ -76,22 +79,12 @@ export class employeesService {
             },
           )
           .catch((error) => {
-            throw new Error('Failed to obtain access token');
+            throw new Error('Failed to post employee ' + x.Codi);
           });
 
         if (!newEmployees.data)
-          return new Error('Failed to obtain access token');
-        console.log(
-          'Synchronizing employees... -> ' +
-            i +
-            '/' +
-            employees.recordset.length,
-          ' --- ',
-          ((i / employees.recordset.length) * 100).toFixed(2) + '%',
-          ' | Time left: ' +
-            ((employees.recordset.length - i) * (0.5 / 60)).toFixed(2) +
-            ' minutes',
-        );
+          return new Error('Failed to post employee ' + x.Codi);
+      //Ya está dado de alta en BC, se tiene que actulizar
       } else {
         let z = res.data.value[0]['@odata.etag'];
         let newEmployees = await axios
@@ -111,21 +104,10 @@ export class employeesService {
             },
           )
           .catch((error) => {
-            throw new Error('Failed to obtain access token');
+            throw new Error('Failed to patch employee ' + x.Codi);
           });
         if (!newEmployees.data)
-          return new Error('Failed to obtain access token');
-        console.log(
-          'Synchronizing employees... -> ' +
-            i +
-            '/' +
-            employees.recordset.length,
-          ' --- ',
-          ((i / employees.recordset.length) * 100).toFixed(2) + '%',
-          ' | Time left: ' +
-            ((employees.recordset.length - i) * (0.5 / 60)).toFixed(2) +
-            ' minutes',
-        );
+          return new Error('Failed to patch employee ' + x.Codi);
       }
     }
     return true;

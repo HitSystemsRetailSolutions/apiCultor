@@ -23,6 +23,7 @@ export class itemCategoriesService {
     console.log(database)
     let token = await this.token.getToken();
     let categoryId = '';
+
     let categories;
     try {
       categories = await this.sql.runSql(
@@ -40,6 +41,7 @@ export class itemCategoriesService {
     console.log('No hay registros')
     return false;
   }
+    
     for (let i = 0; i < categories.recordset.length; i++) {
       let x = categories.recordset[i];
       console.log(x.Nom);
