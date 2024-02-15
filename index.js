@@ -176,7 +176,7 @@ async function employes(companyID, database) {
 
 async function signings(companyNAME, database) {
     try {
-        await get("http://localhost:3333/syncSignings", {
+        await axios.get("http://localhost:3333/syncSignings", {
             params: {
                 companyNAME: companyNAME,
                 database: database
@@ -191,7 +191,7 @@ async function signings(companyNAME, database) {
 
 async function customers(companyID, database) {
     try {
-        await get("http://localhost:3333/syncCustomers", {
+        await axios.get("http://localhost:3333/syncCustomers", {
             params: {
                 companyID: companyID,
                 database: database
@@ -206,7 +206,7 @@ async function customers(companyID, database) {
 
 async function items(companyID, database) {
     try {
-        await get("http://localhost:3333/syncItems", {
+        await axios.get("http://localhost:3333/syncItems", {
             params: {
                 companyID: companyID,
                 database: database
@@ -221,7 +221,7 @@ async function items(companyID, database) {
 
 async function itemCategories(companyID, database) {
     try {
-        await get("http://localhost:3333/syncItemCategories", {
+        await axios.get("http://localhost:3333/syncItemCategories", {
             params: {
                 companyID: companyID,
                 database: database
@@ -236,7 +236,7 @@ async function itemCategories(companyID, database) {
 
 async function tickets(companyID, database, botiga) {
     try {
-        await get("http://localhost:3333/syncSalesTickets", {
+        await axios.get("http://localhost:3333/syncSalesTickets", {
             params: {
                 companyID: companyID,
                 database: database,
