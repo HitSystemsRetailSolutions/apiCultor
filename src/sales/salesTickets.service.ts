@@ -209,7 +209,11 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
       return false;
     }
     if(record.recordset.length == 0){
-       fIni = new Date(yearFin, 0, 1);
+      fIni = new Date(yearFin, 0, 1);
+      await this.sql.runSql(
+        `insert into records (timestamp, concepte) values ('${fIni}', 'BC_SalesTickets_` + botiga + `')`,
+        database,
+      );
     }
     else
     {
@@ -333,12 +337,7 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
           await this.synchronizeSalesTiquetsLines(tabVenut, x.Botiga, x.nTickHit, ticketBC.data.value[0].id, database, companyID).catch(console.error);
 
           await this.sql.runSql(
-            `delete from records where Concepte='BC_SalesTickets_` + botiga + `'`,
-            database,
-          );
-
-          await this.sql.runSql(
-            `insert into records (timestamp, concepte) values ('${x.tmstStr}', 'BC_SalesTickets_` + botiga + `')`,
+            `update records set timestamp='${x.tmstStr}' where concepte='BC_SalesTickets_` + botiga + `')`,
             database,
           );
   
