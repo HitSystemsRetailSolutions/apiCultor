@@ -19,12 +19,12 @@ export class signingsService {
   ) {}
 
   async syncSignings(companyNAME: string, database: string) {
-    
     let token = await this.token.getToken();
+    
     let signings;
     try{
       signings =  await this.sql.runSql(
-      `select convert(nvarchar, tmst, 121) tmstStr, (select nom from dependentes where codi = usuari) as nombre, isnull((SELECT valor FROM dependentesExtes WHERE id = usuari AND nom = 'DNI'), '') as dni, idr, tmst, accio, usuari, isnull(editor, '') editor, isnull(left(historial, 100), '') historial, isnull(lloc, '') lloc, isnull(left(comentari, 50), '') comentari, id from cdpDadesFichador where tmst>=(select timestamp from records where concepte='BC_CdpDadesFichador') and comentari not like '%365EquipoDeTrabajo%' and year(tmst)<=year(getdate()) order by tmst`,
+     `select convert(nvarchar, tmst, 121) tmstStr, idr, tmst, accio, usuari, (select nom from dependentes where codi = usuari) as nombre, isnull((SELECT valor FROM dependentesExtes WHERE id = usuari AND nom = 'DNI'), '') as dni, isnull(editor, '') editor, isnull(left(historial, 100), '') historial, isnull(lloc, '') lloc, isnull(left(comentari, 50), '') comentari, id from cdpDadesFichador where tmst>=(select timestamp from records where concepte='BC_CdpDadesFichador') and comentari not like '%365EquipoDeTrabajo%' and year(tmst)<=year(getdate()) order by tmst`,
       database,
     );
     } catch (error){ //Comprovacion de errores y envios a mqtt
