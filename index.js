@@ -74,12 +74,12 @@ client.on('message', async function (topic, message) {
                 mqttPublish('Error: "companyID" no valido')
             }
         } else {
-            console.log('El JSON recibido no tiene el campo "companyID"');
+            mqttPublish('El JSON recibido no tiene el campo "companyID"');
         }
         if (msgJson.hasOwnProperty('database') || msgJson.hasOwnProperty('dataBase')) {
             console.log('El JSON recibido tiene el campo "database"');
         } else {
-            console.log('El JSON recibido no tiene el campo "database"');
+            mqttPublish('El JSON recibido no tiene el campo "database"');
         }
 
         if(!test){
@@ -87,51 +87,51 @@ client.on('message', async function (topic, message) {
                 case 'SyncEmployes':
                 case 'SyncDependentes':                
                 case 'employes':
-                    if (msgJson.hasOwnProperty('database')) 
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
                         await employes(msgJson.companyID, msgJson.database);
-                    else if (msgJson.hasOwnProperty('dataBase')) 
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
                         await employes(msgJson.companyID, msgJson.dataBase);
                     break;
                 case 'SyncSignings':
                 case 'signings':
-                    if (msgJson.hasOwnProperty('database')) 
-                        await signings(msgJson.companyID, msgJson.database);
-                    else if (msgJson.hasOwnProperty('dataBase')) 
-                        await signings(msgJson.companyID, msgJson.dataBase);
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyNAME')) 
+                        await signings(msgJson.companyNAME, msgJson.database);
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyNAME')) 
+                        await signings(msgJson.companyNAME, msgJson.dataBase);
                     break;
                 case 'SyncCustomers':
                 case 'customers':
-                    if (msgJson.hasOwnProperty('database')) 
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
                         await customers(msgJson.companyID, msgJson.database);
-                    else if (msgJson.hasOwnProperty('dataBase')) 
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
                         await customers(msgJson.companyID, msgJson.dataBase);
                     break;
                 case 'SyncItems':
                 case 'items':
-                    if (msgJson.hasOwnProperty('database')) 
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
                         await items(msgJson.companyID, msgJson.database);
-                    else if (msgJson.hasOwnProperty('dataBase')) 
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
                         await items(msgJson.companyID, msgJson.dataBase);
                     break;
                 case 'SyncItemscategories':
                 case 'itemCategories':
-                    if (msgJson.hasOwnProperty('database')) 
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
                         await itemCategories(msgJson.companyID, msgJson.database);
-                    else if (msgJson.hasOwnProperty('dataBase')) 
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
                         await itemCategories(msgJson.companyID, msgJson.dataBase);
                     break;
                 case 'SyncTickets':
                 case 'tickets':
-                    if (msgJson.hasOwnProperty('database')) 
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
                         await tickets(msgJson.companyID, msgJson.database);
-                    else if (msgJson.hasOwnProperty('dataBase')) 
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
                         await tickets(msgJson.companyID, msgJson.dataBase);
                     break;
                 case 'bucle':
-                    if (msgJson.hasOwnProperty('database')) 
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
                         await bucle(msgJson.companyID, msgJson.database);
-                    else if (msgJson.hasOwnProperty('dataBase')) 
-                        await bucle(msgJson.companyID, msgJson.dataBase);
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
+                        await bucle(msgJson.companyID, msgJson.companyNAME, msgJson.dataBase);
                     break;
                 default:
                     mqttPublish('Mensaje recibido no coincide con ninguna acción esperada')
@@ -174,11 +174,11 @@ async function employes(companyID, database) {
     }
 }
 
-async function signings(companyID, database) {
+async function signings(companyNAME, database) {
     try {
         await get("http://localhost:3333/syncSignings", {
             params: {
-                companyID: companyID,
+                companyNAME: companyNAME,
                 database: database
             },
             timeout: 30000
@@ -249,13 +249,13 @@ async function tickets(companyID, database) {
     }
 }
 
-async function bucle(companyID, database) {
+async function bucle(companyID, companyNAME, database) {
     await setInterval(() => {
         employes(companyID, database)
     }, employeesTime);
 
     await setInterval(() => {
-        signings(companyID, database)
+        signings(companyNAME, database)
     }, signingsTime);
 
     await setInterval(() => {

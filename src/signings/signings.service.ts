@@ -19,8 +19,8 @@ export class signingsService {
   ) {}
 
   async syncSignings(companyNAME: string, database: string) {
-    let token = await this.token.getToken();
     
+    let token = await this.token.getToken();
     let signings;
     try{
       signings =  await this.sql.runSql(
@@ -104,5 +104,3 @@ export class signingsService {
     return true;
   }
 }
-
-

@@ -183,8 +183,15 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
 //=========================================== ~SALES ======================================================
   
   //Sincroniza tickets HIT-BC
-  async syncSalesTickets() {
+  async syncSalesTickets(companyID, database) {
     let token = await this.token.getToken();
+
+    //Falta declarar estas variables para utilizarla mas abajo
+    let tabVenut = "[V_VENUT_2024-01]";
+    let tabMoviments = "[V_MOVIMENTS_2024-01]";
+    let botiga = "115";
+    //
+
     let sqlQ;
     // FILAPEÑA: T--101(115) T--076(764) T--152(864)
     sqlQ = "select top 10 num_tick nTickHit, convert(varchar, v.Data, 23) Data, concat(upper(c.nom), '_', num_tick) Num_tick, case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end FormaPago, isnull(c2.codi, '1314') Client, sum(v.import) Total ";
@@ -218,6 +225,11 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
     for (let i = 0; i < tickets.recordset.length; i++) {
       let x = tickets.recordset[i];
       let customerId = await this.getCustomerFromAPI(x.Client, companyID);
+      
+      //Falta declarar esta variable para utilizarla mas abajo
+      let idSaleHit = x.Id;
+      //
+
       //console.log("-------------------------" + customerId + "----------------------------");
       console.log(x.Num_tick);
       let res = await axios
@@ -260,7 +272,7 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
           return new Error('Failed post ticket B');
         else{
           //AÑADIMOS LAS LINEAS DEL TICKET
-          let ticketBC = await this.getSaleFromAPI(x.Num_tick);
+          let ticketBC = await this.getSaleFromAPI(x.Num_tick, companyID);
           await this.synchronizeSalesTiquetsLines(tabVenut, x.Botiga, x.nTickHit, ticketBC.data.value[0].id, database, companyID).catch(console.error);
 
           sqlQ = "update [BC_SyncSalesTickets] set ";
@@ -312,8 +324,8 @@ async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, databas
   );
 
   for (let i = 0; i < ticketsLines.recordset.length; i++) {
-    console.log("-------------------------PLU " + x.Plu + "---------------------");    
     let x = ticketsLines.recordset[i];
+    console.log("-------------------------PLU " + x.Plu + "---------------------");    
     const itemId = await this.getItemFromAPI(x.Plu, companyID);
     let res = await axios
       .get(
@@ -326,7 +338,7 @@ async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, databas
         },
       )
           
-    let res = await this.getSaleLineFromAPI(ticketId, "CODI-" + x.Plu);
+    res = await this.getSaleLineFromAPI(ticketId, "CODI-" + x.Plu, companyID);
     //NO ESTÁ LA LINEA, LA AÑADIMOS
     if (res.data.value.length === 0) {
       let newTickets = await axios
@@ -366,7 +378,7 @@ async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, databas
 
       let setDim = await axios
         .post(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines(${sLineId})/dimensionSetLines`
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines(${sLineId})/dimensionSetLines`,
           {
             id: idDim,
             parentId: sLineId,

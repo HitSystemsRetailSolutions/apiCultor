@@ -9,10 +9,10 @@ export class signingsController {
 
   @Get('syncsignings')
   async signings(
-    @Query('companyID') companyID: string,
+    @Query('comapanyNAME') comapanyNAME: string,
     @Query('database') database: string,
   ) {
-    let res = await this.signingsService.syncsignings(companyID, database);
+    let res = await this.signingsService.syncSignings(comapanyNAME, database);
     if (res == true) return 'Se han sincronizado los empleados correctamente';
     else return 'Ha habido un error al sincronizar los empleados';
   }
