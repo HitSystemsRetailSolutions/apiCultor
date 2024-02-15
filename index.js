@@ -123,9 +123,9 @@ client.on('message', async function (topic, message) {
                 case 'SyncTickets':
                 case 'tickets':
                     if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
-                        await tickets(msgJson.companyID, msgJson.database);
+                        await tickets(msgJson.companyID, msgJson.database, msgJson.botiga);
                     else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
-                        await tickets(msgJson.companyID, msgJson.dataBase);
+                        await tickets(msgJson.companyID, msgJson.dataBase, msgJson.botiga);
                     break;
                 case 'bucle':
                     if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
@@ -234,12 +234,13 @@ async function itemCategories(companyID, database) {
     }
 }
 
-async function tickets(companyID, database) {
+async function tickets(companyID, database, botiga) {
     try {
         await get("http://localhost:3333/syncSalesTickets", {
             params: {
                 companyID: companyID,
-                database: database
+                database: database,
+                botiga: botiga
             },
             timeout: 30000
         });

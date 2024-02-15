@@ -3,6 +3,8 @@ import { getTokenService } from '../conection/getToken.service';
 import { runSqlService } from 'src/conection/sqlConection.service';
 import axios from 'axios';
 import { response } from 'express';
+import * as moment from 'moment';
+import { timeStamp } from 'console';
 
 const mqtt = require('mqtt');
 const mqttBrokerUrl = 'mqtt://santaana2.nubehit.com';
@@ -183,24 +185,80 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
 //=========================================== ~SALES ======================================================
   
   //Sincroniza tickets HIT-BC
-  async syncSalesTickets(companyID, database) {
+  async syncSalesTickets(companyID, database, botiga) {
     let token = await this.token.getToken();
 
     //Falta declarar estas variables para utilizarla mas abajo
-    let tabVenut = "[V_VENUT_2024-01]";
-    let tabMoviments = "[V_MOVIMENTS_2024-01]";
-    let botiga = "115";
-    //
+    let tabVenut;
+    let tabMoviments;
+    
+    let fIni;
+
+    let fFin = new Date();
+    let monthFin = fFin.getMonth();
+    let yearFin = fFin.getFullYear();
+
+    let record;
+    try {
+      record = await this.sql.runSql(
+        "select * from records where concepte='BC_SalesTickets_" + botiga + "'",
+        database,
+      );
+    } catch (error){ //Comprovacion de errores y envios a mqtt
+      client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
+      console.log('No existe la database')
+      return false;
+    }
+    if(record.recordset.length == 0){
+       fIni = new Date(yearFin, 0, 1);
+    }
+    else
+    {
+      fIni = record.recordset[0].timestamp;
+    }
+
+    if (fIni.getMonth()==fFin.getMonth() && fIni.getFullYear()==fFin.getFullYear())
+    {
+      let mesTab = fIni.getMonth();
+      let mes= (mesTab+1).toString().padStart(2,"0");
+
+      tabVenut = "[V_VENUT_" + fIni.getFullYear() + "-" + mes + "]";
+      tabMoviments = "[V_MOVIMENTS_" + fIni.getFullYear() + "-" + mes + "]";
+    }
+    else
+    {
+      if (fIni.getFullYear()==fFin.getFullYear())
+      {
+        tabVenut = "";
+        tabMoviments = "";
+        let mesFin =  monthFin+1;
+        for(let m=1;m<=mesFin;m++)
+        {
+          let mes= m.toString().padStart(2,"0");
+          if (tabVenut != "")
+          {
+            tabVenut = tabVenut + " union all ";  
+          }
+          tabVenut = tabVenut + "select * from [V_VENUT_" + fIni.getFullYear() + "-" + mes + "]";
+          if (tabMoviments != "")
+          {
+            tabMoviments = tabMoviments + " union all "  
+          }
+          tabMoviments = tabMoviments + "select * from [V_MOVIMENTS_" + fIni.getFullYear() + "-" + mes + "]";
+        }
+        tabVenut = "(" + tabVenut + ")";
+        tabMoviments = "(" + tabMoviments + ")";
+      }
+    }
 
     let sqlQ;
-    // FILAPEÑA: T--101(115) T--076(764) T--152(864)
-    sqlQ = "select top 10 num_tick nTickHit, convert(varchar, v.Data, 23) Data, concat(upper(c.nom), '_', num_tick) Num_tick, case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end FormaPago, isnull(c2.codi, '1314') Client, sum(v.import) Total ";
+    sqlQ = "select num_tick nTickHit, convert(varchar, v.Data, 23) Data, concat(upper(c.nom), '_', num_tick) Num_tick, case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end FormaPago, isnull(c2.codi, '1314') Client, sum(v.import) Total ";
     sqlQ = sqlQ + "From " + tabVenut + " v  ";
     sqlQ = sqlQ + "left join " + tabMoviments + " m on m.botiga=v.botiga and concat('Pagat Targeta: ', v.num_tick) = m.motiu ";
     sqlQ = sqlQ + "left join clients c on v.botiga=c.codi  ";
     sqlQ = sqlQ + "left join ClientsFinals cf on concat('[Id:', cf.id, ']') = v.otros ";
     sqlQ = sqlQ + "left join clients c2 on case charindex('AbonarEn:',altres) when 0 then '' else substring(cf.altres, charindex('AbonarEn:', cf.altres)+9, charindex(']', cf.altres, charindex('AbonarEn:', cf.altres)+9)-charindex('AbonarEn:', cf.altres)-9) end =c2.codi ";
-    sqlQ = sqlQ + "where v.botiga=" + botiga + " "; 
+    sqlQ = sqlQ + "where botiga = " + botiga + " and data>=(select timestamp from records where concepte='BC_SalesTickets_" + botiga + "') ";
     sqlQ = sqlQ + "group by v.data, num_tick, concat(upper(c.nom), '_', num_tick), case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end, isnull(c2.codi, '1314') ";
     sqlQ = sqlQ + "order by v.data";
     
@@ -275,33 +333,20 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
           let ticketBC = await this.getSaleFromAPI(x.Num_tick, companyID);
           await this.synchronizeSalesTiquetsLines(tabVenut, x.Botiga, x.nTickHit, ticketBC.data.value[0].id, database, companyID).catch(console.error);
 
-          sqlQ = "update [BC_SyncSalesTickets] set ";
-          sqlQ = sqlQ + "BC_IdSale='" + ticketBC.data.value[0].id + "', ";
-          sqlQ = sqlQ + "BC_Number='" + ticketBC.data.value[0].number + "', ";
-          sqlQ = sqlQ + "BC_PostingDate='" + ticketBC.data.value[0].postingDate + "', ";
-          sqlQ = sqlQ + "BC_CustomerId= '" + ticketBC.data.value[0].customerId + "', ";
-          sqlQ = sqlQ + "BC_totalAmountIncludingTax= '" + ticketBC.data.value[0].totalAmountIncludingTax + "' ";
-          sqlQ = sqlQ + "where id ='" + idSaleHit + "'";
-          let updBC = await this.sql.runSql(
-              sqlQ,
-              'fac_tena',
-            );
+          await this.sql.runSql(
+            `delete from records where Concepte='BC_SalesTickets_` + botiga + `'`,
+            database,
+          );
+
+          await this.sql.runSql(
+            `insert into records (timestamp, concepte) values ('${x.tmstStr}', 'BC_SalesTickets_` + botiga + `')`,
+            database,
+          );
+  
         }
 
       } else {        
         console.log('Ya existe el ticket');
-        //console.log(res.data);
-        sqlQ = "update [BC_SyncSalesTickets] set ";
-        sqlQ = sqlQ + "BC_IdSale='" + res.data.value[0].id + "', ";
-        sqlQ = sqlQ + "BC_Number='" + res.data.value[0].number + "', ";
-        sqlQ = sqlQ + "BC_PostingDate='" + res.data.value[0].postingDate + "', ";
-        sqlQ = sqlQ + "BC_CustomerId= '" + res.data.value[0].customerId + "', ";
-        sqlQ = sqlQ + "BC_totalAmountIncludingTax= '" + res.data.value[0].totalAmountIncludingTax + "' ";
-        sqlQ = sqlQ + "where id ='" + idSaleHit + "'";
-        let updBC = await this.sql.runSql(
-          sqlQ,
-          'fac_tena',
-        );
       }
     }
     return true;

@@ -26,6 +26,7 @@
     "@nestjs/core": "^10.3.3",
     "@nestjs/platform-express": "^10.3.3",
     "axios": "^1.6.7",
+    "moment": "^2.30.1",
     "mqtt": "^5.3.5",
     "mssql": "^10.0.1",
     "reflect-metadata": "^0.1.13",
