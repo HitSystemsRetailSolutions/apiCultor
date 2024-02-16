@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConsoleLogger, Injectable } from '@nestjs/common';
 import { getTokenService } from '../conection/getToken.service';
 import { runSqlService } from 'src/conection/sqlConection.service';
 import axios from 'axios';
@@ -161,8 +161,8 @@ async getSaleFromAPI(docNumber, companyID) {
 
 async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
   // Get the authentication token
+  console.log(lineObjectNumber)
   let token = await this.token.getToken();
-
   let res = await axios
   .get(
     `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${idSale})/salesInvoiceLines?$filter=lineObjectNumber eq '${lineObjectNumber}'`,
@@ -196,7 +196,8 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
     let fFin = new Date();
     let monthFin = fFin.getMonth();
     let yearFin = fFin.getFullYear();
-    
+    fIni = new Date(yearFin, 0, 1)
+    console.log(new Date(yearFin, 0, 1));
 
     let record;
     try {
@@ -209,18 +210,22 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
       console.log('No existe la database')
       return false;
     }
-    if(record.recordset.length == 0){
-      fIni = new Date(yearFin, 0, 1);
-      await this.sql.runSql(
-        `insert into records (timestamp, concepte) values ('${fIni}', 'BC_SalesTickets_` + botiga + `')`,
-        database,
-      );
+    try {
+      if (record.recordset.length == 0) {
+        let fIniQuery = fIni.toISOString();
+        await this.sql.runSql(
+            `insert into records (timestamp, concepte) values ('${fIniQuery}', 'BC_SalesTickets_${botiga}')`,
+            database,
+        );
+      }
+      else
+      {
+        fIni = record.recordset[0].TimeStamp; 
+      }
+    } catch (error) {
+      console.log('Fecha: ', fIni)
     }
-    else
-    {
-      fIni = record.recordset[0].timestamp;
-    }
-
+    
     if (fIni.getMonth()==fFin.getMonth() && fIni.getFullYear()==fFin.getFullYear())
     {
       let mesTab = fIni.getMonth();
@@ -228,11 +233,13 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
 
       tabVenut = "[V_VENUT_" + fIni.getFullYear() + "-" + mes + "]";
       tabMoviments = "[V_MOVIMENTS_" + fIni.getFullYear() + "-" + mes + "]";
+      
     }
     else
     {
       if (fIni.getFullYear()==fFin.getFullYear())
       {
+        
         tabVenut = "";
         tabMoviments = "";
         let mesFin =  monthFin+1;
@@ -254,7 +261,6 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
         tabMoviments = "(" + tabMoviments + ")";
       }
     }
-
     let sqlQ;
     sqlQ = "select num_tick nTickHit, convert(varchar, v.Data, 23) Data, concat(upper(c.nom), '_', num_tick) Num_tick, case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end FormaPago, isnull(c2.codi, '1314') Client, sum(v.import) Total ";
     sqlQ = sqlQ + "From " + tabVenut + " v  ";
@@ -266,6 +272,7 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
     sqlQ = sqlQ + "group by v.data, num_tick, concat(upper(c.nom), '_', num_tick), case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end, isnull(c2.codi, '1314') ";
     sqlQ = sqlQ + "order by v.data";
     
+
     let tickets;
     try {
       tickets = await this.sql.runSql(
@@ -277,7 +284,7 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
       console.log(sqlQ)
       return false;
     }
-    
+
     if(tickets.recordset.length == 0){ //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
       console.log('No hay registros')
@@ -308,6 +315,7 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
           throw new Error('Failed to obtain ticket A');
         });
 
+        
       if (!res.data) throw new Error('Failed to obtain ticket B');
       if (res.data.value.length === 0) { //SI NO EXISTE EL TICKET EN BC LO CREAMOS
         let newTickets = await axios
@@ -335,19 +343,21 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
         else{
           //AÑADIMOS LAS LINEAS DEL TICKET
           let ticketBC = await this.getSaleFromAPI(x.Num_tick, companyID);
-          await this.synchronizeSalesTiquetsLines(tabVenut, x.Botiga, x.nTickHit, ticketBC.data.value[0].id, database, companyID).catch(console.error);
-
+          await this.synchronizeSalesTiquetsLines(tabVenut, botiga, x.nTickHit, ticketBC.data.value[0].id, database, companyID).catch(console.error);
+         
           await this.sql.runSql(
             `update records set timestamp='${x.tmstStr}' where concepte='BC_SalesTickets_` + botiga + `')`,
             database,
           );
-  
+          
+
         }
 
       } else {        
         console.log('Ya existe el ticket');
       }
     }
+    
     return true;
   }
 
@@ -369,7 +379,8 @@ async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, databas
 
   for (let i = 0; i < ticketsLines.recordset.length; i++) {
     let x = ticketsLines.recordset[i];
-    console.log("-------------------------PLU " + x.Plu + "---------------------");    
+    console.log(x)
+    console.log("-------------------------PLU " + x.Plu + "---------------------"); 
     const itemId = await this.getItemFromAPI(x.Plu, companyID);
     let res = await axios
       .get(
@@ -416,9 +427,12 @@ async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, databas
 
       let resSaleLine = await this.getSaleLineFromAPI(ticketId, "CODI-" + x.Plu, companyID);
       let sLineId = resSaleLine.data.value[0].id;
+      
+      console.log("--------------------------companyID: " + companyID + "-----------------------------");
+      console.log("--------------------------ticketId: " + ticketId + "-----------------------------");
+      console.log("--------------------------sLineId: " + sLineId + "-----------------------------");
 
-      //console.log("--------------------------ticketId: " + ticketId + "-----------------------------");
-      //console.log("--------------------------sLineId: " + sLineId + "-----------------------------");
+      //Error aqui !!!
 
       let setDim = await axios
         .post(
