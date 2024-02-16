@@ -196,6 +196,7 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
     let fFin = new Date();
     let monthFin = fFin.getMonth();
     let yearFin = fFin.getFullYear();
+    
 
     let record;
     try {
