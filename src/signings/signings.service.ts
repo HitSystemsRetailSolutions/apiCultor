@@ -54,7 +54,7 @@ export class signingsService {
         .catch((error) => {
           throw new Error('Failed to obtain access token');
         });
-
+      
       if (!res.data) throw new Error('Failed to obtain access token');
       if (res.data.value.length === 0) {
         let newSignings = await axios

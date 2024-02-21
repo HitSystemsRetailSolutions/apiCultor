@@ -97,6 +97,7 @@ async getDimensionFromAPI(code, companyID) {
   if (!res.data) throw new Error('Failed to obtain dimension');
 
   if (res.data.value.length === 0) {
+        return null;
   } else {
     dimId = res.data.value[0].id;
   }
@@ -121,12 +122,14 @@ async getDimensionValueIdFromAPI(dimId, valueCode, companyID) {
       },
     )
     .catch((error) => {
-      throw new Error('Failed to obtain value dimension');
+      console.log('Failed to obtain value dimension');
+      return null;
     });
-
+  
   if (!res.data) throw new Error('Failed to obtain value dimension');
 
   if (res.data.value.length === 0) {
+    return null;
   } else {
     dimValueId = res.data.value[0].valueId;
   }
@@ -260,7 +263,7 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
       }
     }
     let sqlQ;
-    sqlQ = "select num_tick nTickHit, convert(varchar, v.Data, 23) Data, concat(upper(c.nom), '_', num_tick) Num_tick, case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end FormaPago, isnull(c2.codi, '1314') Client, sum(v.import) Total ";
+    sqlQ = "select num_tick nTickHit, convert(varchar, v.Data, 23) Data, v.Data as tmstStr, concat(upper(c.nom), '_', num_tick) Num_tick, case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end FormaPago, isnull(c2.codi, '1314') Client, sum(v.import) Total ";
     sqlQ = sqlQ + "From " + tabVenut + " v  ";
     sqlQ = sqlQ + "left join " + tabMoviments + " m on m.botiga=v.botiga and concat('Pagat Targeta: ', v.num_tick) = m.motiu ";
     sqlQ = sqlQ + "left join clients c on v.botiga=c.codi  ";
@@ -269,8 +272,8 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
     sqlQ = sqlQ + "where v.botiga = " + botiga + " and v.data>=(select timestamp from records where concepte='BC_SalesTickets_" + botiga + "') ";
     sqlQ = sqlQ + "group by v.data, num_tick, concat(upper(c.nom), '_', num_tick), case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end, isnull(c2.codi, '1314') ";
     sqlQ = sqlQ + "order by v.data";
+    console.log(sqlQ);
     
-
     let tickets;
     try {
       tickets = await this.sql.runSql(
@@ -341,16 +344,19 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
         else{
           //AÑADIMOS LAS LINEAS DEL TICKET
           let ticketBC = await this.getSaleFromAPI(x.Num_tick, companyID);
+          console.log('Tickets BC: ', ticketBC.data.value[0].id)
           await this.synchronizeSalesTiquetsLines(tabVenut, botiga, x.nTickHit, ticketBC.data.value[0].id, database, companyID).catch(console.error);
-         
+         console.log("-----------------hola: ", x.tmstStr)
+         let sqlUpdate = `update records set timestamp='${x.tmstStr}' where concepte='BC_SalesTickets_` + botiga + `'`;
+         /*
+         console.log("asodfkspad: ", sqlUpdate)
           await this.sql.runSql(
-            `update records set timestamp='${x.tmstStr}' where concepte='BC_SalesTickets_` + botiga + `')`,
+            sqlUpdate,
             database,
           );
-          
-
+          console.log("adios")
+          */
         }
-
       } else {        
         console.log('Ya existe el ticket');
       }
@@ -378,7 +384,7 @@ async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, databas
   for (let i = 0; i < ticketsLines.recordset.length; i++) {
     let x = ticketsLines.recordset[i];
     console.log(x)
-    console.log("-------------------------PLU " + x.Plu + "---------------------"); 
+    console.log("-------------------------PLU " + x.Plu + "---------------------");
     const itemId = await this.getItemFromAPI(x.Plu, companyID);
     let res = await axios
       .get(
@@ -419,26 +425,33 @@ async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, databas
       let idDim = await this.getDimensionFromAPI("BOTIGUES", companyID);
       //console.log("--------------------- idDim: " + idDim + "------------------------------");
       //console.log("--------------------- botigaNom: " + botigaNom + "------------------------------");
-      //let idDimValue = await this.getDimensionValueIdFromAPI(idDim, botigaNom, companyID);
+      if (idDim == null){
+        return true;
+      }
+      let idDimValue = await this.getDimensionValueIdFromAPI(idDim, botigaNom, companyID);
       //let idDimValue = 'dd06c06f-48bf-ee11-9078-000d3a65ae37';
       //console.log("--------------------- idDimValue: " + idDimValue + "------------------------------");
 
       let resSaleLine = await this.getSaleLineFromAPI(ticketId, "CODI-" + x.Plu, companyID);
+      //console.log("--------------------------resSaleLine: " + resSaleLine + "-----------------------------");
       let sLineId = resSaleLine.data.value[0].id;
       
       console.log("--------------------------companyID: " + companyID + "-----------------------------");
       console.log("--------------------------ticketId: " + ticketId + "-----------------------------");
       console.log("--------------------------sLineId: " + sLineId + "-----------------------------");
+      console.log("--------------------------idDim: " + idDim + "-----------------------------");
 
       //Error aqui !!!
-
+      if(idDimValue == null){
+        return true;
+      }
       let setDim = await axios
         .post(
           `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines(${sLineId})/dimensionSetLines`,
           {
             id: idDim,
             parentId: sLineId,
-            //valueId: idDimValue,
+            valueId: idDimValue,
             valueCode: botigaNom,
           },
           {
@@ -458,13 +471,13 @@ async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, databas
     return true;    
   }
 
-  async cleanSalesTickets() {
+  async cleanSalesTickets(companyID) {
     let token = await this.token.getToken();
     let sqlQ;
 
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices?$filter=totalAmountIncludingTax eq 0`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=totalAmountIncludingTax eq 0`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -485,7 +498,7 @@ async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, databas
               let z = res.data.value[i]['@odata.etag'];
               let delSale = await axios
               .delete(
-                `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${res.data.value[i].id})`,
+                `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${res.data.value[i].id})`,
                 {
                   headers: {
                     Authorization: 'Bearer ' + token,
