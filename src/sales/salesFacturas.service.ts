@@ -11,7 +11,7 @@ export class salesFacturasService {
     private sql: runSqlService,
   ) {}
 
-  async getCustomerFromAPI(codiHIT) {
+  async getCustomerFromAPI(companyID, codiHIT) {
     let customerId = '';
 
     // Get the authentication token
@@ -20,7 +20,7 @@ export class salesFacturasService {
     // Get Customer from API
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/customers?$filter=number eq '${codiHIT}'`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -41,16 +41,36 @@ export class salesFacturasService {
     return customerId;
   }
 
-async getItemFromAPI(codiHIT) {
+async getItemFromAPI(companyID, database, codiHIT) {
     let itemId = '';
 
     // Get the authentication token
     let token = await this.token.getToken();
-
+    let items;
+    let sqlQ1= 'SELECT a.Codi, a.Nom, a.Preu/(1+(t.Iva/100)) PreuSinIva, a.Preu, left(a.Familia, 20) Familia, a.EsSumable, t.Iva FROM (select codi, nom, preu, familia, esSumable, tipoIva from Articles union all select codi, nom, preu, familia, esSumable, tipoIva from articles_Zombis) a left join tipusIva2012 t on a.Tipoiva=t.Tipus where a.codi='+ codiHIT +' order by a.codi';
+    console.log(sqlQ1)
+    try {
+      items = await this.sql.runSql(
+        sqlQ1,
+        database,
+      );
+    } catch (error){
+      console.log(error)
+    }
+    let baseUnitOfMeasure = "UDS";
+      //Unidad de medida (obligatorio)
+      if (items.recordset[0].EsSumable === 0){
+         baseUnitOfMeasure = "KG"; //A peso
+      }
+      else{
+         baseUnitOfMeasure = "UDS"; //Por unidades
+      }
+    let url =  `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${codiHIT}'`;
+    //console.log(url);
     // Get Item from API
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/items?$filter=number eq 'CODI-${codiHIT}'`,
+        url,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -61,23 +81,47 @@ async getItemFromAPI(codiHIT) {
       .catch((error) => {
         throw new Error('Failed to obtain item');
       });
-
+       
     if (!res.data) throw new Error('Failed to obtain item');
-
+    //console.log(res.data.value[0])
     if (res.data.value.length === 0) {
+      let newItems = await axios
+          .post(
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/items`,
+            {
+              number: 'CODI-' + codiHIT,
+              displayName: items.recordset[0].Nom,                        
+              generalProductPostingGroupCode: 'IVA'+items.recordset[0].Iva,
+              unitPrice: items.recordset[0].Preu,
+              //priceIncludesTax: true,
+              //itemCategoryId: categoryId,
+              baseUnitOfMeasureCode: baseUnitOfMeasure,
+              //inventoryPostingGroupCode: '001',
+            },
+            {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json',
+              },
+            },
+          )
+          .catch((error) => {
+            throw new Error('Failed post item ' + items.recordset[0].Nom);
+          });
     } else {
         itemId = res.data.value[0].id;
     }
+    //console.log('itemId:', itemId)
     return itemId;
   }
 
-  async getSaleFromAPI(docNumber) {
+  async getSaleFromAPI(companyID, docNumber) {
     // Get the authentication token
     let token = await this.token.getToken();
 
     let res = await axios
     .get(
-      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`,
+      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`,
       {
         headers: {
           Authorization: 'Bearer ' + token,
@@ -94,57 +138,65 @@ async getItemFromAPI(codiHIT) {
     return res;
   }
 
-  async syncSalesFacturas() {
+  async syncSalesFacturas(companyID: string, database: string, idFactura: string, tabla: string) {
     let token = await this.token.getToken();
     let sqlQ;
-
-    sqlQ = "select Id, HIT_IdFactura, HIT_EmpresaCodi , HIT_SerieFactura , HIT_NumFactura , convert(varchar, HIT_DataFactura, 23) HIT_DataFactura, HIT_Total, HIT_ClientCodi, HIT_ClientNom ";
-    sqlQ = sqlQ + "from [BC_SyncSales_2024] ";
-    sqlQ = sqlQ + "where BC_IdSale is null  ";
-    sqlQ = sqlQ + "order by  HIT_NumFactura, HIT_DataFactura";
-        
+    
+    let tabFacturacioIVA = "[FACTURACIO_"  + tabla + "_IVA]"; //tabFacturacion FACTURACIO_2024-02_DATA
+    let tabFacturacioDATA = "[FACTURACIO_"  + tabla + "_DATA]";
+    sqlQ = "select * ";
+    sqlQ = sqlQ + "from " + tabFacturacioIVA;
+    sqlQ = sqlQ + " where idFactura= '" + idFactura + "'";
     let facturas = await this.sql.runSql(
       sqlQ,
-      'fac_Hitrs',
+      database,
     );
-
-    for (let i = 0; i < facturas.recordset.length; i++) {
-      let x = facturas.recordset[i];
-      let facturaId_BC = "";
-      let idFactura = x.HIT_IdFactura;      
-      let dataFactura = x.HIT_DataFactura;
-      let tabFacturacioIVA = "[FACTURACIO_"  +  x.HIT_DataFactura.split('-')[0]  + "-" + x.HIT_DataFactura.split('-')[1] + "_IVA]";
-      let tabFacturacioDATA = "[FACTURACIO_"  +  x.HIT_DataFactura.split('-')[0]  + "-" + x.HIT_DataFactura.split('-')[1] + "_DATA]";
-      let customerId = await this.getCustomerFromAPI(x.HIT_ClientCodi);
-      let idSaleHit = x.Id;
-      console.log("---------------------------------------" + x.HIT_NumFactura + "-----------------------------------------");
-      let res = await axios
-        .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.HIT_SerieFactura+x.HIT_NumFactura}'`,
-          {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-            },
+    let x = facturas.recordset[0];
+    let facturaId_BC = "";
+         
+    let dataFactura = x.DataFactura;
+    let datePart = dataFactura.toISOString().split('T')[0];
+    let serieFactura = x.Serie;
+    let numFactura = x.NumFactura;
+    let num;
+    if(serieFactura.length <= 0){
+      num = numFactura;
+      console.log('serieFactura vacio')
+    } else{
+      num = serieFactura + numFactura;
+    }
+    let customerId = await this.getCustomerFromAPI(companyID, x.ClientCodi);
+    let idSaleHit = x.Id;
+    console.log("---------------------------------------" + num + "-----------------------------------------");
+    let url = `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${num}'`
+    //console.log(url)
+    let res = await axios
+      .get(
+        url,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
           },
-        )
-        .catch((error) => {
-          throw new Error('Failed to obtain sale');
-        });
+        },
+      )
+      .catch((error) => {
+        throw new Error('Failed to obtain sale');
+      });
 
       if (!res.data) throw new Error('Failed to obtain sale');
       //NO ESTÁ LA FACTURA EN BC
       if (res.data.value.length === 0) {
         let newFacturas = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices`,
             {
-                externalDocumentNumber: x.HIT_SerieFactura + x.HIT_NumFactura,
-                invoiceDate: dataFactura,
-                postingDate: dataFactura,
+                externalDocumentNumber: num.toString(),
+                invoiceDate: datePart,
+                postingDate: datePart,
                 customerId: customerId,
             },
-            {
+              {
               headers: {
                 Authorization: 'Bearer ' + token,
                 'Content-Type': 'application/json',
@@ -152,16 +204,19 @@ async getItemFromAPI(codiHIT) {
             },
           )
           .catch((error) => {
-            throw new Error('Failed post');
+            console.log('----------', num, '------------------')
+            console.log('----------', datePart, '------------------')
+            console.log('----------', customerId, '------------------')
+            throw new Error('Failed post: ' + error);
           });
 
         if (!newFacturas.data)
-          return new Error('Failed post');
+          return new Error('--Failed post--');
         else{
           facturaId_BC = newFacturas.data.id;
-          await this.synchronizeSalesFacturasLines(tabFacturacioDATA, x.HIT_IdFactura, facturaId_BC).catch(console.error);
-          //console.log("------------------------------------------------------" + x.HIT_SerieFactura + x.HIT_NumFactura + "-------------------------------");
-          let resSale = await this.getSaleFromAPI(x.HIT_SerieFactura + x.HIT_NumFactura);
+          await this.synchronizeSalesFacturasLines(companyID, database, tabFacturacioDATA, x.IdFactura, facturaId_BC).catch(console.error);
+          //console.log("------------------------------------------------------" + x.Serie + x.NumFactura + "-------------------------------");
+          let resSale = await this.getSaleFromAPI(companyID, num);
           if (!resSale.data) throw new Error('Failed to obtain ticket BS');
           if (resSale.data.value.length != 0) {          
             //console.log(resSale);
@@ -173,20 +228,23 @@ async getItemFromAPI(codiHIT) {
             sqlQ = sqlQ + "BC_totalAmountIncludingTax= '" + resSale.data.value[0].totalAmountIncludingTax + "' ";
             sqlQ = sqlQ + "where id ='" + idSaleHit + "'";
             let updBC = await this.sql.runSql(
-                sqlQ,
-                'fac_hitrs',
-              );
+              sqlQ,
+              database,
+            );
           }
         }
       } else {
         //YA ESTÁ LA FACTURA EN BC
         console.log('Ya existe la factura');
-        //console.log(res.data);
-        //facturaId_BC = res.data.value[0]['id'];
-        //await this.synchronizeSalesFacturasLines(tabFacturacioDATA, x.HIT_IdFactura, facturaId_BC).catch(console.error);
+        facturaId_BC = res.data.value[0]['id'];
+        await this.synchronizeSalesFacturasLines(companyID, database, tabFacturacioDATA, x.IdFactura, facturaId_BC).catch(console.error);
+        /*
+        console.log(res.data);
+        facturaId_BC = res.data.value[0]['id'];
+        await this.synchronizeSalesFacturasLines(tabFacturacioDATA, x.IdFactura, facturaId_BC ).catch(console.error);
 
-        //console.log(res.data);
-        /*sqlQ = "update [BC_SyncSales_2024] set ";
+        console.log(res.data);
+        sqlQ = "update [BC_SyncSales_2024] set ";
         sqlQ = sqlQ + "BC_IdSale='" + res.data.value[0].id + "', ";
         sqlQ = sqlQ + "BC_Number='" + res.data.value[0].number + "', ";
         sqlQ = sqlQ + "BC_PostingDate='" + res.data.value[0].postingDate + "', ";
@@ -196,16 +254,19 @@ async getItemFromAPI(codiHIT) {
         let updBC = await this.sql.runSql(
           sqlQ,
           'fac_hitrs',
-        );*/
+        );
+        */
       }
-    }
     return true;
   }
 
-  async synchronizeSalesFacturasLines(tabFacturacioDATA, Hit_IdFactura, BC_facturaId) {
+  async synchronizeSalesFacturasLines(companyID, database, tabFacturacioDATA, Hit_IdFactura, BC_facturaId) {
     let token = await this.token.getToken();
 //console.log("HIT_IdFactura: " + Hit_IdFactura + "-----------------------------");
 //console.log("BC_facturaId: " + BC_facturaId + "-----------------------------");
+    console.log('-----------', tabFacturacioDATA, '__________________')
+    console.log('-----------', Hit_IdFactura, '--------------')
+    console.log('-----------', BC_facturaId, '--------------')
     let sqlQ;
     sqlQ = "select sum(f.Servit) Quantitat, sum(f.preu + f.preu*(iva/100))/sum(f.servit) UnitPrice, CAST(f.Producte as varchar) Plu ";
     sqlQ = sqlQ + "From " + tabFacturacioDATA + " f ";
@@ -213,18 +274,20 @@ async getItemFromAPI(codiHIT) {
     sqlQ = sqlQ + "group by producte";
     let facturasLines = await this.sql.runSql(
       sqlQ,
-      'fac_hitrs',
+      database,
     );
-
+    console.log(sqlQ);
     for (let i = 0; i < facturasLines.recordset.length; i++) {
       let x = facturasLines.recordset[i];
       console.log("-------------------------PPRODUCTO " + x.Plu);
-      const itemId = await this.getItemFromAPI(x.Plu);
-
+      let itemId = await this.getItemFromAPI(companyID, database, x.Plu);
+      
+      let url2 = `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`;
+     //console.log('-------', url2);
       //BUSCAMOS LA LINEA DE FACTURA
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`,
+          url2,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -237,12 +300,16 @@ async getItemFromAPI(codiHIT) {
         });
 
       if (!res.data) throw new Error('Failed to get factura line');
-
+      if(itemId.length <= 0){
+        itemId = x.Plu;
+      }
       //NO ESTÁ, LA AÑADIMOS
+      let url =  `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines`;
+      //console.log(url);
       if (res.data.value.length === 0) {
         let newFacturas = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines`,
+            url,
             {
                 documentId: BC_facturaId,
                 itemId: itemId,
@@ -257,6 +324,10 @@ async getItemFromAPI(codiHIT) {
             },
           )
           .catch((error) => {
+            console.log('----------', BC_facturaId, '------------------')
+            console.log('----------', itemId, '------------------')
+            console.log('----------', x.Quantitat, '------------------')
+            console.log('----------', x.UnitPrice, '------------------')
             throw new Error('Failed to post Factura line');
           });
 
@@ -267,7 +338,7 @@ async getItemFromAPI(codiHIT) {
 
         let newItems = await axios
           .patch(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines(${res.data.value[0].id})`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines(${res.data.value[0].id})`,
             {
                 documentId: BC_facturaId,
                 itemId: itemId,
@@ -294,13 +365,13 @@ async getItemFromAPI(codiHIT) {
   }
 
 
-  async getPDFSale(nFactura) {
+  async getPDFSale(companyID, nFactura) {
     let token = await this.token.getToken();
     let sqlQ;
     //https://api.businesscentral.dynamics.com/v2.0/ace8eb1f-b96c-4ab5-91ae-4a66ffd58c96/production/api/v2.0/companies(c1fbfea4-f0aa-ee11-a568-000d3a660c9b)/salesInvoices(6e5217bc-cdb9-ee11-9078-000d3ab957cd)/pdfDocument/pdfDocumentContent
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices?$filter=number eq '102023'`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=number eq '102023'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -317,7 +388,7 @@ async getItemFromAPI(codiHIT) {
       console.log("----------------" + ticketId + "-----------");
       let res2 = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${ticketId})/pdfDocument`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/pdfDocument`,
         {
           headers: {
             Authorization: 'Bearer ' + token,

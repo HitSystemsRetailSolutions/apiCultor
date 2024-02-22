@@ -127,9 +127,15 @@ client.on('message', async function (topic, message) {
                     else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
                         await tickets(msgJson.companyID, msgJson.dataBase, msgJson.botiga);
                     break;
+                case 'factura':
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
+                        await facturas(msgJson.companyID, msgJson.database, msgJson.idFactura, msgJson.tabla);
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
+                        await facturas(msgJson.companyID, msgJson.dataBase, msgJson.idFactura, msgJson.tabla);
+                    break;
                 case 'bucle':
                     if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
-                        await bucle(msgJson.companyID, msgJson.database);
+                        await bucle(msgJson.companyID, msgJson.companyNAME, msgJson.dataBase);
                     else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
                         await bucle(msgJson.companyID, msgJson.companyNAME, msgJson.dataBase);
                     break;
@@ -247,6 +253,23 @@ async function tickets(companyID, database, botiga) {
         console.log("Tickets sync sent...")
     } catch (error) {
         console.error('Error al sincronizar tickets de ventas:', error);
+    }
+}
+
+async function facturas(companyID, database, idFactura, tabla) {
+    try {
+        await axios.get("http://localhost:3333/syncSalesFacturas", {
+            params: {
+                companyID: companyID,
+                database: database,
+                idFactura: idFactura,
+                tabla: tabla
+            },
+            timeout: 30000
+        });
+        console.log("Facturas sync sent...")
+    } catch (error) {
+        console.error('Error al sincronizar facturas de ventas:', error);
     }
 }
 
