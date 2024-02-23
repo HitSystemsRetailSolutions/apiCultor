@@ -2,7 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { getTokenService } from '../conection/getToken.service';
 import { runSqlService } from 'src/conection/sqlConection.service';
 import axios from 'axios';
-import { response } from 'express';
+
+const mqtt = require('mqtt');
+const mqttBrokerUrl = 'mqtt://santaana2.nubehit.com';
+
+// Crear un cliente MQTT
+const client = mqtt.connect(mqttBrokerUrl);
+
 @Injectable()
 
 export class salesTicketsService {
@@ -11,77 +17,72 @@ export class salesTicketsService {
     private sql: runSqlService,
   ) {}
 
-// Get Customer from API
-async getCustomerFromAPI(codiHIT) {
-  let customerId = '';
-
-  // Get the authentication token
-  let token = await this.token.getToken();
-
-  let res = await axios
-    .get(
-      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/customers?$filter=number eq '${codiHIT}'`,
-      {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
+  // Get Customer from API
+  async getCustomerFromAPI(codiHIT, companyID) {
+    let customerId = '';
+    // Get the authentication token
+    let token = await this.token.getToken();
+    // Get Customer from API
+    let res = await axios
+      .get(
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
         },
-      },
     )
     .catch((error) => {
       throw new Error('Failed to obtain customer');
     });
+    if (!res.data) throw new Error('Failed to obtain customer');
 
-  if (!res.data) throw new Error('Failed to obtain customer');
-
-  if (res.data.value.length === 0) {
-  } else {
-    customerId = res.data.value[0].id;
+    if (res.data.value.length === 0) {
+    } else {
+      customerId = res.data.value[0].id;
+    }
+    return customerId;
   }
-  return customerId;
-}
-
-// Get Item from API
-async getItemFromAPI(codiHIT) {
-  let itemId = '';
-
-  // Get the authentication token
-  let token = await this.token.getToken();
-
-  let res = await axios
-    .get(
-      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/items?$filter=number eq 'CODI-${codiHIT}'`,
-      {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
+  
+  // Get Item from API
+  async getItemFromAPI(codiHIT, companyID) {
+    let itemId = '';
+    // Get the authentication token
+    let token = await this.token.getToken();
+    // Get Item from API
+    let res = await axios
+      .get(
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${codiHIT}'`,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
         },
-      },
     )
     .catch((error) => {
       throw new Error('Failed to obtain item');
     });
 
-  if (!res.data) throw new Error('Failed to obtain item');
+    if (!res.data) throw new Error('Failed to obtain item');
 
-  if (res.data.value.length === 0) {
-  } else {
+    if (res.data.value.length === 0) {
+    } else {
       itemId = res.data.value[0].id;
+    }
+    return itemId;
   }
-  return itemId;
-}
 
 //=========================================== DIMENSIONES ======================================================  
 // Get Dimension Id from API
-async getDimensionFromAPI(code) {
+async getDimensionFromAPI(code, companyID) {
   let dimId = '';
-
   // Get the authentication token
   let token = await this.token.getToken();
-
   let res = await axios
     .get(
-      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/dimensions?$filter=code eq '${code}'`,
+      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/dimensions?$filter=code eq '${code}'`,
       {
         headers: {
           Authorization: 'Bearer ' + token,
@@ -96,15 +97,15 @@ async getDimensionFromAPI(code) {
   if (!res.data) throw new Error('Failed to obtain dimension');
 
   if (res.data.value.length === 0) {
+        return null;
   } else {
     dimId = res.data.value[0].id;
   }
   return dimId;
 }
 
-
 // Get Dimension value Id from API
-async getDimensionValueIdFromAPI(dimId, valueCode) {
+async getDimensionValueIdFromAPI(dimId, valueCode, companyID) {
   let dimValueId = '';
 
   // Get the authentication token
@@ -112,7 +113,7 @@ async getDimensionValueIdFromAPI(dimId, valueCode) {
 
   let res = await axios
     .get(
-      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/dimensions(${dimId})/dimensionValues?$filter=valueCode eq '${valueCode}'`,
+      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/dimensions(${dimId})/dimensionValues?$filter=valueCode eq '${valueCode}'`,
       {
         headers: {
           Authorization: 'Bearer ' + token,
@@ -121,27 +122,29 @@ async getDimensionValueIdFromAPI(dimId, valueCode) {
       },
     )
     .catch((error) => {
-      throw new Error('Failed to obtain value dimension');
+      console.log('Failed to obtain value dimension');
+      return null;
     });
-
+  
   if (!res.data) throw new Error('Failed to obtain value dimension');
 
   if (res.data.value.length === 0) {
+    return null;
   } else {
     dimValueId = res.data.value[0].valueId;
   }
   return dimValueId;
 }
 //=========================================== ~DIMENSIONES ======================================================
-
+  
 //=========================================== SALES ======================================================
-async getSaleFromAPI(docNumber) {
+async getSaleFromAPI(docNumber, companyID) {
   // Get the authentication token
   let token = await this.token.getToken();
 
   let res = await axios
   .get(
-    `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`,
+    `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`,
     {
       headers: {
         Authorization: 'Bearer ' + token,
@@ -154,17 +157,16 @@ async getSaleFromAPI(docNumber) {
   });
 
   if (!res.data) throw new Error('Failed to obtain ticket D');
-
   return res;
 }
 
-async getSaleLineFromAPI(idSale, lineObjectNumber) {
+async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
   // Get the authentication token
+  console.log(lineObjectNumber)
   let token = await this.token.getToken();
-
   let res = await axios
   .get(
-    `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${idSale})/salesInvoiceLines?$filter=lineObjectNumber eq '${lineObjectNumber}'`,
+    `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${idSale})/salesInvoiceLines?$filter=lineObjectNumber eq '${lineObjectNumber}'`,
     {
       headers: {
         Authorization: 'Bearer ' + token,
@@ -181,36 +183,128 @@ async getSaleLineFromAPI(idSale, lineObjectNumber) {
   return res;
 }
 //=========================================== ~SALES ======================================================
-
-
+  
   //Sincroniza tickets HIT-BC
-  async syncSalesTickets() {
+  async syncSalesTickets(companyID, database, botiga) {
     let token = await this.token.getToken();
-    let sqlQ;
 
-    // FILAPEÑA: T--101(115) T--076(764) T--152(864)
-    sqlQ = "select Id, HIT_Num_tick nTickHit, convert(varchar, HIT_Data, 23) Data, HIT_Botiga Botiga, upper(HIT_BotigaNom) BotigaNom, concat(upper(HIT_BotigaNom), '_', HIT_Num_tick) Num_tick, ";
-    sqlQ = sqlQ + "case isnull(HIT_Otros, 'CAJA') when '' then 'CAJA' else 'TARJETA' end FormaPago, HIT_Cliente Client, HIT_Total Total ";
-    sqlQ = sqlQ + "from [BC_SyncSalesTickets] ";
-    sqlQ = sqlQ + "where SAGE_Asiento is not null and BC_IdSale is null and HIT_Total>0 and HIT_Botiga in (115, 764, 864) ";
-    sqlQ = sqlQ + "order by  Botiga, HIT_Data";
+    //Falta declarar estas variables para utilizarla mas abajo
+    let tabVenut;
+    let tabMoviments;
+    
+    let fIni;
+
+    let fFin = new Date();
+    let monthFin = fFin.getMonth();
+    let yearFin = fFin.getFullYear();
+    fIni = new Date(yearFin, 0, 1)
+    console.log(new Date(yearFin, 0, 1));
+
+    let record;
+    try {
+      record = await this.sql.runSql(
+        "select * from records where concepte='BC_SalesTickets_" + botiga + "'",
+        database,
+      );
+    } catch (error){ //Comprovacion de errores y envios a mqtt
+      client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
+      console.log('No existe la database')
+      return false;
+    }
+    try {
+      if (record.recordset.length == 0) {
+        let fIniQuery = fIni.toISOString();
+        await this.sql.runSql(
+            `insert into records (timestamp, concepte) values ('${fIniQuery}', 'BC_SalesTickets_${botiga}')`,
+            database,
+        );
+      }
+      else
+      {
+        fIni = record.recordset[0].TimeStamp; 
+      }
+    } catch (error) {
+      console.log('Fecha: ', fIni)
+    }
+    
+    if (fIni.getMonth()==fFin.getMonth() && fIni.getFullYear()==fFin.getFullYear())
+    {
+      let mesTab = fIni.getMonth();
+      let mes= (mesTab+1).toString().padStart(2,"0");
+
+      tabVenut = "[V_VENUT_" + fIni.getFullYear() + "-" + mes + "]";
+      tabMoviments = "[V_MOVIMENTS_" + fIni.getFullYear() + "-" + mes + "]";
+      
+    }
+    else
+    {
+      if (fIni.getFullYear()==fFin.getFullYear())
+      {
         
-    let tickets = await this.sql.runSql(
-      sqlQ,
-      'fac_tena',
-    );
+        tabVenut = "";
+        tabMoviments = "";
+        let mesFin =  monthFin+1;
+        for(let m=1;m<=mesFin;m++)
+        {
+          let mes= m.toString().padStart(2,"0");
+          if (tabVenut != "")
+          {
+            tabVenut = tabVenut + " union all ";  
+          }
+          tabVenut = tabVenut + "select * from [V_VENUT_" + fIni.getFullYear() + "-" + mes + "]";
+          if (tabMoviments != "")
+          {
+            tabMoviments = tabMoviments + " union all "  
+          }
+          tabMoviments = tabMoviments + "select * from [V_MOVIMENTS_" + fIni.getFullYear() + "-" + mes + "]";
+        }
+        tabVenut = "(" + tabVenut + ")";
+        tabMoviments = "(" + tabMoviments + ")";
+      }
+    }
+    let sqlQ;
+    sqlQ = "select num_tick nTickHit, convert(varchar, v.Data, 23) Data, v.Data as tmstStr, concat(upper(c.nom), '_', num_tick) Num_tick, case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end FormaPago, isnull(c2.codi, '1314') Client, sum(v.import) Total ";
+    sqlQ = sqlQ + "From " + tabVenut + " v  ";
+    sqlQ = sqlQ + "left join " + tabMoviments + " m on m.botiga=v.botiga and concat('Pagat Targeta: ', v.num_tick) = m.motiu ";
+    sqlQ = sqlQ + "left join clients c on v.botiga=c.codi  ";
+    sqlQ = sqlQ + "left join ClientsFinals cf on concat('[Id:', cf.id, ']') = v.otros ";
+    sqlQ = sqlQ + "left join clients c2 on case charindex('AbonarEn:',altres) when 0 then '' else substring(cf.altres, charindex('AbonarEn:', cf.altres)+9, charindex(']', cf.altres, charindex('AbonarEn:', cf.altres)+9)-charindex('AbonarEn:', cf.altres)-9) end =c2.codi ";
+    sqlQ = sqlQ + "where v.botiga = " + botiga + " and v.data>=(select timestamp from records where concepte='BC_SalesTickets_" + botiga + "') ";
+    sqlQ = sqlQ + "group by v.data, num_tick, concat(upper(c.nom), '_', num_tick), case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end, isnull(c2.codi, '1314') ";
+    sqlQ = sqlQ + "order by v.data";
+    console.log(sqlQ);
+    
+    let tickets;
+    try {
+      tickets = await this.sql.runSql(
+        sqlQ,
+        database,
+      );
+    } catch (error){ //Comprovacion de errores y envios a mqtt
+      client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
+      console.log(sqlQ)
+      return false;
+    }
+
+    if(tickets.recordset.length == 0){ //Comprovacion de errores y envios a mqtt
+      client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
+      console.log('No hay registros')
+      return false;
+    }
 
     for (let i = 0; i < tickets.recordset.length; i++) {
       let x = tickets.recordset[i];
-      let customerId = await this.getCustomerFromAPI(x.Client);
-      let tabVenut = "[V_VENUT_"  + x.Data.split('-')[0] + "-" + x.Data.split('-')[1] + "]";
+      let customerId = await this.getCustomerFromAPI(x.Client, companyID);
+      
+      //Falta declarar esta variable para utilizarla mas abajo
       let idSaleHit = x.Id;
+      //
 
-      console.log("---------------------------------------" + x.Num_tick + "-----------------------------------------");
-
+      //console.log("-------------------------" + customerId + "----------------------------");
+      console.log(x.Num_tick);
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -222,11 +316,12 @@ async getSaleLineFromAPI(idSale, lineObjectNumber) {
           throw new Error('Failed to obtain ticket A');
         });
 
+        
       if (!res.data) throw new Error('Failed to obtain ticket B');
       if (res.data.value.length === 0) { //SI NO EXISTE EL TICKET EN BC LO CREAMOS
         let newTickets = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices`,
             {
                 externalDocumentNumber: x.Num_tick,
                 invoiceDate: x.Data,
@@ -248,43 +343,30 @@ async getSaleLineFromAPI(idSale, lineObjectNumber) {
           return new Error('Failed post ticket B');
         else{
           //AÑADIMOS LAS LINEAS DEL TICKET
-          let ticketBC = await this.getSaleFromAPI(x.Num_tick);
-          await this.synchronizeSalesTiquetsLines(tabVenut, x.Botiga, x.nTickHit, ticketBC.data.value[0].id).catch(console.error);
-
-          sqlQ = "update [BC_SyncSalesTickets] set ";
-          sqlQ = sqlQ + "BC_IdSale='" + ticketBC.data.value[0].id + "', ";
-          sqlQ = sqlQ + "BC_Number='" + ticketBC.data.value[0].number + "', ";
-          sqlQ = sqlQ + "BC_PostingDate='" + ticketBC.data.value[0].postingDate + "', ";
-          sqlQ = sqlQ + "BC_CustomerId= '" + ticketBC.data.value[0].customerId + "', ";
-          sqlQ = sqlQ + "BC_totalAmountIncludingTax= '" + ticketBC.data.value[0].totalAmountIncludingTax + "' ";
-          sqlQ = sqlQ + "where id ='" + idSaleHit + "'";
-          let updBC = await this.sql.runSql(
-              sqlQ,
-              'fac_tena',
-            );
+          let ticketBC = await this.getSaleFromAPI(x.Num_tick, companyID);
+          console.log('Tickets BC: ', ticketBC.data.value[0].id)
+          await this.synchronizeSalesTiquetsLines(tabVenut, botiga, x.nTickHit, ticketBC.data.value[0].id, database, companyID).catch(console.error);
+         console.log("-----------------hola: ", x.tmstStr)
+         let sqlUpdate = `update records set timestamp='${x.tmstStr}' where concepte='BC_SalesTickets_` + botiga + `'`;
+         /*
+         console.log("asodfkspad: ", sqlUpdate)
+          await this.sql.runSql(
+            sqlUpdate,
+            database,
+          );
+          console.log("adios")
+          */
         }
-
       } else {        
         console.log('Ya existe el ticket');
-        //console.log(res.data);
-        sqlQ = "update [BC_SyncSalesTickets] set ";
-        sqlQ = sqlQ + "BC_IdSale='" + res.data.value[0].id + "', ";
-        sqlQ = sqlQ + "BC_Number='" + res.data.value[0].number + "', ";
-        sqlQ = sqlQ + "BC_PostingDate='" + res.data.value[0].postingDate + "', ";
-        sqlQ = sqlQ + "BC_CustomerId= '" + res.data.value[0].customerId + "', ";
-        sqlQ = sqlQ + "BC_totalAmountIncludingTax= '" + res.data.value[0].totalAmountIncludingTax + "' ";
-        sqlQ = sqlQ + "where id ='" + idSaleHit + "'";
-        let updBC = await this.sql.runSql(
-          sqlQ,
-          'fac_tena',
-        );
       }
     }
+    
     return true;
   }
 
 //AÑADIMOS LAS LINEAS AL TICKET
-async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId) {
+async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, database, companyID) {
   let token = await this.token.getToken();
 
   let sqlQ;
@@ -293,25 +375,34 @@ async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId) {
   sqlQ = sqlQ + "left join clients c on v.botiga=c.codi  ";
   sqlQ = sqlQ + "where v.botiga=" + botiga + " and num_tick='" + nTickHit + "'";
   sqlQ = sqlQ + "group by concat(upper(c.nom), '_', num_tick), CAST(v.Plu as varchar), c.nom ";
+    
   let ticketsLines = await this.sql.runSql(
     sqlQ,
-    'fac_tena',
+    database,
   );
 
   for (let i = 0; i < ticketsLines.recordset.length; i++) {
     let x = ticketsLines.recordset[i];
-    let botigaNom = x.BotigaNom;
-
+    console.log(x)
     console.log("-------------------------PLU " + x.Plu + "---------------------");
-
-    const itemId = await this.getItemFromAPI(x.Plu);
-
-    let res = await this.getSaleLineFromAPI(ticketId, "CODI-" + x.Plu);
+    const itemId = await this.getItemFromAPI(x.Plu, companyID);
+    let res = await axios
+      .get(
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+          
+    res = await this.getSaleLineFromAPI(ticketId, "CODI-" + x.Plu, companyID);
     //NO ESTÁ LA LINEA, LA AÑADIMOS
     if (res.data.value.length === 0) {
       let newTickets = await axios
         .post(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${ticketId})/salesInvoiceLines`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines`,
           {
               documentId: ticketId,
               itemId: itemId,
@@ -329,31 +420,42 @@ async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId) {
           throw new Error('Failed to post Ticket line');
         });
 
-        //DIMENSION
-        let idDim = await this.getDimensionFromAPI("BOTIGUES");
-        //console.log("--------------------- idDim: " + idDim + "------------------------------");
-        //console.log("--------------------- botigaNom: " + botigaNom + "------------------------------");
-        //let idDimValue = await this.getDimensionValueIdFromAPI(idDim, botigaNom);
-        //let idDimValue = 'dd06c06f-48bf-ee11-9078-000d3a65ae37';
-        //console.log("--------------------- idDimValue: " + idDimValue + "------------------------------");
+       //DIMENSION
+      let botigaNom = x.BotigaNom;      
+      let idDim = await this.getDimensionFromAPI("BOTIGUES", companyID);
+      //console.log("--------------------- idDim: " + idDim + "------------------------------");
+      //console.log("--------------------- botigaNom: " + botigaNom + "------------------------------");
+      if (idDim == null){
+        return true;
+      }
+      let idDimValue = await this.getDimensionValueIdFromAPI(idDim, botigaNom, companyID);
+      //let idDimValue = 'dd06c06f-48bf-ee11-9078-000d3a65ae37';
+      //console.log("--------------------- idDimValue: " + idDimValue + "------------------------------");
 
-        let resSaleLine = await this.getSaleLineFromAPI(ticketId, "CODI-" + x.Plu);
-        let sLineId = resSaleLine.data.value[0].id;
+      let resSaleLine = await this.getSaleLineFromAPI(ticketId, "CODI-" + x.Plu, companyID);
+      //console.log("--------------------------resSaleLine: " + resSaleLine + "-----------------------------");
+      let sLineId = resSaleLine.data.value[0].id;
+      
+      console.log("--------------------------companyID: " + companyID + "-----------------------------");
+      console.log("--------------------------ticketId: " + ticketId + "-----------------------------");
+      console.log("--------------------------sLineId: " + sLineId + "-----------------------------");
+      console.log("--------------------------idDim: " + idDim + "-----------------------------");
 
-        //console.log("--------------------------ticketId: " + ticketId + "-----------------------------");
-        //console.log("--------------------------sLineId: " + sLineId + "-----------------------------");
-
-        let setDim = await axios
-          .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${ticketId})/salesInvoiceLines(${sLineId})/dimensionSetLines`,
-            {
-              id: idDim,
-              parentId: sLineId,
-              //valueId: idDimValue,
-              valueCode: botigaNom,
-            },
-            {
-              headers: {
+      //Error aqui !!!
+      if(idDimValue == null){
+        return true;
+      }
+      let setDim = await axios
+        .post(
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines(${sLineId})/dimensionSetLines`,
+          {
+            id: idDim,
+            parentId: sLineId,
+            valueId: idDimValue,
+            valueCode: botigaNom,
+          },
+          {
+             headers: {
                 Authorization: 'Bearer ' + token,
                 'Content-Type': 'application/json',
               },
@@ -369,91 +471,13 @@ async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId) {
     return true;    
   }
 
-
-async syncSalesTicketsxxx() {
-let token = await this.token.getToken();
-let sqlQ;
-
-let res = await axios
-  .get(
-    `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices?$filter=number eq '120308'`,
-    {
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
-      },
-    },
-  )
-  .catch((error) => {
-    throw new Error('Failed to obtain ticket');
-  });
-
-  let ticketId = res.data.value[0].id;
-  console.log(res.data.value[0]);
-
-  console.log("---------------------- LINEAS -----------------------------------")
-
-  let res2 = await axios
-  .get(
-    `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${ticketId})/salesInvoiceLines`,
-    {
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
-      },
-    },
-  )
-  .catch((error) => {
-    throw new Error('Failed to obtain ticket lines');
-  });
-
-  for (let i = 0; i < res2.data.value.length; i++) {
-    let lineId = res2.data.value[i].id;
-    console.log(res2.data.value[i].id);
-
-    let res3 = await axios
-    .get(
-      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${ticketId})/salesInvoiceLines(${lineId})/dimensionSetLines`,
-      {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
-      },
-    )
-    .catch((error) => {
-      throw new Error('Failed to obtain ticket lines');
-    });
-    for (let j = 0; j < res3.data.value.length; j++) {
-      console.log(res3.data.value[j]);
-    }
-
-  }
-
-
-/*     let res2 = await axios
-      .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${ticketId})/pdfDocument`,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        },
-      )
-      .catch((error) => {
-        throw new Error('Failed to obtain PDF ticket');
-      });*/
-    return true;
-  }
-
-  async cleanSalesTickets() {
+  async cleanSalesTickets(companyID) {
     let token = await this.token.getToken();
     let sqlQ;
 
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices?$filter=totalAmountIncludingTax eq 0`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=totalAmountIncludingTax eq 0`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -474,7 +498,7 @@ let res = await axios
               let z = res.data.value[i]['@odata.etag'];
               let delSale = await axios
               .delete(
-                `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/salesInvoices(${res.data.value[i].id})`,
+                `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${res.data.value[i].id})`,
                 {
                   headers: {
                     Authorization: 'Bearer ' + token,
@@ -496,6 +520,4 @@ let res = await axios
 
     return true;
   }
-
-
 }

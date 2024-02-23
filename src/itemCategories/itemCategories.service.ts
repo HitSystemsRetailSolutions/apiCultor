@@ -3,30 +3,52 @@ import { getTokenService } from '../conection/getToken.service';
 import { runSqlService } from 'src/conection/sqlConection.service';
 import axios from 'axios';
 import { response } from 'express';
-@Injectable()
 
+const mqtt = require('mqtt');
+const mqttBrokerUrl = 'mqtt://santaana2.nubehit.com';
+
+// Crear un cliente MQTT
+const client = mqtt.connect(mqttBrokerUrl);
+
+@Injectable()
 export class itemCategoriesService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
   ) {}
 
-  async syncItemCategories() {
+  async syncItemCategories(companyID: string, database: string) {
+    //En todo el documento process.env.database y process.env.companyID han sido sustituidos por database y companyID respectivamente
+    console.log(companyID)
+    console.log(database)
     let token = await this.token.getToken();
     let categoryId = '';
 
-    let categories = await this.sql.runSql(
-      'SELECT left(nom, 20) Code, Nom FROM Families',
-      'fac_hitrs',
-    );
-
+    let categories;
+    try {
+      categories = await this.sql.runSql(
+        'SELECT left(nom, 20) Code, Nom FROM Families',
+        database
+      );
+    } catch (error){ //Comprovacion de errores y envios a mqtt
+      client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
+      console.log('No existe la database')
+      return false;
+    }
+    
+  if(categories.recordset.length == 0){ //Comprovacion de errores y envios a mqtt
+    client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
+    console.log('No hay registros')
+    return false;
+  }
+    
     for (let i = 0; i < categories.recordset.length; i++) {
       let x = categories.recordset[i];
       console.log(x.Nom);
 
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/itemCategories?$filter=code eq '${x.Code}'`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/itemCategories?$filter=code eq '${x.Code}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -42,7 +64,7 @@ export class itemCategoriesService {
       if (res.data.value.length === 0) {
         let newCategories = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/itemCategories`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/itemCategories`,
             {
                 code: x.Code ,
                 displayName: x.Nom,
@@ -68,7 +90,7 @@ export class itemCategoriesService {
 
         let newCategories = await axios
           .patch(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${process.env.companyID})/itemCategories(${res.data.value[0].id})`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/itemCategories(${res.data.value[0].id})`,
             {
                 code: x.Code ,
                 displayName: x.Nom,

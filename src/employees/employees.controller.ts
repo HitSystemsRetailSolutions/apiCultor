@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query } from '@nestjs/common';
 import { employeesService } from './employees.service';
 
 // POST --> CON LA PETICIÓN ENVIAS DATOS, I ESPERAS RESPUESTA (EL PRECIO DE CIERTO PRODUCTO)
@@ -8,8 +8,11 @@ export class employeesController {
   constructor(private readonly employeesService: employeesService) {}
 
   @Get('syncEmployees')
-  async employees() {
-    let res = await this.employeesService.syncEmployees();
+  async employees(
+    @Query('companyID') companyID: string,
+    @Query('database') database: string,
+  ) {
+    const res = await this.employeesService.syncEmployees(companyID, database);
     if (res == true) return 'Se han sincronizado los empleados correctamente';
     else return 'Ha habido un error al sincronizar los empleados';
   }
