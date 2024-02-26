@@ -9,7 +9,7 @@ export class signingsController {
 
   @Get('syncsignings')
   async signings(
-    @Query('comapanyNAME') comapanyNAME: string,
+    @Query('companyNAME') comapanyNAME: string,
     @Query('database') database: string,
   ) {
     let res = await this.signingsService.syncSignings(comapanyNAME, database);
