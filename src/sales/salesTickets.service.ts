@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { getTokenService } from '../conection/getToken.service';
 import { runSqlService } from 'src/conection/sqlConection.service';
 import axios from 'axios';
+import { customersService } from 'src/customers/customers.service';
+import { itemsService } from 'src/items/items.service';
 
 const mqtt = require('mqtt');
 const mqttBrokerUrl = 'mqtt://santaana2.nubehit.com';
@@ -15,65 +17,11 @@ export class salesTicketsService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
+    private customers: customersService,
+    private items: itemsService,
   ) {}
 
-  // Get Customer from API
-  async getCustomerFromAPI(codiHIT, companyID) {
-    let customerId = '';
-    // Get the authentication token
-    let token = await this.token.getToken();
-    // Get Customer from API
-    let res = await axios
-      .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        },
-    )
-    .catch((error) => {
-      throw new Error('Failed to obtain customer');
-    });
-    if (!res.data) throw new Error('Failed to obtain customer');
-
-    if (res.data.value.length === 0) {
-    } else {
-      customerId = res.data.value[0].id;
-    }
-    return customerId;
-  }
   
-  // Get Item from API
-  async getItemFromAPI(codiHIT, companyID) {
-    let itemId = '';
-    // Get the authentication token
-    let token = await this.token.getToken();
-    // Get Item from API
-    let res = await axios
-      .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${codiHIT}'`,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        },
-    )
-    .catch((error) => {
-      throw new Error('Failed to obtain item');
-    });
-
-    if (!res.data) throw new Error('Failed to obtain item');
-
-    if (res.data.value.length === 0) {
-    } else {
-      itemId = res.data.value[0].id;
-    }
-    return itemId;
-  }
-
 //=========================================== DIMENSIONES ======================================================  
 // Get Dimension Id from API
 async getDimensionFromAPI(code, companyID) {
@@ -294,7 +242,7 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
 
     for (let i = 0; i < tickets.recordset.length; i++) {
       let x = tickets.recordset[i];
-      let customerId = await this.getCustomerFromAPI(x.Client, companyID);
+      let customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientCodi);
       
       //Falta declarar esta variable para utilizarla mas abajo
       let idSaleHit = x.Id;
@@ -346,16 +294,8 @@ async getSaleLineFromAPI(idSale, lineObjectNumber, companyID) {
           let ticketBC = await this.getSaleFromAPI(x.Num_tick, companyID);
           console.log('Tickets BC: ', ticketBC.data.value[0].id)
           await this.synchronizeSalesTiquetsLines(tabVenut, botiga, x.nTickHit, ticketBC.data.value[0].id, database, companyID).catch(console.error);
-         console.log("-----------------hola: ", x.tmstStr)
+
          let sqlUpdate = `update records set timestamp='${x.tmstStr}' where concepte='BC_SalesTickets_` + botiga + `'`;
-         /*
-         console.log("asodfkspad: ", sqlUpdate)
-          await this.sql.runSql(
-            sqlUpdate,
-            database,
-          );
-          console.log("adios")
-          */
         }
       } else {        
         console.log('Ya existe el ticket');
@@ -385,7 +325,7 @@ async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, databas
     let x = ticketsLines.recordset[i];
     console.log(x)
     console.log("-------------------------PLU " + x.Plu + "---------------------");
-    const itemId = await this.getItemFromAPI(x.Plu, companyID);
+    const itemId =  await this.items.getItemFromAPI(companyID, database, x.Plu);
     let res = await axios
       .get(
         `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`,

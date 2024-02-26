@@ -16,6 +16,8 @@ import { salesTicketsController } from './sales/salesTickets.controller';
 import { salesTicketsService } from './sales/salesTickets.service';
 import { salesFacturasController } from './sales/salesFacturas.controller';
 import { salesFacturasService } from './sales/salesFacturas.service';
+import { companiesController } from './companies/companies.controller';
+import { companiesService } from './companies/companies.service';
 
 
 @Module({
@@ -27,7 +29,8 @@ import { salesFacturasService } from './sales/salesFacturas.service';
     itemsController,
     itemCategoriesController,
     salesTicketsController,
-    salesFacturasController
+    salesFacturasController,
+    companiesController
   ],
   providers: [
     employeesService,
@@ -38,7 +41,8 @@ import { salesFacturasService } from './sales/salesFacturas.service';
     itemsService,
     itemCategoriesService,
     salesTicketsService,
-    salesFacturasService
+    salesFacturasService,
+    companiesService
   ],
 })
 export class AppModule {}

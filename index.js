@@ -84,6 +84,10 @@ client.on('message', async function (topic, message) {
 
         if(!test){
             switch (msgJson.msg) {
+                case 'Companies':
+                        console.log('GET COMPANIES ID');
+                        await getCompanies();
+                        break;
                 case 'SyncEmployes':
                 case 'SyncDependentes':                
                 case 'employes':
@@ -273,6 +277,21 @@ async function facturas(companyID, database, idFactura, tabla) {
     }
 }
 
+
+async function getCompanies() {
+    try {
+        await axios.get("http://localhost:3333/getCompaniesId", {
+            params: {
+                p1: "hola",
+            },
+            timeout: 30000
+        });
+        console.log("Companies...");
+    } catch (error) {
+        console.error('Error al obtener companies:', error);
+    }
+}
+
 async function bucle(companyID, companyNAME, database) {
     await setInterval(() => {
         employes(companyID, database)
@@ -294,10 +313,3 @@ function mqttPublish(msg) {
     console.log(msg);
 }
 
-// bucle()
-//employes()
-//customers()
-//itemCategories()
-//items()
-//tickets()
-//signings()
