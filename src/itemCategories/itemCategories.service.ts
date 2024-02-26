@@ -19,8 +19,8 @@ export class itemCategoriesService {
 
   async syncItemCategories(companyID: string, database: string) {
     //En todo el documento process.env.database y process.env.companyID han sido sustituidos por database y companyID respectivamente
-    console.log(companyID)
-    console.log(database)
+    console.log(companyID);
+    console.log(database);
     let token = await this.token.getToken();
     let categoryId = '';
 
@@ -28,20 +28,22 @@ export class itemCategoriesService {
     try {
       categories = await this.sql.runSql(
         'SELECT left(nom, 20) Code, Nom FROM Families',
-        database
+        database,
       );
-    } catch (error){ //Comprovacion de errores y envios a mqtt
+    } catch (error) {
+      //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
-      console.log('No existe la database')
+      console.log('No existe la database');
       return false;
     }
-    
-  if(categories.recordset.length == 0){ //Comprovacion de errores y envios a mqtt
-    client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
-    console.log('No hay registros')
-    return false;
-  }
-    
+
+    if (categories.recordset.length == 0) {
+      //Comprovacion de errores y envios a mqtt
+      client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
+      console.log('No hay registros');
+      return false;
+    }
+
     for (let i = 0; i < categories.recordset.length; i++) {
       let x = categories.recordset[i];
       console.log(x.Nom);
@@ -66,8 +68,8 @@ export class itemCategoriesService {
           .post(
             `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/itemCategories`,
             {
-                code: x.Code ,
-                displayName: x.Nom,
+              code: x.Code,
+              displayName: x.Nom,
             },
             {
               headers: {
@@ -80,8 +82,7 @@ export class itemCategoriesService {
             throw new Error('Failed post category ' + x.Nom);
           });
 
-        if (!newCategories.data)
-          return new Error('Failed post category');
+        if (!newCategories.data) return new Error('Failed post category');
 
         categoryId = newCategories.data.id;
       } else {
@@ -92,8 +93,8 @@ export class itemCategoriesService {
           .patch(
             `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/itemCategories(${res.data.value[0].id})`,
             {
-                code: x.Code ,
-                displayName: x.Nom,
+              code: x.Code,
+              displayName: x.Nom,
             },
             {
               headers: {
@@ -106,11 +107,9 @@ export class itemCategoriesService {
           .catch((error) => {
             throw new Error('Failed to update category');
           });
-        if (!newCategories.data)
-          return new Error('Failed to update category');
+        if (!newCategories.data) return new Error('Failed to update category');
       }
     }
     return true;
   }
-
 }

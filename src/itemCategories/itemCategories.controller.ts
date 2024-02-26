@@ -12,7 +12,10 @@ export class itemCategoriesController {
     @Query('companyID') companyID: string,
     @Query('database') database: string,
   ) {
-    let res = await this.itemCategoriesService.syncItemCategories(companyID, database);
+    let res = await this.itemCategoriesService.syncItemCategories(
+      companyID,
+      database,
+    );
     if (res == true) return 'Se han sincronizado las familias correctamente';
     else return 'Ha habido un error al sincronizar las familias';
   }

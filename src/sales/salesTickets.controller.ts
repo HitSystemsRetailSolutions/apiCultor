@@ -13,7 +13,11 @@ export class salesTicketsController {
     @Query('database') database: string,
     @Query('botiga') botiga: string,
   ) {
-    let res = await this.salesTicketsService.syncSalesTickets(companyID, database, botiga);
+    let res = await this.salesTicketsService.syncSalesTickets(
+      companyID,
+      database,
+      botiga,
+    );
     if (res == true) return 'Se han sincronizado los tickets correctamente';
     else return 'Ha habido un error al sincronizar los tickets';
   }

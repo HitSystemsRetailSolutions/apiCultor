@@ -14,7 +14,12 @@ export class salesFacturasController {
     @Query('idFactura') idFactura: string,
     @Query('tabla') tabla: string,
   ) {
-    let res = await this.salesFacturasService.syncSalesFacturas(companyID, database, idFactura, tabla);
+    let res = await this.salesFacturasService.syncSalesFacturas(
+      companyID,
+      database,
+      idFactura,
+      tabla,
+    );
     if (res == true) return 'Se han sincronizado las facturas correctamente';
     else return 'Ha habido un error al sincronizar las facturas';
   }

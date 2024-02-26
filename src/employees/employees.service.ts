@@ -21,28 +21,30 @@ export class employeesService {
 
   async syncEmployees(companyID: string, database: string) {
     //En todo el documento process.env.database y process.env.companyID han sido sustituidos por database y companyID respectivamente
-    console.log('CompanyID: ', companyID)
-    console.log('Database: ', database)
+    console.log('CompanyID: ', companyID);
+    console.log('Database: ', database);
     let token = await this.token.getToken();
 
     let employees;
-    try{
+    try {
       employees = await this.sql.runSql(
         `select cast(Codi as nvarchar) Codi, left(Nom, 30) Nom from dependentes order by nom`,
         database,
       );
-    } catch (error){ //Comprovacion de errores y envios a mqtt
+    } catch (error) {
+      //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
-      console.log('No existe la database')
+      console.log('No existe la database');
       return false;
     }
-    
-    if(employees.recordset.length == 0){ //Comprovacion de errores y envios a mqtt
+
+    if (employees.recordset.length == 0) {
+      //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
-      console.log('No hay registros')
+      console.log('No hay registros');
       return false;
     }
-    
+
     for (let i = 0; i < employees.recordset.length; i++) {
       let x = employees.recordset[i];
       let res = await axios
@@ -56,10 +58,10 @@ export class employeesService {
           },
         )
         .catch((error) => {
-          throw new Error('Failed to obtain employee ' +  x.Codi);
+          throw new Error('Failed to obtain employee ' + x.Codi);
         });
 
-      if (!res.data) throw new Error('Failed to obtain employee ' +  x.Codi);
+      if (!res.data) throw new Error('Failed to obtain employee ' + x.Codi);
       //No está dado de alta en BC
       if (res.data.value.length === 0) {
         let newEmployees = await axios
@@ -84,7 +86,7 @@ export class employeesService {
 
         if (!newEmployees.data)
           return new Error('Failed to post employee ' + x.Codi);
-      //Ya está dado de alta en BC, se tiene que actulizar
+        //Ya está dado de alta en BC, se tiene que actulizar
       } else {
         let z = res.data.value[0]['@odata.etag'];
         let newEmployees = await axios
@@ -113,5 +115,3 @@ export class employeesService {
     return true;
   }
 }
-
-

@@ -11,14 +11,12 @@ const mqttBrokerUrl = 'mqtt://santaana2.nubehit.com';
 // Crear un cliente MQTT
 const client = mqtt.connect(mqttBrokerUrl);
 
-
 @Injectable()
 export class customersService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
   ) {}
-
 
   //Obtener Id del modo de pago
   async getPaymentTermId(pTermCode, companyID) {
@@ -27,7 +25,7 @@ export class customersService {
     // Get PaymentTerms from API
     let res = await axios.get(
       `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/paymentTerms?$filter=dueDateCalculation eq '` +
-          pTermCode +
+        pTermCode +
         `'`,
       {
         headers: {
@@ -69,35 +67,38 @@ export class customersService {
     let customerId = '';
 
     //console.log("--------------TOKEN------------ " + token);
-    //this.getCompaniesId();    
+    //this.getCompaniesId();
 
     let payTermId = await this.getPaymentTermId('0D', companyID);
     let taxId = await this.getTaxAreaId('UE', companyID);
 
     //console.log("-------------PAY TERM ID-----------------" + payTermId);
     let customers;
-    
-    try{
+
+    try {
       customers = await this.sql.runSql(
         `SELECT cast(c.Codi as nvarchar) Codi, upper(c.Nom) Nom, c.Adresa, c.Ciutat, c.CP, cc1.valor Tel, cc2.valor eMail from clients c left join constantsClient cc1 on c.codi= cc1.codi and cc1.variable='Tel' join constantsClient cc2 on c.codi= cc2.codi and cc2.variable='eMail' order by c.codi`,
         database,
       );
-    } catch (error){ //Comprovacion de errores y envios a mqtt
+    } catch (error) {
+      //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
-      console.log('No existe la database')
+      console.log('No existe la database');
       return false;
     }
 
-   
-    if(customers.recordset.length == 0){ //Comprovacion de errores y envios a mqtt
+    if (customers.recordset.length == 0) {
+      //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
-      console.log('No hay registros')
+      console.log('No hay registros');
       return false;
     }
 
     for (let i = 0; i < customers.recordset.length; i++) {
       let x = customers.recordset[i];
-      console.log("--------------------------" + x.Nom + "-----------------------");
+      console.log(
+        '--------------------------' + x.Nom + '-----------------------',
+      );
       let res = await axios
         .get(
           `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers?$filter=number eq '${x.Codi}'`,
@@ -114,7 +115,8 @@ export class customersService {
 
       if (!res.data) throw new Error('Failed Get Customer' + x.Codi);
 
-      if (res.data.value.length === 0) { //NO ESTÁ EL CLIENTE EN BC, LO TENEMOS QUE TRASPASAR
+      if (res.data.value.length === 0) {
+        //NO ESTÁ EL CLIENTE EN BC, LO TENEMOS QUE TRASPASAR
         let newCustomers = await axios
           .post(
             `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers`,
@@ -125,10 +127,10 @@ export class customersService {
               taxAreaId: taxId,
               currencyCode: 'EUR',
               addressLine1: x.Adresa,
-              city: x.Ciutat,              
+              city: x.Ciutat,
               postalCode: x.CP,
               phoneNumber: x.Tel,
-              email: x.eMail,              
+              email: x.eMail,
             },
             {
               headers: {
@@ -144,8 +146,8 @@ export class customersService {
         if (!newCustomers.data)
           return new Error('Failed Post Customer ' + x.Codi);
         customerId = newCustomers.data.id;
-
-      } else { //YA EXISTE EL CLIENTE EN BC, LO TENEMOS QUE ACTUALIZAR
+      } else {
+        //YA EXISTE EL CLIENTE EN BC, LO TENEMOS QUE ACTUALIZAR
         let z = res.data.value[0]['@odata.etag'];
         customerId = res.data.value[0].id;
 
@@ -161,7 +163,7 @@ export class customersService {
               city: x.Ciutat,
               postalCode: x.CP,
               phoneNumber: x.Tel,
-              email: x.eMail,              
+              email: x.eMail,
             },
             {
               headers: {
@@ -174,8 +176,7 @@ export class customersService {
           .catch((error) => {
             throw new Error('Failed update customer');
           });
-        if (!newCustomers.data)
-          return new Error('Failed update customer');
+        if (!newCustomers.data) return new Error('Failed update customer');
       }
     }
     return true;
@@ -204,26 +205,35 @@ export class customersService {
 
     if (!res.data) throw new Error('Failed to obtain customer');
 
-    if (res.data.value.length === 0) { //NO ESTÁ EL CLIENTE EN BC, LO TENEMOS QUE TRASPASAR
+    if (res.data.value.length === 0) {
+      //NO ESTÁ EL CLIENTE EN BC, LO TENEMOS QUE TRASPASAR
 
-      console.log("CLIENTE NUEVO ---------------------");
+      console.log('CLIENTE NUEVO ---------------------');
       let customers;
       let taxId = await this.getTaxAreaId('UE', companyID);
-         
-      try{
+
+      try {
         customers = await this.sql.runSql(
           `SELECT cast(c.Codi as nvarchar) Codi, upper(c.Nom) Nom, c.Adresa, c.Ciutat, c.CP, cc1.valor Tel, cc2.valor eMail from clients c left join constantsClient cc1 on c.codi= cc1.codi and cc1.variable='Tel' join constantsClient cc2 on c.codi= cc2.codi and cc2.variable='eMail' where c.codi=${codiHIT} order by c.codi`,
           database,
         );
-      } catch (error){ //Comprovacion de errores y envios a mqtt
-        client.publish('/Hit/Serveis/Apicultor/Log', 'Customers. No existe la database');
-        console.log('Customers. No existe la database')
+      } catch (error) {
+        //Comprovacion de errores y envios a mqtt
+        client.publish(
+          '/Hit/Serveis/Apicultor/Log',
+          'Customers. No existe la database',
+        );
+        console.log('Customers. No existe la database');
         return false;
       }
-     
-      if(customers.recordset.length == 0){ //Comprovacion de errores y envios a mqtt
-        client.publish('/Hit/Serveis/Apicultor/Log', 'Customers. No hay registros');
-        console.log('Customers. No hay registros')
+
+      if (customers.recordset.length == 0) {
+        //Comprovacion de errores y envios a mqtt
+        client.publish(
+          '/Hit/Serveis/Apicultor/Log',
+          'Customers. No hay registros',
+        );
+        console.log('Customers. No hay registros');
         return false;
       }
 
@@ -238,10 +248,10 @@ export class customersService {
             taxAreaId: taxId,
             currencyCode: 'EUR',
             addressLine1: x.Adresa,
-            city: x.Ciutat,              
+            city: x.Ciutat,
             postalCode: x.CP,
             phoneNumber: x.Tel,
-            email: x.eMail,              
+            email: x.eMail,
           },
           {
             headers: {
