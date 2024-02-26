@@ -13,7 +13,7 @@ export class signingsController {
     @Query('database') database: string,
   ) {
     let res = await this.signingsService.syncSignings(comapanyNAME, database);
-    if (res == true) return 'Se han sincronizado los empleados correctamente';
-    else return 'Ha habido un error al sincronizar los empleados';
+    if (res == true) return 'Se han sincronizado los fichajes correctamente';
+    else return 'Ha habido un error al sincronizar los fichajes';
   }
 }
