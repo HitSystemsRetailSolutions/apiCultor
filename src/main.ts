@@ -1,8 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import * as bodyParser from 'body-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.use(bodyParser.json({ limit: '50mb' }));
+  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
   await app.listen(3333);
 }
 bootstrap();
@@ -15,7 +18,7 @@ const employeesTime = 5 * (60 * 60 * 1000); // hours
 const signingsTime = 5 * (60 * 1000); // minutes
 const customersTime = 5 * (60 * 60 * 1000); // hours
 
-var test = false; //test: call functions
+var test = true; //test: call functions
 var debug = true; //debug: mqtt publish
 const mqtt = require('mqtt');
 const { config } = require('process');
@@ -77,7 +80,7 @@ client.on('message', async function (topic, message) {
         debug = false;
       }
     } else {
-      console.log('No hay debug: desactivado'); //No enviar mensajes a /Hit/Serveis/Apicultor/Log
+      console.log('Debug: desactivado'); //No enviar mensajes a /Hit/Serveis/Apicultor/Log
       debug = false;
     }
     if (msgJson.hasOwnProperty('companyID')) {
@@ -96,7 +99,7 @@ client.on('message', async function (topic, message) {
     } else {
       mqttPublish('El JSON recibido no tiene el campo "database"');
     }
-
+    
     if (!test) {
       switch (msgJson.msg) {
         case 'SyncEmployes':
@@ -370,6 +373,31 @@ async function bucle(companyID, companyNAME, database) {
   }, customersTime);
 }
 
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
+async function downloadPdf(pdfName: string): Promise<{ success: boolean, filePath?: string, error?: string }> {
+  try {
+    const response = await axios.get(`http://localhost:3333/pdf/${pdfName}`, {
+      responseType: 'arraybuffer', // Cambiar el tipo de respuesta a arraybuffer
+      timeout: 30000,
+    });
+    console.log("hola");
+    if (response.status === 200) {
+      const tempDir = os.tmpdir(); // Directorio temporal del sistema
+      const filePath = path.join(tempDir, `${pdfName}.pdf`); // Ruta donde se guardará el archivo temporal
+      fs.writeFileSync(filePath, Buffer.from(response.data, 'binary')); // Escribir el archivo en disco
+      console.log(filePath);
+      return { success: true, filePath };
+    } else {
+      throw new Error('Error al descargar el PDF');
+    }
+  } catch (error) {
+    console.error('Error al descargar el PDF:', error);
+    return { success: false, error: 'Error al descargar el PDF' };
+  }
+}
 function mqttPublish(msg) {
   if (debug) client.publish('/Hit/Serveis/Apicultor/Log', msg);
   console.log(msg);
