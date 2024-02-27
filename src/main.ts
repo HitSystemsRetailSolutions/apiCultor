@@ -373,31 +373,6 @@ async function bucle(companyID, companyNAME, database) {
   }, customersTime);
 }
 
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-
-async function downloadPdf(pdfName: string): Promise<{ success: boolean, filePath?: string, error?: string }> {
-  try {
-    const response = await axios.get(`http://localhost:3333/pdf/${pdfName}`, {
-      responseType: 'arraybuffer', // Cambiar el tipo de respuesta a arraybuffer
-      timeout: 30000,
-    });
-    console.log("hola");
-    if (response.status === 200) {
-      const tempDir = os.tmpdir(); // Directorio temporal del sistema
-      const filePath = path.join(tempDir, `${pdfName}.pdf`); // Ruta donde se guardará el archivo temporal
-      fs.writeFileSync(filePath, Buffer.from(response.data, 'binary')); // Escribir el archivo en disco
-      console.log(filePath);
-      return { success: true, filePath };
-    } else {
-      throw new Error('Error al descargar el PDF');
-    }
-  } catch (error) {
-    console.error('Error al descargar el PDF:', error);
-    return { success: false, error: 'Error al descargar el PDF' };
-  }
-}
 function mqttPublish(msg) {
   if (debug) client.publish('/Hit/Serveis/Apicultor/Log', msg);
   console.log(msg);
