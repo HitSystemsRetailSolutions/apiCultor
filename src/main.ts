@@ -200,6 +200,9 @@ client.on('message', async function (topic, message) {
               msgJson.tabla,
             );
           break;
+        case 'Companies' :
+          await setCompanies( );
+          break;
         case 'bucle':
           if (
             msgJson.hasOwnProperty('database') &&
@@ -353,6 +356,20 @@ async function facturas(companyID, database, idFactura, tabla) {
     console.log('Facturas sync sent...');
   } catch (error) {
     console.error('Error al sincronizar facturas de ventas:', error);
+  }
+}
+
+
+async function setCompanies() {
+  try {
+    await axios.get('http://localhost:3333/getCompaniesId', {
+      params: {
+      },
+      timeout: 30000,
+    });
+    console.log('Companies sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar companies:', error);
   }
 }
 
