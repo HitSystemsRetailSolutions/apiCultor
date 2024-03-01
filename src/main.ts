@@ -18,7 +18,7 @@ const employeesTime = 5 * (60 * 60 * 1000); // hours
 const signingsTime = 5 * (60 * 1000); // minutes
 const customersTime = 5 * (60 * 60 * 1000); // hours
 
-var test = true; //test: call functions
+var test = false; //test: call functions
 var debug = true; //debug: mqtt publish
 const mqtt = require('mqtt');
 const { config } = require('process');
@@ -82,6 +82,18 @@ client.on('message', async function (topic, message) {
     } else {
       console.log('Debug: desactivado'); //No enviar mensajes a /Hit/Serveis/Apicultor/Log
       debug = false;
+    }
+    if (msgJson.hasOwnProperty('test')) {
+      if (msgJson.test == 'true') {
+        console.log('Test: activado');
+        test = true;
+      } else {
+        console.log('Test: desactivado');
+        test = false;
+      }
+    } else {
+      console.log('Test: desactivado');
+        test = false;
     }
     if (msgJson.hasOwnProperty('companyID')) {
       console.log('El JSON recibido tiene el campo "companyID"');

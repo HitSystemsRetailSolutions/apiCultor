@@ -12,19 +12,19 @@ interface SubirPdfRequest {
 export class PdfController {
   constructor(private readonly pdfService: PdfService) {}
 
-  @Get('/pdf/:database/:id')
+  @Get('/pdf/:database/:id') //Get del pdf (http://54.77.231.164:3333/pdf/{database}/{id}). Ejemplo: http://54.77.231.164:3333/pdf/Fac_HitRs/743d8234-dbc4-ee11-9078-000d3adbf495
   async getPdf(@Param('database') database: string, @Param('id') id: string, @Res() res: Response) {
     try {
       const result = await this.pdfService.getPdf(database, id);
       if (result.success) {
         // Configura los headers de la respuesta para indicar que es un archivo PDF
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="Factura.pdf"`); //Factura es el nombre
+        res.setHeader('Content-Disposition', `attachment; filename="Factura.pdf"`); //Factura es el nombre y siempre tiene que terminar con .pdf
 
-        // Envía el contenido del PDF como respuesta
+        // Envía el contenido del PDF como respuesta si el success es true
         res.send(result.pdfData);
       } else {
-        return res.status(404).send({ error: 'El archivo solicitado no existe' });
+        return res.status(404).send({ error: 'El archivo solicitado no existe' }); // Envía un error
       }
     } catch (error) {
       console.error('Error al descargar el PDF:', error);
@@ -32,10 +32,11 @@ export class PdfController {
     }
   }
 
-  @Post('/pdf/subirPDF')
+  @Post('/pdf/subirPDF') //Post del pdf para subr a la base de datos
   async subirPdf(@Body() body: SubirPdfRequest, @Res() res: Response) {
     const { id, archivo, database } = body;
 
+    //Diferentes errores para que avise del problema por si no se proporciona uno de los datos necesarios
     if (!archivo) {
       return res.status(400).json({ msg: "No se proporcionó un archivo Base64" });
     } else if (!database){

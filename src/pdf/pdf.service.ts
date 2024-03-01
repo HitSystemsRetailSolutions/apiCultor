@@ -15,22 +15,22 @@ export class PdfService {
     try {
       // Configuración del transporte SMTP para Gmail
       const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        service: 'gmail', //El correo que pongas aqui tiene que tener activado una configuracion de la cuenta de Google que es: Seguridad -> Acceso de aplicaciones poco seguras
         auth: {
-          user: 'jfunesa@ies-sabadell.cat', // Reemplaza con tu dirección de correo de Gmail
+          user: process.env.miCorreo, // Reemplaza con tu dirección de correo de Gmail
           pass: process.env.miPassword // Reemplaza con tu contraseña de Gmail
         }
       });
   
       // Opciones del correo electrónico
       const mailOptions = {
-        from: 'jonatanfunesaguera@gmail.com', // Debe ser la misma que la dirección de correo de Gmail utilizada en 'auth.user'
+        from: process.env.miCorreo, // Debe ser la misma que la dirección de correo de Gmail utilizada en 'auth.user'
         to: 'jfunesa@ies-sabadell.cat',
         subject: 'PDF adjunto',
         text: 'Adjunto encontrarás el PDF solicitado.',
         attachments: [
           {
-            filename: 'archivo.pdf', //archivo es el nombre
+            filename: 'archivo.pdf', //archivo es el nombre y siempre tiene que terminar con .pdf
             content: pdfData,
             encoding: 'base64'
           }
@@ -77,7 +77,7 @@ export class PdfService {
       const archivoCompleto = Buffer.concat(fragmentos);
 
       // Envía el PDF por correo electrónico
-      await this.enviarCorreoConPdf(archivoCompleto);
+      //await this.enviarCorreoConPdf(archivoCompleto);
 
       // Devuelve el PDF
       return { success: true, pdfData: archivoCompleto };
