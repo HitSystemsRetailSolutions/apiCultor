@@ -1,8 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import * as bodyParser from 'body-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.use(bodyParser.json({ limit: '50mb' }));
+  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
   await app.listen(3333);
 }
 bootstrap();
@@ -77,8 +80,20 @@ client.on('message', async function (topic, message) {
         debug = false;
       }
     } else {
-      console.log('No hay debug: desactivado'); //No enviar mensajes a /Hit/Serveis/Apicultor/Log
+      console.log('Debug: desactivado'); //No enviar mensajes a /Hit/Serveis/Apicultor/Log
       debug = false;
+    }
+    if (msgJson.hasOwnProperty('test')) {
+      if (msgJson.test == 'true') {
+        console.log('Test: activado');
+        test = true;
+      } else {
+        console.log('Test: desactivado');
+        test = false;
+      }
+    } else {
+      console.log('Test: desactivado');
+        test = false;
     }
     if (msgJson.hasOwnProperty('companyID')) {
       console.log('El JSON recibido tiene el campo "companyID"');
@@ -96,7 +111,7 @@ client.on('message', async function (topic, message) {
     } else {
       mqttPublish('El JSON recibido no tiene el campo "database"');
     }
-
+    
     if (!test) {
       switch (msgJson.msg) {
         case 'SyncEmployes':
