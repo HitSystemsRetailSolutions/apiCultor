@@ -34,7 +34,7 @@ client.on('connect', function () {
   console.log('Conectado al broker MQTT');
 
   // Suscribirse a un tema
-  const tema = '/Hit/Serveis/Apicultor';
+  let tema = '/test/Hit/Serveis/Apicultor';
   client.subscribe(tema, function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
@@ -42,18 +42,12 @@ client.on('connect', function () {
       console.log('Suscripción exitosa al tema', tema);
     }
   });
-});
-
-client.on('connect', function () {
-  console.log('Conectado al broker MQTT');
-
-  // Suscribirse a un tema
-  const tema = '/Hit/Serveis/Apicultor/Log';
-  client.subscribe(tema, function (err) {
+  
+  client.subscribe(tema + '/Log', function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
     } else {
-      console.log('Suscripción exitosa al tema', tema);
+      console.log('Suscripción exitosa al tema', tema + '/Log');
     }
   });
 });
@@ -100,8 +94,10 @@ client.on('message', async function (topic, message) {
       if (!isValidCompanyID(msgJson.companyID)) {
         mqttPublish('Error: "companyID" no valido');
       }
+    } else if (msgJson.hasOwnProperty('companyNAME')) {
+      console.log('El JSON recibido tiene el campo "companyNAME"');
     } else {
-      mqttPublish('El JSON recibido no tiene el campo "companyID"');
+      mqttPublish('El JSON recibido no tiene el campo "companyID" o "companyNAME" ');
     }
     if (
       msgJson.hasOwnProperty('database') ||
@@ -215,6 +211,18 @@ client.on('message', async function (topic, message) {
               msgJson.tabla,
             );
           break;
+        case 'incidencias':
+          if (
+            msgJson.hasOwnProperty('database') &&
+            msgJson.hasOwnProperty('companyNAME')
+          )
+            await incidencias(msgJson.companyNAME, msgJson.database);
+          else if (
+            msgJson.hasOwnProperty('dataBase') &&
+            msgJson.hasOwnProperty('companyNAME')
+          )
+            await incidencias(msgJson.companyNAME, msgJson.dataBase);
+          break;
         case 'bucle':
           if (
             msgJson.hasOwnProperty('database') &&
@@ -290,6 +298,22 @@ async function signings(companyNAME, database) {
     console.log('Signings sync sent...');
   } catch (error) {
     console.error('Error al sincronizar firmas:', error);
+  }
+}
+
+async function incidencias(companyNAME, database) {
+  let res;
+  try {
+    res = await axios.get('http://localhost:3333/syncIncidencias', {
+      params: {
+        companyNAME: companyNAME,
+        database: database,
+      },
+      timeout: 30000,
+    });
+    console.log('Incidencias sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar incidencias:', error);
   }
 }
 

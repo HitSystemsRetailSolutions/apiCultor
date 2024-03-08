@@ -1,4 +1,4 @@
-const axios = require("axios")
+/*const axios = require("axios")
 // horas = *(60*60*1000)
 // minutos = *(60*1000)
 // segundos = *(1000)
@@ -300,4 +300,4 @@ function mqttPublish(msg) {
 //itemCategories()
 //items()
 //tickets()
-//signings()
+//signings()*/
