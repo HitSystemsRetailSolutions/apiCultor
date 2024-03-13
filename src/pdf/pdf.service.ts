@@ -11,7 +11,7 @@ export class PdfService {
     private sql: runSqlService,
   ) {}
 
-  async enviarCorreoConPdf(pdfData) {
+  async enviarCorreoConPdf(pdfData, mailTo) {
     try {
       // Configuración del transporte SMTP para Gmail
       const transporter = nodemailer.createTransport({
@@ -25,12 +25,12 @@ export class PdfService {
       // Opciones del correo electrónico
       const mailOptions = {
         from: process.env.miCorreo, // Debe ser la misma que la dirección de correo de Gmail utilizada en 'auth.user'
-        to: 'jfunesa@ies-sabadell.cat',
+        to: mailTo,
         subject: 'PDF adjunto',
         text: 'Adjunto encontrarás el PDF solicitado.',
         attachments: [
           {
-            filename: 'archivo.pdf', //archivo es el nombre y siempre tiene que terminar con .pdf
+            filename: 'factura.pdf', //archivo es el nombre y siempre tiene que terminar con .pdf
             content: pdfData,
             encoding: 'base64'
           }
@@ -45,6 +45,28 @@ export class PdfService {
     } catch (error) {
       console.error('Error al enviar el correo electrónico:', error);
       return { success: false, message: 'Error al enviar el correo electrónico' };
+    }
+  }
+
+  async enviarCorreoSeleccionarPdf(database, mailTo, idFactura) {
+    try {
+      // Obtén todos los fragmentos asociados con el archivo
+      const fragmentos = await this.obtenerFragmentosDeArchivo(idFactura, database);
+
+      // Verifica si el archivo existe
+      if (!fragmentos || fragmentos.length === 0) {
+        console.log("Archivo solicitado no existe")
+        return { success: false, message: "El archivo solicitado no existe" };
+      }
+
+      // Concatena todos los fragmentos para reconstruir el archivo original
+      const archivoCompleto = Buffer.concat(fragmentos);
+
+      // Envía el PDF por correo electrónico
+      await this.enviarCorreoConPdf(archivoCompleto, mailTo);
+    } catch (error) {
+      console.error("Error al enviar el correo:", error);
+      return { success: false, message: "Error al enviar el correo" };
     }
   }
 
@@ -77,7 +99,7 @@ export class PdfService {
       const archivoCompleto = Buffer.concat(fragmentos);
 
       // Envía el PDF por correo electrónico
-      //await this.enviarCorreoConPdf(archivoCompleto);
+      await this.enviarCorreoConPdf(archivoCompleto, process.env.miCorreo);
 
       // Devuelve el PDF
       return { success: true, pdfData: archivoCompleto };

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Res, Post, Body } from '@nestjs/common';
+import { Controller, Get, Param, Res, Post, Body, Query } from '@nestjs/common';
 import { Response } from 'express';
 import { PdfService } from './pdf.service';
 
@@ -52,5 +52,16 @@ export class PdfController {
       console.error('Error al subir el PDF:', error);
       return res.status(500).json({ msg: "No se ha podido insertar" });
     }
+  }
+
+  @Get('syncIncidencias')
+  async incidencias(
+    @Query('database') database: string,
+    @Query('mailTo') mailTo: string,
+    @Query('idFactura') idFactura: string,
+  ) {
+    let res = await this.pdfService.enviarCorreoSeleccionarPdf(database, mailTo, idFactura);
+    if (!res) return 'Ha habido un error al intentar enviar el correo';
+    return 'Se han sincronizado todas las incidencias correctamente';
   }
 }

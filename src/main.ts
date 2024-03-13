@@ -91,6 +91,8 @@ client.on('message', async function (topic, message) {
     }
     if (msgJson.hasOwnProperty('companyID')) {
       console.log('El JSON recibido tiene el campo "companyID"');
+      if(msgJson.companyID == '2f38b331-55e9-ed11-884e-6045bd')
+        msgJson.companyID = '2f38b331-55e9-ed11-884e-6045bdc8c698';
       if (!isValidCompanyID(msgJson.companyID)) {
         mqttPublish('Error: "companyID" no valido');
       }
@@ -223,6 +225,21 @@ client.on('message', async function (topic, message) {
           )
             await incidencias(msgJson.companyNAME, msgJson.dataBase);
           break;
+          case 'mail':
+            if (
+              msgJson.hasOwnProperty('database') &&
+              msgJson.hasOwnProperty('mailTo') &&
+              msgJson.hasOwnProperty('idFactura')
+            )
+              await mail(msgJson.database, msgJson.mailTo, msgJson.idFactura);
+            else if (
+              msgJson.hasOwnProperty('dataBase') &&
+              msgJson.hasOwnProperty('mailTo') &&
+              msgJson.hasOwnProperty('idFactura')
+            )
+              await mail(msgJson.database, msgJson.mailTo, msgJson.idFactura);
+            
+            break;
         case 'bucle':
           if (
             msgJson.hasOwnProperty('database') &&
@@ -392,6 +409,23 @@ async function facturas(companyID, database, idFactura, tabla) {
     console.log('Facturas sync sent...');
   } catch (error) {
     console.error('Error al sincronizar facturas de ventas:', error);
+  }
+}
+
+async function mail(database, mailTo, idFactura) {
+  let res;
+  try {
+    res = await axios.get('http://localhost:3333/sendMail', {
+      params: {
+        database: database,
+        mailTo: mailTo,
+        idFactura: idFactura
+      },
+      timeout: 30000,
+    });
+    console.log('Sending mail to ' + mailTo);
+  } catch (error) {
+    console.error('Error enviar mail:', error);
   }
 }
 
