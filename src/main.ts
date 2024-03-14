@@ -237,7 +237,7 @@ client.on('message', async function (topic, message) {
               msgJson.hasOwnProperty('mailTo') &&
               msgJson.hasOwnProperty('idFactura')
             )
-              await mail(msgJson.database, msgJson.mailTo, msgJson.idFactura);
+              await mail(msgJson.dataBase, msgJson.mailTo, msgJson.idFactura);
             
             break;
         case 'bucle':

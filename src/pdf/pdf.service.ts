@@ -48,6 +48,42 @@ export class PdfService {
     }
   }
 
+  async enviarCorreoSMTPConPdf(pdfData, mailTo) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SLS_SMTPSERVER,
+        port: process.env.SLN_SMTPSERVERPORT,
+        secure: process.env.SLB_SMTPUSESSL === 'True',
+        auth: {
+          user: process.env.SLS_SMTPUSERNAME,
+          pass: process.env.SLS_SMTPPASSWORD
+        }
+      });
+  
+      const mailOptions = {
+        from: process.env.SLS_DEFAULTDE,
+        to: mailTo,
+        subject: 'PDF adjunto',
+        text: 'Adjunto encontrarás el PDF solicitado.',
+        attachments: [
+          {
+            filename: 'factura.pdf',
+            content: pdfData,
+            encoding: 'base64'
+          }
+        ]
+      };
+  
+      const info = await transporter.sendMail(mailOptions);
+      console.log('Correo enviado:', info);
+  
+      return { success: true };
+    } catch (error) {
+      console.error('Error al enviar el correo electrónico:', error);
+      return { success: false, message: 'Error al enviar el correo electrónico' };
+    }
+  }
+
   async enviarCorreoSeleccionarPdf(database, mailTo, idFactura) {
     try {
       // Obtén todos los fragmentos asociados con el archivo

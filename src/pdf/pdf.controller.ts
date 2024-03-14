@@ -54,8 +54,8 @@ export class PdfController {
     }
   }
 
-  @Get('syncIncidencias')
-  async incidencias(
+  @Get('sendMail')
+  async sendMail(
     @Query('database') database: string,
     @Query('mailTo') mailTo: string,
     @Query('idFactura') idFactura: string,
