@@ -23,11 +23,14 @@ var debug = true; //debug: mqtt publish
 const mqtt = require('mqtt');
 const { config } = require('process');
 
-// Definir la URL del broker MQTT
-const mqttBrokerUrl = 'mqtt://santaana2.nubehit.com'; // Cambia a la URL de tu broker MQTT
+const mqttOptions = {
+  host: process.env.MQTT_HOST,
+  username: process.env.MQTT_USER,
+  password: process.env.MQTT_PASSWORD,
+};
 
 // Crear un cliente MQTT
-const client = mqtt.connect(mqttBrokerUrl);
+const client = mqtt.connect(mqttOptions);
 
 // Manejar evento de conexión
 client.on('connect', function () {
