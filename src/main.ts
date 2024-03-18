@@ -216,6 +216,22 @@ client.on('message', async function (topic, message) {
               msgJson.tabla,
             );
           break;
+        case 'xml':
+          if (
+            msgJson.hasOwnProperty('companyID')
+          )
+            await xml(
+              msgJson.companyID,
+              msgJson.idFactura,
+            );
+          else if (
+            msgJson.hasOwnProperty('companyID')
+          )
+          await xml(
+            msgJson.companyID,
+            msgJson.idFactura,
+          );
+          break;
         case 'incidencias':
           if (
             msgJson.hasOwnProperty('database') &&
@@ -397,7 +413,7 @@ async function tickets(companyID, database, botiga) {
     console.error('Error al sincronizar tickets de ventas:', error);
   }
 }
-
+ 
 async function facturas(companyID, database, idFactura, tabla) {
   try {
     await axios.get('http://localhost:3333/syncSalesFacturas', {
@@ -415,6 +431,21 @@ async function facturas(companyID, database, idFactura, tabla) {
   }
 }
 
+async function xml(companyID, idFactura) {
+  try {
+    await axios.get('http://localhost:3333/generateXML', {
+      params: {
+        companyID: companyID,
+        idFactura: idFactura,
+      },
+      timeout: 30000,
+    });
+    console.log('XML create...');
+  } catch (error) {
+    console.error('Error al crear el XML:', error);
+  }
+}
+
 async function mail(database, mailTo, idFactura) {
   let res;
   try {
@@ -428,7 +459,7 @@ async function mail(database, mailTo, idFactura) {
     });
     console.log('Sending mail to ' + mailTo);
   } catch (error) {
-    console.error('Error enviar mail:', error);
+    console.error('Error al enviar mail:', error);
   }
 }
 

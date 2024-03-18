@@ -5,6 +5,20 @@ import axios from 'axios';
 import { response } from 'express';
 import { customersService } from 'src/customers/customers.service';
 import { itemsService } from 'src/items/items.service';
+
+interface Line {
+  "@odata.etag": string;
+  lineType: string;
+  lineObjectNumber: string;
+  description: string;
+  unitOfMeasureCode: string;
+  quantity: number;
+  unitPrice: number;
+  taxCode: string;
+  amountIncludingTax: number;
+}
+
+
 @Injectable()
 export class salesFacturasService {
   constructor(
@@ -305,4 +319,41 @@ export class salesFacturasService {
       });
     return true;
   }
+
+  async generateXML(companyID, idFactura) {
+    let token = await this.token.getToken();
+    console.log(companyID)
+    console.log(idFactura)
+    // Ejemplo de uso:
+    let res = await axios
+      .get(
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${idFactura})/salesInvoiceLines?$select=lineType,lineObjectNumber,description,unitOfMeasureCode,quantity,unitPrice,taxCode,amountIncludingTax`,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+      .catch((error) => {
+        throw new Error('Failed to obtain xml');
+      });
+    const lines: Line[] = res.data.value;
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<salesInvoices>\n  <value>\n    <invoice>\n';
+    lines.forEach((line) => {
+        xml += `      <line>\n`;
+        xml += `        <lineType>${line.lineType}</lineType>\n`;
+        xml += `        <lineObjectNumber>${line.lineObjectNumber}</lineObjectNumber>\n`;
+        xml += `        <description>${line.description}</description>\n`;
+        xml += `        <unitOfMeasureCode>${line.unitOfMeasureCode}</unitOfMeasureCode>\n`;
+        xml += `        <quantity>${line.quantity}</quantity>\n`;
+        xml += `        <unitPrice>${line.unitPrice}</unitPrice>\n`;
+        xml += `        <taxCode>${line.taxCode}</taxCode>\n`;
+        xml += `        <amountIncludingTax>${line.amountIncludingTax}</amountIncludingTax>\n`;
+        xml += `      </line>\n`;
+    });
+    xml += '    </invoice>\n  </value>\n</salesInvoices>';
+    return { success: true, xmlData: xml };
+  }
+  
 }

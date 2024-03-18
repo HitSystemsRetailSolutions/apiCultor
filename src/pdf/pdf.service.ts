@@ -17,14 +17,14 @@ export class PdfService {
       const transporter = nodemailer.createTransport({
         service: 'gmail', //El correo que pongas aqui tiene que tener activado una configuracion de la cuenta de Google que es: Seguridad -> Acceso de aplicaciones poco seguras
         auth: {
-          user: process.env.miCorreo, // Reemplaza con tu dirección de correo de Gmail
-          pass: process.env.miPassword // Reemplaza con tu contraseña de Gmail
+          user: process.env.EMAIL_USERNAME, // Reemplaza con tu dirección de correo de Gmail
+          pass: process.env.EMAIL_PASSWORD // Reemplaza con tu contraseña de Gmail
         }
       });
   
       // Opciones del correo electrónico
       const mailOptions = {
-        from: process.env.miCorreo, // Debe ser la misma que la dirección de correo de Gmail utilizada en 'auth.user'
+        from: process.env.EMAIL_USERNAME, // Debe ser la misma que la dirección de correo de Gmail utilizada en 'auth.user'
         to: mailTo,
         subject: 'PDF adjunto',
         text: 'Adjunto encontrarás el PDF solicitado.',
@@ -53,7 +53,7 @@ export class PdfService {
       const transporter = nodemailer.createTransport({
         host: process.env.SLS_SMTPSERVER,
         port: process.env.SLN_SMTPSERVERPORT,
-        secure: process.env.SLB_SMTPUSESSL === 'True',
+        secure: process.env.SLB_SMTPUSESSL,
         auth: {
           user: process.env.SLS_SMTPUSERNAME,
           pass: process.env.SLS_SMTPPASSWORD
