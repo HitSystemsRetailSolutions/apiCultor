@@ -4,10 +4,14 @@ import { runSqlService } from 'src/conection/sqlConection.service';
 import axios from 'axios';
 
 const mqtt = require('mqtt');
-const mqttBrokerUrl = 'mqtt://santaana2.nubehit.com';
+const mqttOptions = {
+  host: process.env.MQTT_HOST,
+  username: process.env.MQTT_USER,
+  password: process.env.MQTT_PASSWORD,
+};
 
 // Crear un cliente MQTT
-const client = mqtt.connect(mqttBrokerUrl);
+const client = mqtt.connect(mqttOptions);
 
 @Injectable()
 export class salesTicketsService {
