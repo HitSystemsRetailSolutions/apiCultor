@@ -345,7 +345,7 @@ async function incidencias(companyNAME, database) {
         companyNAME: companyNAME,
         database: database,
       },
-      timeout: 30000,
+      timeout: getTimeout(),
     });
     console.log('Incidencias sync sent...');
   } catch (error) {
@@ -480,6 +480,21 @@ async function bucle(companyID, companyNAME, database) {
 function mqttPublish(msg) {
   if (debug) client.publish('/Hit/Serveis/Apicultor/Log', msg);
   console.log(msg);
+}
+
+function obtenerCantidadDeValores(): number {
+  // Implementa la lógica para obtener la cantidad de valores
+  // Por ejemplo, supongamos que aquí obtienes la cantidad de valores de algún lugar
+  // Si no puedes obtener la cantidad en este momento, puedes devolver un valor por defecto
+  return 0; // Retorna 0 por defecto en caso de que no puedas obtener la cantidad
+}
+
+function getTimeout(): number {
+  const cantidadDeValores = obtenerCantidadDeValores(); // Llama a la función para obtener la cantidad de valores
+  const timeout = cantidadDeValores * 1000; // Calcula el timeout en función de la cantidad de valores (1 segundo por cada valor)
+  if(timeout<30000)
+    return 30000;
+  return timeout;
 }
 
 // bucle()
