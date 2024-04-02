@@ -216,6 +216,10 @@ client.on('message', async function (topic, message) {
               msgJson.tabla,
             );
           break;
+
+        case 'Companies' :
+          await setCompanies( );
+          break;
         case 'xml':
           if (
             msgJson.hasOwnProperty('companyID')
@@ -431,6 +435,19 @@ async function facturas(companyID, database, idFactura, tabla) {
   }
 }
 
+
+async function setCompanies() {
+  try {
+    await axios.get('http://localhost:3333/getCompaniesId', {
+      params: {
+      },
+      timeout: 30000,
+    });
+    console.log('Companies sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar companies:', error);
+  }
+}
 async function xml(companyID, idFactura) {
   try {
     await axios.get('http://localhost:3333/generateXML', {

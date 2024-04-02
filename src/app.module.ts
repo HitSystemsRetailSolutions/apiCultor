@@ -16,6 +16,8 @@ import { salesTicketsController } from './sales/salesTickets.controller';
 import { salesTicketsService } from './sales/salesTickets.service';
 import { salesFacturasController } from './sales/salesFacturas.controller';
 import { salesFacturasService } from './sales/salesFacturas.service';
+import { companiesController } from './companies/companies.controller';
+import { companiesService } from './companies/companies.service';
 import { PdfController } from './pdf/pdf.controller';
 import { PdfService } from './pdf/pdf.service';
 import { IncidenciaController } from './incidencias/incidencia.controller';
@@ -32,6 +34,7 @@ import { IncidenciaService } from './incidencias/incidencia.service';
     itemCategoriesController,
     salesTicketsController,
     salesFacturasController,
+    companiesController,
     PdfController,
     IncidenciaController
   ],
@@ -45,6 +48,7 @@ import { IncidenciaService } from './incidencias/incidencia.service';
     itemCategoriesService,
     salesTicketsService,
     salesFacturasService,
+    companiesService,
     PdfService,
     IncidenciaService
   ],
