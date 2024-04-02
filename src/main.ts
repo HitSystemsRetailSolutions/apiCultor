@@ -1,8 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import * as bodyParser from 'body-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.use(bodyParser.json({ limit: '50mb' }));
+  app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
   await app.listen(3333);
 }
 bootstrap();
@@ -20,18 +23,21 @@ var debug = true; //debug: mqtt publish
 const mqtt = require('mqtt');
 const { config } = require('process');
 
-// Definir la URL del broker MQTT
-const mqttBrokerUrl = 'mqtt://santaana2.nubehit.com'; // Cambia a la URL de tu broker MQTT
+const mqttOptions = {
+  host: process.env.MQTT_HOST,
+  username: process.env.MQTT_USER,
+  password: process.env.MQTT_PASSWORD,
+};
 
 // Crear un cliente MQTT
-const client = mqtt.connect(mqttBrokerUrl);
+const client = mqtt.connect(mqttOptions);
 
 // Manejar evento de conexión
 client.on('connect', function () {
   console.log('Conectado al broker MQTT');
 
   // Suscribirse a un tema
-  const tema = '/Hit/Serveis/Apicultor';
+  let tema = '/Hit/Serveis/Apicultor';
   client.subscribe(tema, function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
@@ -39,18 +45,12 @@ client.on('connect', function () {
       console.log('Suscripción exitosa al tema', tema);
     }
   });
-});
-
-client.on('connect', function () {
-  console.log('Conectado al broker MQTT');
-
-  // Suscribirse a un tema
-  const tema = '/Hit/Serveis/Apicultor/Log';
-  client.subscribe(tema, function (err) {
+  
+  client.subscribe(tema + '/Log', function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
     } else {
-      console.log('Suscripción exitosa al tema', tema);
+      console.log('Suscripción exitosa al tema', tema + '/Log');
     }
   });
 });
@@ -77,16 +77,32 @@ client.on('message', async function (topic, message) {
         debug = false;
       }
     } else {
-      console.log('No hay debug: desactivado'); //No enviar mensajes a /Hit/Serveis/Apicultor/Log
+      console.log('Debug: desactivado'); //No enviar mensajes a /Hit/Serveis/Apicultor/Log
       debug = false;
+    }
+    if (msgJson.hasOwnProperty('test')) {
+      if (msgJson.test == 'true') {
+        console.log('Test: activado');
+        test = true;
+      } else {
+        console.log('Test: desactivado');
+        test = false;
+      }
+    } else {
+      console.log('Test: desactivado');
+        test = false;
     }
     if (msgJson.hasOwnProperty('companyID')) {
       console.log('El JSON recibido tiene el campo "companyID"');
+      if(msgJson.companyID == '2f38b331-55e9-ed11-884e-6045bd')
+        msgJson.companyID = '2f38b331-55e9-ed11-884e-6045bdc8c698';
       if (!isValidCompanyID(msgJson.companyID)) {
         mqttPublish('Error: "companyID" no valido');
       }
+    } else if (msgJson.hasOwnProperty('companyNAME')) {
+      console.log('El JSON recibido tiene el campo "companyNAME"');
     } else {
-      mqttPublish('El JSON recibido no tiene el campo "companyID"');
+      mqttPublish('El JSON recibido no tiene el campo "companyID" o "companyNAME" ');
     }
     if (
       msgJson.hasOwnProperty('database') ||
@@ -96,7 +112,7 @@ client.on('message', async function (topic, message) {
     } else {
       mqttPublish('El JSON recibido no tiene el campo "database"');
     }
-
+    
     if (!test) {
       switch (msgJson.msg) {
         case 'SyncEmployes':
@@ -200,9 +216,53 @@ client.on('message', async function (topic, message) {
               msgJson.tabla,
             );
           break;
+
         case 'Companies' :
           await setCompanies( );
           break;
+        case 'xml':
+          if (
+            msgJson.hasOwnProperty('companyID')
+          )
+            await xml(
+              msgJson.companyID,
+              msgJson.idFactura,
+            );
+          else if (
+            msgJson.hasOwnProperty('companyID')
+          )
+          await xml(
+            msgJson.companyID,
+            msgJson.idFactura,
+          );
+          break;
+        case 'incidencias':
+          if (
+            msgJson.hasOwnProperty('database') &&
+            msgJson.hasOwnProperty('companyNAME')
+          )
+            await incidencias(msgJson.companyNAME, msgJson.database);
+          else if (
+            msgJson.hasOwnProperty('dataBase') &&
+            msgJson.hasOwnProperty('companyNAME')
+          )
+            await incidencias(msgJson.companyNAME, msgJson.dataBase);
+          break;
+          case 'mail':
+            if (
+              msgJson.hasOwnProperty('database') &&
+              msgJson.hasOwnProperty('mailTo') &&
+              msgJson.hasOwnProperty('idFactura')
+            )
+              await mail(msgJson.database, msgJson.mailTo, msgJson.idFactura);
+            else if (
+              msgJson.hasOwnProperty('dataBase') &&
+              msgJson.hasOwnProperty('mailTo') &&
+              msgJson.hasOwnProperty('idFactura')
+            )
+              await mail(msgJson.dataBase, msgJson.mailTo, msgJson.idFactura);
+            
+            break;
         case 'bucle':
           if (
             msgJson.hasOwnProperty('database') &&
@@ -281,6 +341,22 @@ async function signings(companyNAME, database) {
   }
 }
 
+async function incidencias(companyNAME, database) {
+  let res;
+  try {
+    res = await axios.get('http://localhost:3333/syncIncidencias', {
+      params: {
+        companyNAME: companyNAME,
+        database: database,
+      },
+      timeout: 30000,
+    });
+    console.log('Incidencias sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar incidencias:', error);
+  }
+}
+
 async function customers(companyID, database) {
   try {
     await axios.get('http://localhost:3333/syncCustomers', {
@@ -341,7 +417,7 @@ async function tickets(companyID, database, botiga) {
     console.error('Error al sincronizar tickets de ventas:', error);
   }
 }
-
+ 
 async function facturas(companyID, database, idFactura, tabla) {
   try {
     await axios.get('http://localhost:3333/syncSalesFacturas', {
@@ -370,6 +446,37 @@ async function setCompanies() {
     console.log('Companies sync sent...');
   } catch (error) {
     console.error('Error al sincronizar companies:', error);
+  }
+}
+async function xml(companyID, idFactura) {
+  try {
+    await axios.get('http://localhost:3333/generateXML', {
+      params: {
+        companyID: companyID,
+        idFactura: idFactura,
+      },
+      timeout: 30000,
+    });
+    console.log('XML create...');
+  } catch (error) {
+    console.error('Error al crear el XML:', error);
+  }
+}
+
+async function mail(database, mailTo, idFactura) {
+  let res;
+  try {
+    res = await axios.get('http://localhost:3333/sendMail', {
+      params: {
+        database: database,
+        mailTo: mailTo,
+        idFactura: idFactura
+      },
+      timeout: 30000,
+    });
+    console.log('Sending mail to ' + mailTo);
+  } catch (error) {
+    console.error('Error al enviar mail:', error);
   }
 }
 

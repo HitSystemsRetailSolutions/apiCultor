@@ -1,4 +1,4 @@
-const axios = require("axios")
+/*const axios = require("axios")
 // horas = *(60*60*1000)
 // minutos = *(60*1000)
 // segundos = *(1000)
@@ -11,16 +11,20 @@ var debug = true; //debug: mqtt publish
 const mqtt = require('mqtt');
 const { config } = require("process");
 
-// Definir la URL del broker MQTT
-const mqttBrokerUrl = 'mqtt://santaana2.nubehit.com'; // Cambia a la URL de tu broker MQTT
+
+const mqttOptions = {
+    host: process.env.MQTT_HOST,
+    username: process.env.MQTT_USER,
+    password: process.env.MQTT_PASSWORD,
+};
 
 // Crear un cliente MQTT
-const client = mqtt.connect(mqttBrokerUrl);
+const client = mqtt.connect(mqttOptions);
 
 // Manejar evento de conexión
 client.on('connect', function () {
     console.log('Conectado al broker MQTT');
-    
+
     // Suscribirse a un tema
     const tema = '/Hit/Serveis/Apicultor';
     client.subscribe(tema, function (err) {
@@ -34,7 +38,7 @@ client.on('connect', function () {
 
 client.on('connect', function () {
     console.log('Conectado al broker MQTT');
-    
+
     // Suscribirse a un tema
     const tema = '/Hit/Serveis/Apicultor/Log';
     client.subscribe(tema, function (err) {
@@ -49,28 +53,28 @@ client.on('connect', function () {
 
 // Manejar mensajes recibidos
 client.on('message', async function (topic, message) {
-    if (debug){
+    if (debug) {
         console.log('Mensaje recibido en el tema:', topic, '- Contenido:', message.toString())
     }
     try {
         const msgJson = JSON.parse(message);
         console.log('Mensaje en modo JSON:', msgJson);
-        if(msgJson.hasOwnProperty('debug')){
-            if (msgJson.debug == "true"){
+        if (msgJson.hasOwnProperty('debug')) {
+            if (msgJson.debug == "true") {
                 console.log('Debug: activado')
                 debug = true;
             }
-            else{
+            else {
                 console.log('Debug: desactivado')
                 debug = false;
             }
-        } else{
+        } else {
             console.log('No hay debug: desactivado') //No enviar mensajes a /Hit/Serveis/Apicultor/Log
             debug = false;
         }
         if (msgJson.hasOwnProperty('companyID')) {
             console.log('El JSON recibido tiene el campo "companyID"');
-            if(!isValidCompanyID(msgJson.companyID)){
+            if (!isValidCompanyID(msgJson.companyID)) {
                 mqttPublish('Error: "companyID" no valido')
             }
         } else {
@@ -82,73 +86,73 @@ client.on('message', async function (topic, message) {
             mqttPublish('El JSON recibido no tiene el campo "database"');
         }
 
-        if(!test){
+        if (!test) {
             switch (msgJson.msg) {
                 case 'SyncEmployes':
-                case 'SyncDependentes':                
+                case 'SyncDependentes':
                 case 'employes':
-                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID'))
                         await employes(msgJson.companyID, msgJson.database);
-                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID'))
                         await employes(msgJson.companyID, msgJson.dataBase);
                     break;
                 case 'SyncSignings':
                 case 'signings':
-                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyNAME')) 
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyNAME'))
                         await signings(msgJson.companyNAME, msgJson.database);
-                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyNAME')) 
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyNAME'))
                         await signings(msgJson.companyNAME, msgJson.dataBase);
                     break;
                 case 'SyncCustomers':
                 case 'customers':
-                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID'))
                         await customers(msgJson.companyID, msgJson.database);
-                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID'))
                         await customers(msgJson.companyID, msgJson.dataBase);
                     break;
                 case 'SyncItems':
                 case 'items':
-                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID'))
                         await items(msgJson.companyID, msgJson.database);
-                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID'))
                         await items(msgJson.companyID, msgJson.dataBase);
                     break;
                 case 'SyncItemscategories':
                 case 'itemCategories':
-                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID'))
                         await itemCategories(msgJson.companyID, msgJson.database);
-                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID'))
                         await itemCategories(msgJson.companyID, msgJson.dataBase);
                     break;
                 case 'SyncTickets':
                 case 'tickets':
-                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID'))
                         await tickets(msgJson.companyID, msgJson.database, msgJson.botiga);
-                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID'))
                         await tickets(msgJson.companyID, msgJson.dataBase, msgJson.botiga);
                     break;
                 case 'factura':
-                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID'))
                         await facturas(msgJson.companyID, msgJson.database, msgJson.idFactura, msgJson.tabla);
-                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID'))
                         await facturas(msgJson.companyID, msgJson.dataBase, msgJson.idFactura, msgJson.tabla);
                     break;
                 case 'bucle':
-                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID')) 
+                    if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID'))
                         await bucle(msgJson.companyID, msgJson.companyNAME, msgJson.dataBase);
-                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID')) 
+                    else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID'))
                         await bucle(msgJson.companyID, msgJson.companyNAME, msgJson.dataBase);
                     break;
                 default:
                     mqttPublish('Mensaje recibido no coincide con ninguna acción esperada')
                     break;
             }
-        } else{
+        } else {
             console.log("Testing: ", test)
         }
-        
+
     } catch (error) {
-        if (debug){
+        if (debug) {
             console.log('Mensaje recibido como una cadena');
         }
     }
@@ -163,7 +167,7 @@ function isValidCompanyID(companyID) {
     // Expresión regular para validar el formato del companyID
     const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     return regex.test(companyID);
-  }
+}
 
 async function employes(companyID, database) {
     try {
@@ -300,4 +304,4 @@ function mqttPublish(msg) {
 //itemCategories()
 //items()
 //tickets()
-//signings()
+//signings()*/
