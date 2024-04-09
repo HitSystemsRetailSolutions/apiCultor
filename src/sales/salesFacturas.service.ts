@@ -196,7 +196,7 @@ export class salesFacturasService {
 
     let sqlQ;
     sqlQ =
-      'select sum(f.Servit) Quantitat, sum(f.preu + f.preu*(iva/100))/sum(f.servit) UnitPrice, CAST(f.Producte as varchar) Plu ';
+      'select sum(f.Servit) Quantitat, sum(f.import + f.import*(iva/100))/sum(f.servit) UnitPrice, CAST(f.Producte as varchar) Plu ';
     sqlQ = sqlQ + 'From ' + tabFacturacioDATA + ' f ';
     sqlQ = sqlQ + "where f.idFactura='" + Hit_IdFactura + "' and f.import>0 ";
     sqlQ = sqlQ + 'group by producte';
