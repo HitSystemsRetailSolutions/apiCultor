@@ -21,7 +21,8 @@ export class PdfService {
           pass: process.env.EMAIL_PASSWORD // Reemplaza con tu contraseña de Gmail
         }
       });
-  
+      //console.log(transporter);
+      //console.log("--------------------------------------------------");
       // Opciones del correo electrónico
       const mailOptions = {
         from: process.env.EMAIL_USERNAME, // Debe ser la misma que la dirección de correo de Gmail utilizada en 'auth.user'
