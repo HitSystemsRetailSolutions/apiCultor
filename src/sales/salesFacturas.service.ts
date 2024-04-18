@@ -204,7 +204,7 @@ export class salesFacturasService {
 
     for (let i = 0; i < facturasLines.recordset.length; i++) {
       let x = facturasLines.recordset[i];
-      console.log('PPRODUCTO ' + x.Plu);
+      console.log('PRODUCTO ' + x.Plu);
       let itemId = await this.items.getItemFromAPI(companyID, database, x.Plu);
 
       let url2 = `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`;
