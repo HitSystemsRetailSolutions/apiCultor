@@ -216,7 +216,6 @@ client.on('message', async function (topic, message) {
               msgJson.tabla,
             );
           break;
-
         case 'Companies' :
           await setCompanies( );
           break;
@@ -248,6 +247,19 @@ client.on('message', async function (topic, message) {
           )
             await incidencias(msgJson.companyNAME, msgJson.dataBase);
           break;
+        case 'archivos':
+          if (
+            msgJson.hasOwnProperty('database') &&
+            msgJson.hasOwnProperty('companyNAME')
+          )
+            await archivo(msgJson.companyNAME, msgJson.database);
+          else if (
+            msgJson.hasOwnProperty('dataBase') &&
+            msgJson.hasOwnProperty('companyNAME')
+          )
+            await archivo(msgJson.companyNAME, msgJson.dataBase);
+          break;
+
           case 'mail':
             if (
               msgJson.hasOwnProperty('database') &&
@@ -357,6 +369,22 @@ async function incidencias(companyNAME, database) {
   }
 }
 
+async function archivo(companyNAME, database) {
+  let res;
+  try {
+    res = await axios.get('http://localhost:3333/syncArchivos', {
+      params: {
+        companyNAME: companyNAME,
+        database: database,
+      },
+      timeout: getTimeout(),
+    });
+    console.log('Archivo sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar archivos:', error);
+  }
+}
+
 async function customers(companyID, database) {
   try {
     await axios.get('http://localhost:3333/syncCustomers', {
@@ -417,7 +445,7 @@ async function tickets(companyID, database, botiga) {
     console.error('Error al sincronizar tickets de ventas:', error);
   }
 }
- 
+
 async function facturas(companyID, database, idFactura, tabla) {
   try {
     await axios.get('http://localhost:3333/syncSalesFacturas', {

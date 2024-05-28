@@ -22,6 +22,8 @@ import { PdfController } from './pdf/pdf.controller';
 import { PdfService } from './pdf/pdf.service';
 import { IncidenciaController } from './incidencias/incidencia.controller';
 import { IncidenciaService } from './incidencias/incidencia.service';
+import { ArchivosController } from './archivos/archivos.controller';
+import { ArchivosService } from './archivos/archivos.service';
 
 
 @Module({
@@ -36,7 +38,8 @@ import { IncidenciaService } from './incidencias/incidencia.service';
     salesFacturasController,
     companiesController,
     PdfController,
-    IncidenciaController
+    IncidenciaController,
+    ArchivosController
   ],
   providers: [
     employeesService,
@@ -50,7 +53,8 @@ import { IncidenciaService } from './incidencias/incidencia.service';
     salesFacturasService,
     companiesService,
     PdfService,
-    IncidenciaService
+    IncidenciaService,
+    ArchivosService
   ],
 })
 export class AppModule {}
