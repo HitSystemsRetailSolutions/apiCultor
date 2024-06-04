@@ -7,13 +7,13 @@ import { empresasService } from './empresas.service';
 export class empresasController {
   constructor(private readonly empresasService: empresasService) {}
 
-  @Get('syncEmployees')
+  @Get('crearEmpresa')
   async employees(
     @Query('name') name: string,
     @Query('displayName') displayName: string,
   ) {
-    const res = await this.empresasService.crearEmpresa();
-    if (res == true) return 'Se ha creado la empresa correctamente';
-    else return 'Ha habido un error al crear la empresa';
+    const res = await this.empresasService.crearEmpresa(name, displayName);
+    if (res == true) return `Se ha creado la empresa ${name} correctamente`;
+    else return `Error al crear la empresa ${name}`;
   }
 }

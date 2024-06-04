@@ -49,7 +49,7 @@ export class signingsService {
 
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/cdpDadesFichador2?$filter=idr eq '${x.idr}'`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/cdpDadesFichador2?$filter=idr eq '${x.idr}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -65,7 +65,7 @@ export class signingsService {
       if (res.data.value.length === 0) {
         let newSignings = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/cdpDadesFichador2`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/cdpDadesFichador2`,
             {
               idr: x.idr,
               tmst: x.tmst,

@@ -45,7 +45,7 @@ client.on('connect', function () {
       console.log('Suscripción exitosa al tema', tema);
     }
   });
-  
+
   client.subscribe(tema + '/Log', function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
@@ -90,12 +90,10 @@ client.on('message', async function (topic, message) {
       }
     } else {
       console.log('Test: desactivado');
-        test = false;
+      test = false;
     }
     if (msgJson.hasOwnProperty('companyID')) {
       console.log('El JSON recibido tiene el campo "companyID"');
-      if(msgJson.companyID == '2f38b331-55e9-ed11-884e-6045bd')
-        msgJson.companyID = '2f38b331-55e9-ed11-884e-6045bdc8c698';
       if (!isValidCompanyID(msgJson.companyID)) {
         mqttPublish('Error: "companyID" no valido');
       }
@@ -112,7 +110,7 @@ client.on('message', async function (topic, message) {
     } else {
       mqttPublish('El JSON recibido no tiene el campo "database"');
     }
-    
+
     if (!test) {
       switch (msgJson.msg) {
         case 'SyncEmployes':
@@ -216,9 +214,8 @@ client.on('message', async function (topic, message) {
               msgJson.tabla,
             );
           break;
-
-        case 'Companies' :
-          await setCompanies( );
+        case 'Companies':
+          await setCompanies();
           break;
         case 'xml':
           if (
@@ -231,10 +228,10 @@ client.on('message', async function (topic, message) {
           else if (
             msgJson.hasOwnProperty('companyID')
           )
-          await xml(
-            msgJson.companyID,
-            msgJson.idFactura,
-          );
+            await xml(
+              msgJson.companyID,
+              msgJson.idFactura,
+            );
           break;
         case 'incidencias':
           if (
@@ -248,21 +245,29 @@ client.on('message', async function (topic, message) {
           )
             await incidencias(msgJson.companyNAME, msgJson.dataBase);
           break;
-          case 'mail':
-            if (
-              msgJson.hasOwnProperty('database') &&
-              msgJson.hasOwnProperty('mailTo') &&
-              msgJson.hasOwnProperty('idFactura')
-            )
-              await mail(msgJson.database, msgJson.mailTo, msgJson.idFactura);
-            else if (
-              msgJson.hasOwnProperty('dataBase') &&
-              msgJson.hasOwnProperty('mailTo') &&
-              msgJson.hasOwnProperty('idFactura')
-            )
-              await mail(msgJson.dataBase, msgJson.mailTo, msgJson.idFactura);
-            
-            break;
+        case 'mail':
+          if (
+            msgJson.hasOwnProperty('database') &&
+            msgJson.hasOwnProperty('mailTo') &&
+            msgJson.hasOwnProperty('idFactura')
+          )
+            await mail(msgJson.database, msgJson.mailTo, msgJson.idFactura);
+          else if (
+            msgJson.hasOwnProperty('dataBase') &&
+            msgJson.hasOwnProperty('mailTo') &&
+            msgJson.hasOwnProperty('idFactura')
+          )
+            await mail(msgJson.dataBase, msgJson.mailTo, msgJson.idFactura);
+
+          break;
+        case 'empresa':
+          if (
+            msgJson.hasOwnProperty('name') &&
+            msgJson.hasOwnProperty('displayName')
+          ){
+            await empresa(msgJson.name, msgJson.displayName);
+          }
+          break;
         case 'bucle':
           if (
             msgJson.hasOwnProperty('database') &&
@@ -417,7 +422,7 @@ async function tickets(companyID, database, botiga) {
     console.error('Error al sincronizar tickets de ventas:', error);
   }
 }
- 
+
 async function facturas(companyID, database, idFactura, tabla) {
   try {
     await axios.get('http://localhost:3333/syncSalesFacturas', {
@@ -480,6 +485,21 @@ async function mail(database, mailTo, idFactura) {
   }
 }
 
+async function empresa(name, displayName) {
+  let res;
+  try {
+    console.log(`Intentado crear la empresa ${name}`);
+    res = await axios.get('http://localhost:3333/crearEmpresa', {
+      params: {
+        name: name,
+        displayName: displayName,
+      },
+    });
+  } catch (error) {
+    console.error('Error al crear la empresa:', error);
+  }
+}
+
 async function bucle(companyID, companyNAME, database) {
   await setInterval(() => {
     employes(companyID, database);
@@ -509,7 +529,7 @@ function obtenerCantidadDeValores(): number {
 function getTimeout(): number {
   const cantidadDeValores = obtenerCantidadDeValores(); // Llama a la función para obtener la cantidad de valores
   const timeout = cantidadDeValores * 1000; // Calcula el timeout en función de la cantidad de valores (1 segundo por cada valor)
-  if(timeout<30000)
+  if (timeout < 30000)
     return 30000;
   return timeout;
 }
