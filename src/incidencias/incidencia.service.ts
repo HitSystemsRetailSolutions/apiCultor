@@ -62,8 +62,8 @@ export class IncidenciaService {
     //console.log('Lenght: ' + incidencias.recordset.length);
     for (let i = 0; i < incidencias.recordset.length; i++) {
       let x = incidencias.recordset[i];
-      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/incidencias?$filter=id eq ${x.Id}`;
-      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/incidencias`;
+      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/incidencias?$filter=id eq ${x.Id}`;
+      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/incidencias`;
       //console.log(x)
       //console.log(urlGet);
       //Hace un get de BC para ver si existe ya el dato
@@ -187,8 +187,8 @@ export class IncidenciaService {
     //console.log('Lenght: ' + incidencias.recordset.length);
     for (let i = 0; i < incidencias.recordset.length; i++) {
       let x = incidencias.recordset[i];
-      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/inc_Adjuntos?$filter=id eq ${x.Id}`;
-      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/inc_Adjuntos`;
+      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Adjuntos?$filter=id eq ${x.Id}`;
+      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Adjuntos`;
       
       //console.log(x)
       //console.log(urlGet);
@@ -280,8 +280,8 @@ export class IncidenciaService {
     //console.log('Lenght: ' + incidencias.recordset.length);
     for (let i = 0; i < incidencias.recordset.length; i++) {
       let x = incidencias.recordset[i];
-      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/inc_Categorias?$filter=id eq ${x.id}`;
-      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/inc_Categorias`;
+      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Categorias?$filter=id eq ${x.id}`;
+      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Categorias`;
       //console.log(x)
       //console.log(urlGet);
       //Hace un get de BC para ver si existe ya el dato
@@ -362,8 +362,8 @@ export class IncidenciaService {
     for (let i = 0; i < incidencias.recordset.length; i++) {
       let x = incidencias.recordset[i];
       let id = this.formatearUUID(x.id);
-      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/inc_Clientes?$filter=id eq ${id}`;
-      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/inc_Clientes`;
+      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Clientes?$filter=id eq ${id}`;
+      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Clientes`;
       
       //console.log(x)
       //console.log(urlGet);
@@ -467,8 +467,8 @@ export class IncidenciaService {
     //console.log('Lenght: ' + incidencias.recordset.length);
     for (let i = 0; i < incidencias.recordset.length; i++) {
       let x = incidencias.recordset[i];
-      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/inc_Historico?$filter=id eq ${x.Id}`;
-      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/inc_Historico`;
+      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Historico?$filter=id eq ${x.Id}`;
+      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Historico`;
       
       //console.log(x)
       //console.log(urlGet);
@@ -560,8 +560,8 @@ export class IncidenciaService {
     //console.log('Lenght: ' + incidencias.recordset.length);
     for (let i = 0; i < incidencias.recordset.length; i++) {
       let x = incidencias.recordset[i];
-      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/inc_Link_Otros?$filter=id eq ${x.Id}`;
-      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/inc_Link_Otros`;
+      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Link_Otros?$filter=id eq ${x.Id}`;
+      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Link_Otros`;
       
       //console.log(x)
       //console.log(urlGet);

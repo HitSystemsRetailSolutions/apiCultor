@@ -28,7 +28,7 @@ export class salesTicketsService {
     // Get Customer from API
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -56,7 +56,7 @@ export class salesTicketsService {
     // Get Item from API
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${codiHIT}'`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${codiHIT}'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -85,7 +85,7 @@ export class salesTicketsService {
     let token = await this.token.getToken();
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/dimensions?$filter=code eq '${code}'`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/dimensions?$filter=code eq '${code}'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -116,7 +116,7 @@ export class salesTicketsService {
 
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/dimensions(${dimId})/dimensionValues?$filter=valueCode eq '${valueCode}'`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/dimensions(${dimId})/dimensionValues?$filter=valueCode eq '${valueCode}'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -147,7 +147,7 @@ export class salesTicketsService {
 
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -169,7 +169,7 @@ export class salesTicketsService {
     let token = await this.token.getToken();
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${idSale})/salesInvoiceLines?$filter=lineObjectNumber eq '${lineObjectNumber}'`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices(${idSale})/salesInvoiceLines?$filter=lineObjectNumber eq '${lineObjectNumber}'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -328,7 +328,7 @@ export class salesTicketsService {
       console.log(x.Num_tick);
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -345,7 +345,7 @@ export class salesTicketsService {
         //SI NO EXISTE EL TICKET EN BC LO CREAMOS
         let newTickets = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices`,
             {
               externalDocumentNumber: x.Num_tick,
               invoiceDate: x.Data,
@@ -430,7 +430,7 @@ export class salesTicketsService {
       );
       const itemId = await this.getItemFromAPI(x.Plu, companyID);
       let res = await axios.get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -444,7 +444,7 @@ export class salesTicketsService {
       if (res.data.value.length === 0) {
         let newTickets = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines`,
             {
               documentId: ticketId,
               itemId: itemId,
@@ -513,7 +513,7 @@ export class salesTicketsService {
         }
         let setDim = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines(${sLineId})/dimensionSetLines`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines(${sLineId})/dimensionSetLines`,
             {
               id: idDim,
               parentId: sLineId,
@@ -543,7 +543,7 @@ export class salesTicketsService {
 
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=totalAmountIncludingTax eq 0`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=totalAmountIncludingTax eq 0`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -567,7 +567,7 @@ export class salesTicketsService {
           let z = res.data.value[i]['@odata.etag'];
           let delSale = await axios
             .delete(
-              `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${res.data.value[i].id})`,
+              `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices(${res.data.value[i].id})`,
               {
                 headers: {
                   Authorization: 'Bearer ' + token,

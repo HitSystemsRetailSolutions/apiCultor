@@ -54,7 +54,7 @@ export class itemCategoriesService {
 
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/itemCategories?$filter=code eq '${x.Code}'`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/itemCategories?$filter=code eq '${x.Code}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -70,7 +70,7 @@ export class itemCategoriesService {
       if (res.data.value.length === 0) {
         let newCategories = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/itemCategories`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/itemCategories`,
             {
               code: x.Code,
               displayName: x.Nom,
@@ -95,7 +95,7 @@ export class itemCategoriesService {
 
         let newCategories = await axios
           .patch(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/itemCategories(${res.data.value[0].id})`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/itemCategories(${res.data.value[0].id})`,
             {
               code: x.Code,
               displayName: x.Nom,

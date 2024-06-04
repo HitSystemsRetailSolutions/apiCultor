@@ -53,7 +53,7 @@ export class employeesService {
       let x = employees.recordset[i];
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/employees?$filter=number eq '${x.Codi}'`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/employees?$filter=number eq '${x.Codi}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -70,7 +70,7 @@ export class employeesService {
       if (res.data.value.length === 0) {
         let newEmployees = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/employees`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/employees`,
             {
               number: x.Codi,
               givenName: x.Nom,
@@ -95,7 +95,7 @@ export class employeesService {
         let z = res.data.value[0]['@odata.etag'];
         let newEmployees = await axios
           .patch(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/employees(${res.data.value[0].id})`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/employees(${res.data.value[0].id})`,
             {
               givenName: x.Nom,
               middleName: '',

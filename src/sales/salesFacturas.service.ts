@@ -34,7 +34,7 @@ export class salesFacturasService {
 
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -95,7 +95,7 @@ export class salesFacturasService {
 
     let idSaleHit = x.IdFactura;
 
-    let url = `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${num}'`;
+    let url = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${num}'`;
     //console.log(url)
     let res = await axios
       .get(url, {
@@ -113,7 +113,7 @@ export class salesFacturasService {
     if (res.data.value.length === 0) {
       let newFacturas = await axios
         .post(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices`,
           {
             externalDocumentNumber: num.toString(),
             invoiceDate: datePart,
@@ -207,7 +207,7 @@ export class salesFacturasService {
       console.log('PRODUCTO ' + x.Plu);
       let itemId = await this.items.getItemFromAPI(companyID, database, x.Plu);
 
-      let url2 = `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`;
+      let url2 = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`;
 
       //BUSCAMOS LA LINEA DE FACTURA
       let res = await axios
@@ -226,7 +226,7 @@ export class salesFacturasService {
         itemId = x.Plu;
       }
       //NO ESTÁ, LA AÑADIMOS
-      let url = `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines`;
+      let url = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines`;
 
       if (res.data.value.length === 0) {
         let newFacturas = await axios
@@ -259,7 +259,7 @@ export class salesFacturasService {
 
         let newItems = await axios
           .patch(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines(${res.data.value[0].id})`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines(${res.data.value[0].id})`,
             {
               documentId: BC_facturaId,
               itemId: itemId,
@@ -286,10 +286,10 @@ export class salesFacturasService {
   async getPDFSale(companyID, nFactura) {
     let token = await this.token.getToken();
     let sqlQ;
-    //https://api.businesscentral.dynamics.com/v2.0/ace8eb1f-b96c-4ab5-91ae-4a66ffd58c96/production/api/v2.0/companies(c1fbfea4-f0aa-ee11-a568-000d3a660c9b)/salesInvoices(6e5217bc-cdb9-ee11-9078-000d3ab957cd)/pdfDocument/pdfDocumentContent
+    //https://api.businesscentral.dynamics.com/v2.0/ace8eb1f-b96c-4ab5-91ae-4a66ffd58c96/${process.env.entorno}/api/v2.0/companies(c1fbfea4-f0aa-ee11-a568-000d3a660c9b)/salesInvoices(6e5217bc-cdb9-ee11-9078-000d3ab957cd)/pdfDocument/pdfDocumentContent
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=number eq '102023'`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=number eq '102023'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -306,7 +306,7 @@ export class salesFacturasService {
     console.log('----------------' + ticketId + '-----------');
     let res2 = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/pdfDocument`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/pdfDocument`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -327,7 +327,7 @@ export class salesFacturasService {
     // Ejemplo de uso:
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${idFactura})/salesInvoiceLines?$select=lineType,lineObjectNumber,description,unitOfMeasureCode,quantity,unitPrice,taxCode,amountIncludingTax`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/salesInvoices(${idFactura})/salesInvoiceLines?$select=lineType,lineObjectNumber,description,unitOfMeasureCode,quantity,unitPrice,taxCode,amountIncludingTax`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
