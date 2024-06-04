@@ -61,7 +61,7 @@ export class itemsService {
 
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${x.Codi}'`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${x.Codi}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -77,7 +77,7 @@ export class itemsService {
       if (res.data.value.length === 0) {
         let newItems = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/items`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/items`,
             {
               number: 'CODI-' + x.Codi,
               displayName: x.Nom,
@@ -104,7 +104,7 @@ export class itemsService {
 
         let newItems = await axios
           .patch(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/items(${res.data.value[0].id})`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/items(${res.data.value[0].id})`,
             {
               number: 'CODI-' + x.Codi,
               displayName: x.Nom,
@@ -154,7 +154,7 @@ export class itemsService {
       baseUnitOfMeasure = 'UDS'; //Por unidades
     }
 
-    let url = `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${codiHIT}'`;
+    let url = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${codiHIT}'`;
 
     // Get Item from API
     let res = await axios
@@ -173,7 +173,7 @@ export class itemsService {
     if (res.data.value.length === 0) {
       let newItems = await axios
         .post(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/items`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/items`,
           {
             number: 'CODI-' + codiHIT,
             displayName: items.recordset[0].Nom,

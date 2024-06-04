@@ -28,7 +28,7 @@ export class customersService {
 
     // Get PaymentTerms from API
     let res = await axios.get(
-      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/paymentTerms?$filter=dueDateCalculation eq '` +
+      `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/paymentTerms?$filter=dueDateCalculation eq '` +
         pTermCode +
         `'`,
       {
@@ -50,7 +50,7 @@ export class customersService {
 
     // Get Tax from API
     let res = await axios.get(
-      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/taxAreas?$filter=code eq '` +
+      `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/taxAreas?$filter=code eq '` +
         taxCode +
         `'`,
       {
@@ -105,7 +105,7 @@ export class customersService {
       );
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers?$filter=number eq '${x.Codi}'`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq '${x.Codi}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -123,7 +123,7 @@ export class customersService {
         //NO ESTÁ EL CLIENTE EN BC, LO TENEMOS QUE TRASPASAR
         let newCustomers = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/customers`,
             {
               number: x.Codi,
               displayName: x.Nom,
@@ -157,7 +157,7 @@ export class customersService {
 
         let newCustomers = await axios
           .patch(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`,
+            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`,
             {
               displayName: x.Nom,
               type: 'Company',
@@ -195,7 +195,7 @@ export class customersService {
     // Get Customer from API
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`,
+        `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -244,7 +244,7 @@ export class customersService {
       let x = customers.recordset[0];
       let newCustomers = await axios
         .post(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers`,
+          `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/customers`,
           {
             number: x.Codi,
             displayName: x.Nom,
