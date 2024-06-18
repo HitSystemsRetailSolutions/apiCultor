@@ -11,8 +11,12 @@ export class itemsController {
   async items(
     @Query('companyID') companyID: string,
     @Query('database') database: string,
+    @Query('client_id') client_id: string,
+    @Query('client_secret') client_secret: string,
+    @Query('tenant') tenant: string,
+    @Query('entorno') entorno: string,
   ) {
-    let res = await this.itemsService.syncItems(companyID, database);
+    let res = await this.itemsService.syncItems(companyID, database, client_id, client_secret, tenant, entorno);
     if (res == true) return 'Se han sincronizado los artículos correctamente';
     else return 'Ha habido un error al sincronizar los artículos';
   }
