@@ -18,8 +18,8 @@ export class IncidenciaService {
     private sql: runSqlService,
   ) {}
 
-  async syncIncidencias(companyNAME: string, database: string) {
-    let token = await this.token.getToken();
+  async syncIncidencias(companyNAME: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
     //Miro si existe en records el 'BC_incidencias' y si no existe lo inserta con el TimeStamp mas antiguo de incidencias
     try {
       let records = await this.sql.runSql(
@@ -62,8 +62,8 @@ export class IncidenciaService {
     //console.log('Lenght: ' + incidencias.recordset.length);
     for (let i = 0; i < incidencias.recordset.length; i++) {
       let x = incidencias.recordset[i];
-      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/incidencias?$filter=id eq ${x.Id}`;
-      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/incidencias`;
+      let urlGet = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/incidencias?$filter=id eq ${x.Id}`;
+      let urlPost = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/incidencias`;
       //console.log(x)
       //console.log(urlGet);
       //Hace un get de BC para ver si existe ya el dato
@@ -143,8 +143,8 @@ export class IncidenciaService {
     return true;
   }
 
-  async syncInc_Adjuntos(companyNAME: string, database: string) {
-    let token = await this.token.getToken();
+  async syncInc_Adjuntos(companyNAME: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
     //Miro si existe en records el 'BC_inc_adjuntos' y si no existe lo inserta con el TimeStamp mas antiguo de Inc_Adjuntos
     try {
       let records = await this.sql.runSql(
@@ -187,8 +187,8 @@ export class IncidenciaService {
     //console.log('Lenght: ' + incidencias.recordset.length);
     for (let i = 0; i < incidencias.recordset.length; i++) {
       let x = incidencias.recordset[i];
-      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Adjuntos?$filter=id eq ${x.Id}`;
-      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Adjuntos`;
+      let urlGet = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/inc_Adjuntos?$filter=id eq ${x.Id}`;
+      let urlPost = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/inc_Adjuntos`;
       
       //console.log(x)
       //console.log(urlGet);
@@ -255,8 +255,8 @@ export class IncidenciaService {
     return true;
   }
 
-  async syncInc_Categorias(companyNAME: string, database: string) {
-    let token = await this.token.getToken();
+  async syncInc_Categorias(companyNAME: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
     let incidencias;
     console.log('Empezando a syncronizar inc_Categorias')
     //Selecciono todos los datos de Inc_Categorias
@@ -280,8 +280,8 @@ export class IncidenciaService {
     //console.log('Lenght: ' + incidencias.recordset.length);
     for (let i = 0; i < incidencias.recordset.length; i++) {
       let x = incidencias.recordset[i];
-      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Categorias?$filter=id eq ${x.id}`;
-      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Categorias`;
+      let urlGet = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/inc_Categorias?$filter=id eq ${x.id}`;
+      let urlPost = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/inc_Categorias`;
       //console.log(x)
       //console.log(urlGet);
       //Hace un get de BC para ver si existe ya el dato
@@ -336,8 +336,8 @@ export class IncidenciaService {
     return true;
   }
 
-  async syncInc_Clientes(companyNAME: string, database: string) {
-    let token = await this.token.getToken();
+  async syncInc_Clientes(companyNAME: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
     let incidencias;
     console.log('Empezando a syncronizar inc_Clientes')
     //Selecciono todos los datos de Inc_Clientes
@@ -362,8 +362,8 @@ export class IncidenciaService {
     for (let i = 0; i < incidencias.recordset.length; i++) {
       let x = incidencias.recordset[i];
       let id = this.formatearUUID(x.id);
-      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Clientes?$filter=id eq ${id}`;
-      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Clientes`;
+      let urlGet = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/inc_Clientes?$filter=id eq ${id}`;
+      let urlPost = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/inc_Clientes`;
       
       //console.log(x)
       //console.log(urlGet);
@@ -423,8 +423,8 @@ export class IncidenciaService {
     return true;
   }
 
-  async syncInc_Historico(companyNAME: string, database: string) {
-    let token = await this.token.getToken();
+  async syncInc_Historico(companyNAME: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
     //Miro si existe en records el 'BC_inc_historico' y si no existe lo inserta con el TimeStamp mas antiguo de Inc_Historico
     try {
       let records = await this.sql.runSql(
@@ -467,8 +467,8 @@ export class IncidenciaService {
     //console.log('Lenght: ' + incidencias.recordset.length);
     for (let i = 0; i < incidencias.recordset.length; i++) {
       let x = incidencias.recordset[i];
-      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Historico?$filter=id eq ${x.Id}`;
-      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Historico`;
+      let urlGet = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/inc_Historico?$filter=id eq ${x.Id}`;
+      let urlPost = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/inc_Historico`;
       
       //console.log(x)
       //console.log(urlGet);
@@ -535,8 +535,8 @@ export class IncidenciaService {
     return true;
   }
 
-  async syncInc_Link_Otros(companyNAME: string, database: string) {
-    let token = await this.token.getToken();
+  async syncInc_Link_Otros(companyNAME: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
     let incidencias;
     console.log('Empezando a syncronizar inc_Link_Otros')
     //Selecciono todos los datos de Inc_Link_Otros
@@ -560,8 +560,8 @@ export class IncidenciaService {
     //console.log('Lenght: ' + incidencias.recordset.length);
     for (let i = 0; i < incidencias.recordset.length; i++) {
       let x = incidencias.recordset[i];
-      let urlGet = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Link_Otros?$filter=id eq ${x.Id}`;
-      let urlPost = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/ODataV4/Company('${companyNAME}')/inc_Link_Otros`;
+      let urlGet = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/inc_Link_Otros?$filter=id eq ${x.Id}`;
+      let urlPost = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/inc_Link_Otros`;
       
       //console.log(x)
       //console.log(urlGet);

@@ -21,8 +21,8 @@ export class itemsService {
     private sql: runSqlService,
   ) {}
 
-  async syncItems(companyID: string, database: string) {
-    let token = await this.token.getToken();
+  async syncItems(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
     let itemId = '';
 
     let items;
@@ -61,7 +61,7 @@ export class itemsService {
 
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${x.Codi}'`,
+          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${x.Codi}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -77,7 +77,7 @@ export class itemsService {
       if (res.data.value.length === 0) {
         let newItems = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/items`,
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/items`,
             {
               number: 'CODI-' + x.Codi,
               displayName: x.Nom,
@@ -104,7 +104,7 @@ export class itemsService {
 
         let newItems = await axios
           .patch(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/items(${res.data.value[0].id})`,
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/items(${res.data.value[0].id})`,
             {
               number: 'CODI-' + x.Codi,
               displayName: x.Nom,
@@ -130,11 +130,11 @@ export class itemsService {
     return true;
   }
 
-  async getItemFromAPI(companyID, database, codiHIT) {
+  async getItemFromAPI(companyID, database, codiHIT, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let itemId = '';
 
     // Get the authentication token
-    let token = await this.token.getToken();
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
     let items;
     let sqlQ1 =
       'SELECT a.Codi, a.Nom, a.Preu/(1+(t.Iva/100)) PreuSinIva, a.Preu, left(a.Familia, 20) Familia, a.EsSumable, t.Iva FROM (select codi, nom, preu, familia, esSumable, tipoIva from Articles union all select codi, nom, preu, familia, esSumable, tipoIva from articles_Zombis) a left join tipusIva2012 t on a.Tipoiva=t.Tipus where a.codi=' +
@@ -154,7 +154,7 @@ export class itemsService {
       baseUnitOfMeasure = 'UDS'; //Por unidades
     }
 
-    let url = `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${codiHIT}'`;
+    let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${codiHIT}'`;
 
     // Get Item from API
     let res = await axios
@@ -173,7 +173,7 @@ export class itemsService {
     if (res.data.value.length === 0) {
       let newItems = await axios
         .post(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies(${companyID})/items`,
+          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/items`,
           {
             number: 'CODI-' + codiHIT,
             displayName: items.recordset[0].Nom,

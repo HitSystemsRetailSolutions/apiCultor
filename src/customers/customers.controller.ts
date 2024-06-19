@@ -11,8 +11,12 @@ export class customersController {
   async customers(
     @Query('companyID') companyID: string,
     @Query('database') database: string,
+    @Query('client_id') client_id: string,
+    @Query('client_secret') client_secret: string,
+    @Query('tenant') tenant: string,
+    @Query('entorno') entorno: string,
   ) {
-    let res = await this.customersService.syncCustomers(companyID, database);
+    let res = await this.customersService.syncCustomers(companyID, database, client_id, client_secret, tenant, entorno);
     if (res == true) return 'Se han sincronizado los clientes correctamente';
     else return 'Ha habido un error al sincronizar los clientes';
   }

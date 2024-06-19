@@ -11,8 +11,12 @@ export class employeesController {
   async employees(
     @Query('companyID') companyID: string,
     @Query('database') database: string,
+    @Query('client_id') client_id: string,
+    @Query('client_secret') client_secret: string,
+    @Query('tenant') tenant: string,
+    @Query('entorno') entorno: string,
   ) {
-    const res = await this.employeesService.syncEmployees(companyID, database);
+    const res = await this.employeesService.syncEmployees(companyID, database, client_id, client_secret, tenant, entorno);
     if (res == true) return 'Se han sincronizado los empleados correctamente';
     else return 'Ha habido un error al sincronizar los empleados';
   }
