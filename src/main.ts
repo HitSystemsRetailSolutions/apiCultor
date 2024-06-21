@@ -45,7 +45,7 @@ client.on('connect', function () {
       console.log('Suscripción exitosa al tema', tema);
     }
   });
-  
+
   client.subscribe(tema + '/Log', function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
@@ -90,12 +90,10 @@ client.on('message', async function (topic, message) {
       }
     } else {
       console.log('Test: desactivado');
-        test = false;
+      test = false;
     }
     if (msgJson.hasOwnProperty('companyID')) {
       console.log('El JSON recibido tiene el campo "companyID"');
-      if(msgJson.companyID == '2f38b331-55e9-ed11-884e-6045bd')
-        msgJson.companyID = '2f38b331-55e9-ed11-884e-6045bdc8c698';
       if (!isValidCompanyID(msgJson.companyID)) {
         mqttPublish('Error: "companyID" no valido');
       }
@@ -112,140 +110,96 @@ client.on('message', async function (topic, message) {
     } else {
       mqttPublish('El JSON recibido no tiene el campo "database"');
     }
-    
+    let client_id = process.env.client_id;
+
+    if (msgJson.hasOwnProperty('client_id'))
+      client_id = msgJson.client_id;
+
+    let client_secret = process.env.client_secret;
+    if (msgJson.hasOwnProperty('client_secret'))
+      client_secret = msgJson.client_secret;
+
+    let tenant = process.env.tenant;
+    if (msgJson.hasOwnProperty('tenant'))
+      tenant = msgJson.tenant;
+
+    let entorno = process.env.entorno;
+    if (msgJson.hasOwnProperty('entorno'))
+      entorno = msgJson.entorno;
+
     if (!test) {
       switch (msgJson.msg) {
         case 'SyncEmployes':
         case 'SyncDependentes':
         case 'employes':
-          if (
-            msgJson.hasOwnProperty('database') &&
-            msgJson.hasOwnProperty('companyID')
-          )
-            await employes(msgJson.companyID, msgJson.database);
-          else if (
-            msgJson.hasOwnProperty('dataBase') &&
-            msgJson.hasOwnProperty('companyID')
-          )
-            await employes(msgJson.companyID, msgJson.dataBase);
+          if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID'))
+            await employes(msgJson.companyID, msgJson.database, client_id, client_secret, tenant, entorno);
+          else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID'))
+            await employes(msgJson.companyID, msgJson.dataBase, client_id, client_secret, tenant, entorno);
           break;
         case 'SyncSignings':
         case 'signings':
-          if (
-            msgJson.hasOwnProperty('database') &&
-            msgJson.hasOwnProperty('companyNAME')
-          )
-            await signings(msgJson.companyNAME, msgJson.database);
-          else if (
-            msgJson.hasOwnProperty('dataBase') &&
-            msgJson.hasOwnProperty('companyNAME')
-          )
-            await signings(msgJson.companyNAME, msgJson.dataBase);
+          if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyNAME'))
+            await signings(msgJson.companyNAME, msgJson.database, client_id, client_secret, tenant, entorno);
+          else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyNAME'))
+            await signings(msgJson.companyNAME, msgJson.dataBase, client_id, client_secret, tenant, entorno);
           break;
         case 'SyncCustomers':
         case 'customers':
-          if (
-            msgJson.hasOwnProperty('database') &&
-            msgJson.hasOwnProperty('companyID')
-          )
-            await customers(msgJson.companyID, msgJson.database);
-          else if (
-            msgJson.hasOwnProperty('dataBase') &&
-            msgJson.hasOwnProperty('companyID')
-          )
-            await customers(msgJson.companyID, msgJson.dataBase);
+          if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID'))
+            await customers(msgJson.companyID, msgJson.database, client_id, client_secret, tenant, entorno);
+          else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID'))
+            await customers(msgJson.companyID, msgJson.dataBase, client_id, client_secret, tenant, entorno);
           break;
         case 'SyncItems':
         case 'items':
-          if (
-            msgJson.hasOwnProperty('database') &&
-            msgJson.hasOwnProperty('companyID')
-          )
-            await items(msgJson.companyID, msgJson.database);
-          else if (
-            msgJson.hasOwnProperty('dataBase') &&
-            msgJson.hasOwnProperty('companyID')
-          )
-            await items(msgJson.companyID, msgJson.dataBase);
+          if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID'))
+            await items(msgJson.companyID, msgJson.database, client_id, client_secret, tenant, entorno);
+          else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID'))
+            await items(msgJson.companyID, msgJson.dataBase, client_id, client_secret, tenant, entorno);
           break;
         case 'SyncItemscategories':
         case 'itemCategories':
-          if (
-            msgJson.hasOwnProperty('database') &&
-            msgJson.hasOwnProperty('companyID')
-          )
-            await itemCategories(msgJson.companyID, msgJson.database);
-          else if (
-            msgJson.hasOwnProperty('dataBase') &&
-            msgJson.hasOwnProperty('companyID')
-          )
-            await itemCategories(msgJson.companyID, msgJson.dataBase);
+          if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID'))
+            await itemCategories(msgJson.companyID, msgJson.database, client_id, client_secret, tenant, entorno);
+          else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID'))
+            await itemCategories(msgJson.companyID, msgJson.dataBase, client_id, client_secret, tenant, entorno);
           break;
         case 'SyncTickets':
         case 'tickets':
-          if (
-            msgJson.hasOwnProperty('database') &&
-            msgJson.hasOwnProperty('companyID')
-          )
-            await tickets(msgJson.companyID, msgJson.database, msgJson.botiga);
-          else if (
-            msgJson.hasOwnProperty('dataBase') &&
-            msgJson.hasOwnProperty('companyID')
-          )
-            await tickets(msgJson.companyID, msgJson.dataBase, msgJson.botiga);
+          if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID'))
+            await tickets(msgJson.companyID, msgJson.database, msgJson.botiga, client_id, client_secret, tenant, entorno);
+          else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID'))
+            await tickets(msgJson.companyID, msgJson.dataBase, msgJson.botiga, client_id, client_secret, tenant, entorno);
           break;
         case 'factura':
-          if (
-            msgJson.hasOwnProperty('database') &&
-            msgJson.hasOwnProperty('companyID')
-          )
-            await facturas(
-              msgJson.companyID,
-              msgJson.database,
-              msgJson.idFactura,
-              msgJson.tabla,
-            );
-          else if (
-            msgJson.hasOwnProperty('dataBase') &&
-            msgJson.hasOwnProperty('companyID')
-          )
-            await facturas(
-              msgJson.companyID,
-              msgJson.dataBase,
-              msgJson.idFactura,
-              msgJson.tabla,
-            );
+          if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyID'))
+            await facturas(msgJson.companyID, msgJson.database, msgJson.idFactura, msgJson.tabla, client_id, client_secret, tenant, entorno);
+          if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyID'))
+            await facturas(msgJson.companyID, msgJson.dataBase, msgJson.idFactura, msgJson.tabla, client_id, client_secret, tenant, entorno);
           break;
         case 'Companies' :
           await setCompanies( );
           break;
         case 'xml':
-          if (
-            msgJson.hasOwnProperty('companyID')
-          )
-            await xml(
-              msgJson.companyID,
-              msgJson.idFactura,
-            );
-          else if (
-            msgJson.hasOwnProperty('companyID')
-          )
-          await xml(
-            msgJson.companyID,
-            msgJson.idFactura,
-          );
+          if (msgJson.hasOwnProperty('companyID'))
+            await xml(msgJson.companyID, msgJson.idFactura, client_id, client_secret, tenant, entorno);
           break;
         case 'incidencias':
-          if (
-            msgJson.hasOwnProperty('database') &&
-            msgJson.hasOwnProperty('companyNAME')
-          )
-            await incidencias(msgJson.companyNAME, msgJson.database);
-          else if (
-            msgJson.hasOwnProperty('dataBase') &&
-            msgJson.hasOwnProperty('companyNAME')
-          )
-            await incidencias(msgJson.companyNAME, msgJson.dataBase);
+          if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('companyNAME'))
+            await incidencias(msgJson.companyNAME, msgJson.database, client_id, client_secret, tenant, entorno);
+          else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('companyNAME'))
+            await incidencias(msgJson.companyNAME, msgJson.dataBase, client_id, client_secret, tenant, entorno);
+          break;
+        case 'mail':
+          if (msgJson.hasOwnProperty('database') && msgJson.hasOwnProperty('mailTo') && msgJson.hasOwnProperty('idFactura'))
+            await mail(msgJson.database, msgJson.mailTo, msgJson.idFactura);
+          else if (msgJson.hasOwnProperty('dataBase') && msgJson.hasOwnProperty('mailTo') && msgJson.hasOwnProperty('idFactura'))
+            await mail(msgJson.dataBase, msgJson.mailTo, msgJson.idFactura);
+          break;
+        case 'empresa':
+          if (msgJson.hasOwnProperty('name') && msgJson.hasOwnProperty('displayName'))
+            await empresa(msgJson.name, msgJson.displayName, client_id, client_secret, tenant, entorno);
           break;
         case 'archivos':
           if (
@@ -260,40 +214,17 @@ client.on('message', async function (topic, message) {
             await archivo(msgJson.companyNAME, msgJson.dataBase);
           break;
 
-          case 'mail':
-            if (
-              msgJson.hasOwnProperty('database') &&
-              msgJson.hasOwnProperty('mailTo') &&
-              msgJson.hasOwnProperty('idFactura')
-            )
-              await mail(msgJson.database, msgJson.mailTo, msgJson.idFactura);
-            else if (
-              msgJson.hasOwnProperty('dataBase') &&
-              msgJson.hasOwnProperty('mailTo') &&
-              msgJson.hasOwnProperty('idFactura')
-            )
-              await mail(msgJson.dataBase, msgJson.mailTo, msgJson.idFactura);
-            
-            break;
         case 'bucle':
           if (
             msgJson.hasOwnProperty('database') &&
             msgJson.hasOwnProperty('companyID')
           )
-            await bucle(
-              msgJson.companyID,
-              msgJson.companyNAME,
-              msgJson.dataBase,
-            );
+            await bucle(msgJson.companyID, msgJson.companyNAME, msgJson.database, client_id, client_secret, tenant, entorno);
           else if (
             msgJson.hasOwnProperty('dataBase') &&
             msgJson.hasOwnProperty('companyID')
           )
-            await bucle(
-              msgJson.companyID,
-              msgJson.companyNAME,
-              msgJson.dataBase,
-            );
+            await bucle(msgJson.companyID, msgJson.companyNAME, msgJson.dataBase, client_id, client_secret, tenant, entorno);
           break;
         default:
           mqttPublish(
@@ -323,12 +254,16 @@ function isValidCompanyID(companyID) {
   return regex.test(companyID);
 }
 
-async function employes(companyID, database) {
+async function employes(companyID, database, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/syncEmployees', {
       params: {
         companyID: companyID,
         database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
       },
       timeout: 30000,
     });
@@ -338,12 +273,16 @@ async function employes(companyID, database) {
   }
 }
 
-async function signings(companyNAME, database) {
+async function signings(companyNAME, database, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/syncSignings', {
       params: {
         companyNAME: companyNAME,
         database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
       },
       timeout: 30000,
     });
@@ -353,13 +292,17 @@ async function signings(companyNAME, database) {
   }
 }
 
-async function incidencias(companyNAME, database) {
+async function incidencias(companyNAME, database, client_id, client_secret, tenant, entorno) {
   let res;
   try {
     res = await axios.get('http://localhost:3333/syncIncidencias', {
       params: {
         companyNAME: companyNAME,
         database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
       },
       timeout: getTimeout(),
     });
@@ -368,6 +311,7 @@ async function incidencias(companyNAME, database) {
     console.error('Error al sincronizar incidencias:', error);
   }
 }
+
 
 async function archivo(companyNAME, database) {
   let res;
@@ -385,12 +329,18 @@ async function archivo(companyNAME, database) {
   }
 }
 
-async function customers(companyID, database) {
+
+async function customers(companyID, database, client_id, client_secret, tenant, entorno) {
+
   try {
     await axios.get('http://localhost:3333/syncCustomers', {
       params: {
         companyID: companyID,
         database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
       },
       timeout: 30000,
     });
@@ -400,12 +350,16 @@ async function customers(companyID, database) {
   }
 }
 
-async function items(companyID, database) {
+async function items(companyID, database, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/syncItems', {
       params: {
         companyID: companyID,
         database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
       },
       timeout: 30000,
     });
@@ -415,12 +369,16 @@ async function items(companyID, database) {
   }
 }
 
-async function itemCategories(companyID, database) {
+async function itemCategories(companyID, database, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/syncItemCategories', {
       params: {
         companyID: companyID,
         database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
       },
       timeout: 30000,
     });
@@ -430,13 +388,17 @@ async function itemCategories(companyID, database) {
   }
 }
 
-async function tickets(companyID, database, botiga) {
+async function tickets(companyID, database, botiga, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/syncSalesTickets', {
       params: {
         companyID: companyID,
         database: database,
         botiga: botiga,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
       },
       timeout: 30000,
     });
@@ -446,7 +408,7 @@ async function tickets(companyID, database, botiga) {
   }
 }
 
-async function facturas(companyID, database, idFactura, tabla) {
+async function facturas(companyID, database, idFactura, tabla, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/syncSalesFacturas', {
       params: {
@@ -454,6 +416,10 @@ async function facturas(companyID, database, idFactura, tabla) {
         database: database,
         idFactura: idFactura,
         tabla: tabla,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
       },
       timeout: 30000,
     });
@@ -476,12 +442,16 @@ async function setCompanies() {
     console.error('Error al sincronizar companies:', error);
   }
 }
-async function xml(companyID, idFactura) {
+async function xml(companyID, idFactura, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/generateXML', {
       params: {
         companyID: companyID,
         idFactura: idFactura,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
       },
       timeout: 30000,
     });
@@ -508,17 +478,36 @@ async function mail(database, mailTo, idFactura) {
   }
 }
 
-async function bucle(companyID, companyNAME, database) {
+async function empresa(name, displayName, client_id, client_secret, tenant, entorno) {
+  let res;
+  try {
+    console.log(`Intentado crear la empresa ${name}`);
+    res = await axios.get('http://localhost:3333/crearEmpresa', {
+      params: {
+        name: name,
+        displayName: displayName,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+    });
+  } catch (error) {
+    console.error('Error al crear la empresa:', error);
+  }
+}
+
+async function bucle(companyID, companyNAME, database, client_id, client_secret, tenant, entorno) {
   await setInterval(() => {
-    employes(companyID, database);
+    employes(companyID, database, client_id, client_secret, tenant, entorno);
   }, employeesTime);
 
   await setInterval(() => {
-    signings(companyNAME, database);
+    signings(companyNAME, database, client_id, client_secret, tenant, entorno);
   }, signingsTime);
 
   await setInterval(() => {
-    customers(companyID, database);
+    customers(companyID, database, client_id, client_secret, tenant, entorno);
   }, customersTime);
 }
 
@@ -537,7 +526,7 @@ function obtenerCantidadDeValores(): number {
 function getTimeout(): number {
   const cantidadDeValores = obtenerCantidadDeValores(); // Llama a la función para obtener la cantidad de valores
   const timeout = cantidadDeValores * 1000; // Calcula el timeout en función de la cantidad de valores (1 segundo por cada valor)
-  if(timeout<30000)
+  if (timeout < 30000)
     return 30000;
   return timeout;
 }

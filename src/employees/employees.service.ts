@@ -23,12 +23,11 @@ export class employeesService {
     private sql: runSqlService,
   ) {}
 
-  async syncEmployees(companyID: string, database: string) {
+  async syncEmployees(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     //En todo el documento process.env.database y process.env.companyID han sido sustituidos por database y companyID respectivamente
     console.log('CompanyID: ', companyID);
     console.log('Database: ', database);
-    let token = await this.token.getToken();
-
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
     let employees;
     try {
       employees = await this.sql.runSql(
@@ -53,7 +52,7 @@ export class employeesService {
       let x = employees.recordset[i];
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/employees?$filter=number eq '${x.Codi}'`,
+          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/employees?$filter=number eq '${x.Codi}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -70,7 +69,7 @@ export class employeesService {
       if (res.data.value.length === 0) {
         let newEmployees = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/employees`,
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/employees`,
             {
               number: x.Codi,
               givenName: x.Nom,
@@ -95,7 +94,7 @@ export class employeesService {
         let z = res.data.value[0]['@odata.etag'];
         let newEmployees = await axios
           .patch(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/employees(${res.data.value[0].id})`,
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/employees(${res.data.value[0].id})`,
             {
               givenName: x.Nom,
               middleName: '',

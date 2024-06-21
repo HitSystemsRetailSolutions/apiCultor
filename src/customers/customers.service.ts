@@ -23,12 +23,12 @@ export class customersService {
   ) {}
 
   //Obtener Id del modo de pago
-  async getPaymentTermId(pTermCode, companyID) {
-    let token = await this.token.getToken();
+  async getPaymentTermId(pTermCode, companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
 
     // Get PaymentTerms from API
     let res = await axios.get(
-      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/paymentTerms?$filter=dueDateCalculation eq '` +
+      `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/paymentTerms?$filter=dueDateCalculation eq '` +
         pTermCode +
         `'`,
       {
@@ -45,12 +45,12 @@ export class customersService {
   }
 
   //Obtener Id de TaxArea
-  async getTaxAreaId(taxCode, companyID) {
-    let token = await this.token.getToken();
+  async getTaxAreaId(taxCode, companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
 
     // Get Tax from API
     let res = await axios.get(
-      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/taxAreas?$filter=code eq '` +
+      `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxAreas?$filter=code eq '` +
         taxCode +
         `'`,
       {
@@ -66,15 +66,15 @@ export class customersService {
     return taxId;
   }
 
-  async syncCustomers(companyID: string, database: string) {
-    let token = await this.token.getToken();
+  async syncCustomers(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
     let customerId = '';
 
     //console.log("--------------TOKEN------------ " + token);
     //this.getCompaniesId();
 
-    let payTermId = await this.getPaymentTermId('0D', companyID);
-    let taxId = await this.getTaxAreaId('UE', companyID);
+    let payTermId = await this.getPaymentTermId('0D', companyID, client_id, client_secret, tenant, entorno);
+    let taxId = await this.getTaxAreaId('UE', companyID, client_id, client_secret, tenant, entorno);
 
     //console.log("-------------PAY TERM ID-----------------" + payTermId);
     let customers;
@@ -105,7 +105,7 @@ export class customersService {
       );
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers?$filter=number eq '${x.Codi}'`,
+          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq '${x.Codi}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -123,7 +123,7 @@ export class customersService {
         //NO ESTÁ EL CLIENTE EN BC, LO TENEMOS QUE TRASPASAR
         let newCustomers = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers`,
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers`,
             {
               number: x.Codi,
               displayName: x.Nom,
@@ -157,7 +157,7 @@ export class customersService {
 
         let newCustomers = await axios
           .patch(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`,
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`,
             {
               displayName: x.Nom,
               type: 'Company',
@@ -186,16 +186,16 @@ export class customersService {
     return true;
   }
 
-  async getCustomerFromAPI(companyID, database, codiHIT) {
+  async getCustomerFromAPI(companyID, database, codiHIT, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let customerId = '';
 
     // Get the authentication token
-    let token = await this.token.getToken();
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
 
     // Get Customer from API
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`,
+        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -214,7 +214,7 @@ export class customersService {
 
       console.log('CLIENTE NUEVO ---------------------');
       let customers;
-      let taxId = await this.getTaxAreaId('UE', companyID);
+      let taxId = await this.getTaxAreaId('UE', companyID, client_id, client_secret, tenant, entorno);
 
       try {
         customers = await this.sql.runSql(
@@ -244,7 +244,7 @@ export class customersService {
       let x = customers.recordset[0];
       let newCustomers = await axios
         .post(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/customers`,
+          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers`,
           {
             number: x.Codi,
             displayName: x.Nom,

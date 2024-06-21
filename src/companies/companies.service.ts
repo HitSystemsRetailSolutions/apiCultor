@@ -16,7 +16,7 @@ export class companiesService {
     console.log("----------------getCompaniesId--------------");
     let token = await this.token.getToken();
     let res = await axios.get(
-      `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies`,
+      `${process.env.baseURL}/v2.0/${process.env.tenant}/${process.env.entorno}/api/v2.0/companies`,
       {
         headers: {
           Authorization: 'Bearer ' + token,

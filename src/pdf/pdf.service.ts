@@ -9,7 +9,7 @@ export class PdfService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) {}
+  ) { }
 
   async enviarCorreoConPdf(pdfData, mailTo) {
     try {
@@ -37,11 +37,11 @@ export class PdfService {
           }
         ]
       };
-  
+
       // Envío del correo electrónico
       const info = await transporter.sendMail(mailOptions);
       console.log('Correo enviado:', info);
-  
+
       return { success: true };
     } catch (error) {
       console.error('Error al enviar el correo electrónico:', error);
@@ -60,7 +60,7 @@ export class PdfService {
           pass: process.env.SLS_SMTPPASSWORD
         }
       });
-  
+
       const mailOptions = {
         from: process.env.SLS_DEFAULTDE,
         to: mailTo,
@@ -74,10 +74,10 @@ export class PdfService {
           }
         ]
       };
-  
+
       const info = await transporter.sendMail(mailOptions);
       console.log('Correo enviado:', info);
-  
+
       return { success: true };
     } catch (error) {
       console.error('Error al enviar el correo electrónico:', error);
@@ -113,10 +113,10 @@ export class PdfService {
       SELECT BC_PDF FROM BC_SyncSales_2024 WHERE BC_IdSale = '${id}' ORDER BY HIT_DataFactura;
     `;
     let pdf;
-    try{
-      pdf =  await this.sql.runSql(sql,database,);
-    } catch{
-        console.log("Error")
+    try {
+      pdf = await this.sql.runSql(sql, database,);
+    } catch {
+      console.log("Error")
     }
     return pdf.recordset.map(row => Buffer.from(row.BC_PDF, 'hex'));
   }
@@ -169,10 +169,10 @@ export class PdfService {
           UPDATE BC_SyncSales_2024 SET BC_PDF=0x${chunks[i]} WHERE BC_IdSale='${id}'
         `;
         let pdf;
-        try{
-          pdf =  await this.sql.runSql(sql,database,);
-        } catch{
-            console.log("Error")
+        try {
+          pdf = await this.sql.runSql(sql, database,);
+        } catch {
+          console.log("Error")
         }
       }
 

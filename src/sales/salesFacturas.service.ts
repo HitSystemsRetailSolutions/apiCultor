@@ -26,15 +26,15 @@ export class salesFacturasService {
     private sql: runSqlService,
     private customers: customersService,
     private items: itemsService,
-  ) {}
+  ) { }
 
-  async getSaleFromAPI(companyID, docNumber) {
+  async getSaleFromAPI(companyID, docNumber, client_id: string, client_secret: string, tenant: string, entorno: string) {
     // Get the authentication token
     let token = await this.token.getToken();
 
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`,
+        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -51,12 +51,7 @@ export class salesFacturasService {
     return res;
   }
 
-  async syncSalesFacturas(
-    companyID: string,
-    database: string,
-    idFactura: string,
-    tabla: string,
-  ) {
+  async syncSalesFacturas(companyID: string, database: string, idFactura: string, tabla: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken();
     let sqlQ;
 
@@ -83,19 +78,15 @@ export class salesFacturasService {
 
     console.log(
       '-------------------SINCRONIZANDO FACTURA NÚMERO ' +
-        num +
-        ' -----------------------',
+      num +
+      ' -----------------------',
     );
-    let customerId = await this.customers.getCustomerFromAPI(
-      companyID,
-      database,
-      x.ClientCodi,
-    );
+    let customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientCodi, client_id, client_secret, tenant, entorno);
     //console.log("CLIENTE BC: " + customerId);
 
     let idSaleHit = x.IdFactura;
 
-    let url = `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${num}'`;
+    let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${num}'`;
     //console.log(url)
     let res = await axios
       .get(url, {
@@ -113,7 +104,7 @@ export class salesFacturasService {
     if (res.data.value.length === 0) {
       let newFacturas = await axios
         .post(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices`,
+          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices`,
           {
             externalDocumentNumber: num.toString(),
             invoiceDate: datePart,
@@ -143,9 +134,13 @@ export class salesFacturasService {
           tabFacturacioDATA,
           x.IdFactura,
           facturaId_BC,
+          client_id,
+          client_secret,
+          tenant,
+          entorno
         ).catch(console.error);
 
-        let resSale = await this.getSaleFromAPI(companyID, num);
+        let resSale = await this.getSaleFromAPI(companyID, num, client_id, client_secret, tenant, entorno);
         if (!resSale.data) throw new Error('Failed to obtain ticket BS');
         try {
           if (resSale.data.value.length != 0) {
@@ -184,18 +179,16 @@ export class salesFacturasService {
         tabFacturacioDATA,
         x.IdFactura,
         facturaId_BC,
+        client_id,
+        client_secret,
+        tenant,
+        entorno
       ).catch(console.error);
     }
     return true;
   }
 
-  async synchronizeSalesFacturasLines(
-    companyID,
-    database,
-    tabFacturacioDATA,
-    Hit_IdFactura,
-    BC_facturaId,
-  ) {
+  async synchronizeSalesFacturasLines(companyID, database, tabFacturacioDATA, Hit_IdFactura, BC_facturaId, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken();
 
     let sqlQ;
@@ -209,9 +202,9 @@ export class salesFacturasService {
     for (let i = 0; i < facturasLines.recordset.length; i++) {
       let x = facturasLines.recordset[i];
       console.log('PRODUCTO ' + x.Plu);
-      let itemId = await this.items.getItemFromAPI(companyID, database, x.Plu);
+      let itemId = await this.items.getItemFromAPI(companyID, database, x.Plu, client_id, client_secret, tenant, entorno);
 
-      let url2 = `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`;
+      let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`;
 
       //BUSCAMOS LA LINEA DE FACTURA
       let res = await axios
@@ -230,7 +223,7 @@ export class salesFacturasService {
         itemId = x.Plu;
       }
       //NO ESTÁ, LA AÑADIMOS
-      let url = `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines`;
+      let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines`;
 
       if (res.data.value.length === 0) {
         let newFacturas = await axios
@@ -263,7 +256,7 @@ export class salesFacturasService {
 
         let newItems = await axios
           .patch(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines(${res.data.value[0].id})`,
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines(${res.data.value[0].id})`,
             {
               documentId: BC_facturaId,
               itemId: itemId,
@@ -287,13 +280,13 @@ export class salesFacturasService {
     return true;
   }
 
-  async getPDFSale(companyID, nFactura) {
+  async getPDFSale(companyID, nFactura, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken();
     let sqlQ;
-    //https://api.businesscentral.dynamics.com/v2.0/ace8eb1f-b96c-4ab5-91ae-4a66ffd58c96/production/api/v2.0/companies(c1fbfea4-f0aa-ee11-a568-000d3a660c9b)/salesInvoices(6e5217bc-cdb9-ee11-9078-000d3ab957cd)/pdfDocument/pdfDocumentContent
+    //https://api.businesscentral.dynamics.com/v2.0/ace8eb1f-b96c-4ab5-91ae-4a66ffd58c96/${entorno}/api/v2.0/companies(c1fbfea4-f0aa-ee11-a568-000d3a660c9b)/salesInvoices(6e5217bc-cdb9-ee11-9078-000d3ab957cd)/pdfDocument/pdfDocumentContent
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices?$filter=number eq '102023'`,
+        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=number eq '102023'`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -310,7 +303,7 @@ export class salesFacturasService {
     console.log('----------------' + ticketId + '-----------');
     let res2 = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/pdfDocument`,
+        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/pdfDocument`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -324,14 +317,14 @@ export class salesFacturasService {
     return true;
   }
 
-  async generateXML(companyID, idFactura) {
+  async generateXML(companyID, idFactura, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken();
     console.log(companyID)
     console.log(idFactura)
     // Ejemplo de uso:
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${process.env.tenant}/production/api/v2.0/companies(${companyID})/salesInvoices(${idFactura})/salesInvoiceLines?$select=lineType,lineObjectNumber,description,unitOfMeasureCode,quantity,unitPrice,taxCode,amountIncludingTax`,
+        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${idFactura})/salesInvoiceLines?$select=lineType,lineObjectNumber,description,unitOfMeasureCode,quantity,unitPrice,taxCode,amountIncludingTax`,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -345,19 +338,19 @@ export class salesFacturasService {
     const lines: Line[] = res.data.value;
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<salesInvoices>\n  <value>\n    <invoice>\n';
     lines.forEach((line) => {
-        xml += `      <line>\n`;
-        xml += `        <lineType>${line.lineType}</lineType>\n`;
-        xml += `        <lineObjectNumber>${line.lineObjectNumber}</lineObjectNumber>\n`;
-        xml += `        <description>${line.description}</description>\n`;
-        xml += `        <unitOfMeasureCode>${line.unitOfMeasureCode}</unitOfMeasureCode>\n`;
-        xml += `        <quantity>${line.quantity}</quantity>\n`;
-        xml += `        <unitPrice>${line.unitPrice}</unitPrice>\n`;
-        xml += `        <taxCode>${line.taxCode}</taxCode>\n`;
-        xml += `        <amountIncludingTax>${line.amountIncludingTax}</amountIncludingTax>\n`;
-        xml += `      </line>\n`;
+      xml += `      <line>\n`;
+      xml += `        <lineType>${line.lineType}</lineType>\n`;
+      xml += `        <lineObjectNumber>${line.lineObjectNumber}</lineObjectNumber>\n`;
+      xml += `        <description>${line.description}</description>\n`;
+      xml += `        <unitOfMeasureCode>${line.unitOfMeasureCode}</unitOfMeasureCode>\n`;
+      xml += `        <quantity>${line.quantity}</quantity>\n`;
+      xml += `        <unitPrice>${line.unitPrice}</unitPrice>\n`;
+      xml += `        <taxCode>${line.taxCode}</taxCode>\n`;
+      xml += `        <amountIncludingTax>${line.amountIncludingTax}</amountIncludingTax>\n`;
+      xml += `      </line>\n`;
     });
     xml += '    </invoice>\n  </value>\n</salesInvoices>';
     return { success: true, xmlData: xml };
   }
-  
+
 }
