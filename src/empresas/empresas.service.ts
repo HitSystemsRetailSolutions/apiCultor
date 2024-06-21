@@ -52,7 +52,7 @@ export class empresasService {
         }
       );
 
-      //console.log('Empresa creada exitosamente:', response.data);
+      console.log('Empresa creada exitosamente:', response.data);
       id = response.data.id;
     } catch (error) {
       if (error.response) {
@@ -86,7 +86,7 @@ export class empresasService {
           },
         }
       );
-      //console.log('Archivo de configuracion creado:', response.data);
+      console.log('Archivo de configuracion creado:', response.data);
       packageId = response.data.id;
     } catch (error) {
       throw new Error(`Ha habido un error al crear el archivo de configuracion`);
@@ -108,7 +108,7 @@ export class empresasService {
             'If-Match': '*',
           }
         });
-        //console.log('Archivo de configuracion subido ', response.data);
+        console.log('Archivo de configuracion subido ', response.data);
       } catch (error) {
         if (error.response) {
           console.error(`Error al subir el archivo: ${error.response.status} - ${error.response.statusText}`);
@@ -138,7 +138,7 @@ export class empresasService {
         }
       );
       packageProgress = response.data.importStatus;
-      //console.log("Progress: ", packageProgress);
+      console.log("Progress: ", packageProgress);
     } catch (error) {
       console.error(`Ha habido un error al ver el estado de la importacion: ${error.message}`);
       throw new Error(`Ha habido un error al ver el estado de la importacion`);
@@ -157,7 +157,7 @@ export class empresasService {
           }
         );
 
-        //console.log('Archivo de configuracion importado exitosamente ' + response.data);
+        console.log('Archivo de configuracion importado exitosamente ' + response.data);
       } catch (error) {
         console.error(`Ha habido un error al importar el archivo de configuracion: ${error.message}`);
         throw new Error(`Ha habido un error al importar el archivo de configuracion`);
@@ -182,7 +182,7 @@ export class empresasService {
           }
         );
         packageProgress = response.data.importStatus;
-        //console.log("Progress: ", packageProgress);
+        console.log("Progress: ", packageProgress);
       } catch (error) {
         console.error(`Ha habido un error al ver el estado de la importacion: ${error.message}`);
         throw new Error(`Ha habido un error al ver el estado de la importacion`);
