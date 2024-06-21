@@ -107,7 +107,7 @@ client.on('message', async function (topic, message) {
       msgJson.hasOwnProperty('database') ||
       msgJson.hasOwnProperty('dataBase')
     ) {
-      console.log('El JSON recibido tiene el campo "database"');
+      //console.log('El JSON recibido tiene el campo "database"');
     } else {
       mqttPublish('El JSON recibido no tiene el campo "database"');
     }
@@ -482,7 +482,7 @@ async function bucle(companyID, companyNAME, database, client_id, client_secret,
 
 function mqttPublish(msg) {
   if (debug) client.publish('/Hit/Serveis/Apicultor/Log', msg);
-  console.log(msg);
+  //console.log(msg);
 }
 
 function obtenerCantidadDeValores(): number {

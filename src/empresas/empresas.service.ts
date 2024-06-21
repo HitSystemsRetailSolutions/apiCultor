@@ -126,7 +126,7 @@ export class empresasService {
 
     //Import configuration
     const url5 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})`;
-    //console.log(url5)
+    console.log("url get company: "+ url5);
     try {
       const response = await axios.get(
         url5,
@@ -192,7 +192,6 @@ export class empresasService {
 
     //Apply configuration
     const url4 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})/Microsoft.NAV.apply`;
-    console.log(url4)
     try {
       const response = await axios.post(
         url4,
