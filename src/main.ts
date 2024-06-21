@@ -37,7 +37,7 @@ client.on('connect', function () {
   console.log('Conectado al broker MQTT');
 
   // Suscribirse a un tema
-  let tema = '/Hit/Serveis/Apicultor';
+  let tema = '/Testing/Hit/Serveis/Apicultor';
   client.subscribe(tema, function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
@@ -45,7 +45,7 @@ client.on('connect', function () {
       console.log('Suscripción exitosa al tema', tema);
     }
   });
-
+/*
   client.subscribe(tema + '/Log', function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
@@ -53,6 +53,7 @@ client.on('connect', function () {
       console.log('Suscripción exitosa al tema', tema + '/Log');
     }
   });
+  */
 });
 
 // Manejar mensajes recibidos
@@ -93,12 +94,12 @@ client.on('message', async function (topic, message) {
       test = false;
     }
     if (msgJson.hasOwnProperty('companyID')) {
-      console.log('El JSON recibido tiene el campo "companyID"');
+      //console.log('El JSON recibido tiene el campo "companyID"');
       if (!isValidCompanyID(msgJson.companyID)) {
         mqttPublish('Error: "companyID" no valido');
       }
     } else if (msgJson.hasOwnProperty('companyNAME')) {
-      console.log('El JSON recibido tiene el campo "companyNAME"');
+      //console.log('El JSON recibido tiene el campo "companyNAME"');
     } else {
       mqttPublish('El JSON recibido no tiene el campo "companyID" o "companyNAME" ');
     }
