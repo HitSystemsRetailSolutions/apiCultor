@@ -22,8 +22,8 @@ import { PdfController } from './pdf/pdf.controller';
 import { PdfService } from './pdf/pdf.service';
 import { IncidenciaController } from './incidencias/incidencia.controller';
 import { IncidenciaService } from './incidencias/incidencia.service';
-import { ArchivosController } from './archivos/archivos.controller';
-import { ArchivosService } from './archivos/archivos.service';
+import { archivosController } from './archivos/archivos.controller';
+import { archivosService } from './archivos/archivos.service';
 import { empresasController } from './empresas/empresas.controller';
 import { empresasService } from './empresas/empresas.service';
 
@@ -42,7 +42,7 @@ import { empresasService } from './empresas/empresas.service';
     companiesController,
     PdfController,
     IncidenciaController,
-    ArchivosController,
+    archivosController,
     empresasController
   ],
   providers: [
@@ -58,7 +58,7 @@ import { empresasService } from './empresas/empresas.service';
     companiesService,
     PdfService,
     IncidenciaService,
-    ArchivosService,
+    archivosService,
     empresasService
   ],
 })
