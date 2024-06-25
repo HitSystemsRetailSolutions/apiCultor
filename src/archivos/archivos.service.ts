@@ -20,15 +20,16 @@ export class archivosService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) {}
+  ) { }
 
-  async syncArchivos(companyNAME: string, database: string) {
-    let token = await this.token.getToken();
+  async syncArchivos(companyNAME: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
+    let year = "2023"
 
     let archivos;
     try {
       archivos = await this.sql.runSql(
-        `select id, archivo, extension, convert(nvarchar, fecha, 121) fecha from archivo where fecha>=(select timestamp from records where concepte='BC_Archivos') and year(fecha)<=year(getdate()) and fecha<= GETDATE() order by fecha`,
+        `select * from archivo where nombre like '%pdf nomina%' and datepart(year,fecha)>=${year} and fecha>=(select timestamp from records where concepte='BC_Archivos') and year(fecha)<=year(getdate()) and fecha<= GETDATE() order by fecha`,
         database,
       );
     } catch (error) {
@@ -43,13 +44,13 @@ export class archivosService {
       console.log('No hay registros');
       return false;
     }
-
+    console.log(`Cantidad a sincronizar: ${archivos.recordset.length}`);
     for (let i = 0; i < archivos.recordset.length; i++) {
       let x = archivos.recordset[i];
 
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/cdpDadesFichador2?$filter=idr eq '${x.idr}'`,
+          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/archivo?$filter=archivo eq '${x.archivo}'`,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -65,7 +66,7 @@ export class archivosService {
       if (res.data.value.length === 0) {
         let newarchivos = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${process.env.tenant}/Production/ODataV4/Company('${companyNAME}')/archivo`,
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/archivo`,
             {
               idTrabajador: x.id,
               archivo: x.archivo,
@@ -77,7 +78,7 @@ export class archivosService {
                 Authorization: 'Bearer ' + token,
                 'Content-Type': 'application/json',
               },
-            }, 
+            },
           )
           .catch((error) => {
             throw new Error('Failed to obtain access token');
@@ -90,8 +91,8 @@ export class archivosService {
           ' --- ',
           ((i / archivos.recordset.length) * 100).toFixed(2) + '%',
           ' | Time left: ' +
-            ((archivos.recordset.length - i) * (0.5 / 60)).toFixed(2) +
-            ' minutes',
+          ((archivos.recordset.length - i) * (0.5 / 60)).toFixed(2) +
+          ' minutes',
         );
 
         await this.sql.runSql(

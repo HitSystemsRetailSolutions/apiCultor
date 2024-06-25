@@ -11,8 +11,12 @@ export class archivosController {
   async archivos(
     @Query('companyNAME') comapanyNAME: string,
     @Query('database') database: string,
+    @Query('client_id') client_id: string,
+    @Query('client_secret') client_secret: string,
+    @Query('tenant') tenant: string,
+    @Query('entorno') entorno: string,
   ) {
-    let res = await this.archivosService.syncArchivos(comapanyNAME, database);
+    let res = await this.archivosService.syncArchivos(comapanyNAME, database, client_id, client_secret, tenant, entorno);
     if (res == true) return 'Se han sincronizado los archivos correctamente';
     else return 'Ha habido un error al sincronizar los archivos';
   }
