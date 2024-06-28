@@ -37,7 +37,7 @@ client.on('connect', function () {
   console.log('Conectado al broker MQTT');
 
   // Suscribirse a un tema
-  let tema = '/Testing/Hit/Serveis/Apicultor';
+  let tema = '/Hit/Serveis/Apicultor';
   client.subscribe(tema, function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
