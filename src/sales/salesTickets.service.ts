@@ -297,7 +297,7 @@ export class salesTicketsService {
       sqlQ +
       "group by v.data, num_tick, concat(upper(c.nom), '_', num_tick), case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end, isnull(c2.codi, '1314') ";
     sqlQ = sqlQ + 'order by v.data';
-    console.log(sqlQ);
+    //console.log(sqlQ);
 
     let tickets;
     try {
@@ -305,7 +305,7 @@ export class salesTicketsService {
     } catch (error) {
       //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
-      console.log(sqlQ);
+      //console.log(sqlQ);
       return false;
     }
 
@@ -315,7 +315,7 @@ export class salesTicketsService {
       console.log('No hay registros');
       return false;
     }
-
+    console.log("Total tickets: ", tickets.recordset.length)
     for (let i = 0; i < tickets.recordset.length; i++) {
       let x = tickets.recordset[i];
       let customerId = await this.getCustomerFromAPI(x.Client, companyID, client_id, client_secret, tenant, entorno);

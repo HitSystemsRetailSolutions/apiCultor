@@ -147,6 +147,12 @@ export class PdfService {
   }
 
   async subirPdf(id: string, archivoBase64: string, database: string) {
+    // Función de sleep
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    // Esperar 5 segundos
+    await sleep(5000);
+    
     // Convierte el Base64 a Buffer
     const bufferArchivo = Buffer.from(archivoBase64, 'base64');
     const chunks = [];
