@@ -29,7 +29,7 @@ export class archivosService {
     let archivos;
     try {
       archivos = await this.sql.runSql(
-        `select * from archivo where nombre like '%pdf nomina%' and datepart(year,fecha)>=${year} and fecha>=(select timestamp from records where concepte='BC_Archivos') and year(fecha)<=year(getdate()) and fecha<= GETDATE() order by fecha`,
+        `select * from archivo where nombre like '%pdf nomina%' and datepart(year,fecha)>=${year} and fecha>=(select timestamp from records where concepte='BC_Archivos') and fecha<= GETDATE() order by fecha`,
         database,
       );
     } catch (error) {
@@ -47,10 +47,10 @@ export class archivosService {
     console.log(`Cantidad a sincronizar: ${archivos.recordset.length}`);
     for (let i = 0; i < archivos.recordset.length; i++) {
       let x = archivos.recordset[i];
-
-      let res = await axios
-        .get(
-          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/archivo?$filter=archivo eq '${x.archivo}'`,
+      let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/archivo?$filter=fecha eq ${x.fecha.toISOString()} and propietario eq '${x.propietario}'`;
+      console.log(url);
+      let res = await axios.get(
+          url,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -59,6 +59,7 @@ export class archivosService {
           },
         )
         .catch((error) => {
+          console.log("!!!Error!!! ", error);
           throw new Error('Failed to obtain access token');
         });
 
@@ -68,10 +69,10 @@ export class archivosService {
           .post(
             `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/archivo`,
             {
-              idTrabajador: x.id,
               archivo: x.archivo,
-              tipoArchivo: x.tipoArchivo,
+              tipoArchivo: x.extension,
               fecha: x.fecha,
+              propietario: x.propietario,
             },
             {
               headers: {

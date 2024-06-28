@@ -37,7 +37,7 @@ client.on('connect', function () {
   console.log('Conectado al broker MQTT');
 
   // Suscribirse a un tema
-  let tema = '/Hit/Serveis/Apicultor';
+  let tema = '/Testing/Hit/Serveis/Apicultor';
   client.subscribe(tema, function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
@@ -45,7 +45,7 @@ client.on('connect', function () {
       console.log('Suscripción exitosa al tema', tema);
     }
   });
-
+  /*
   client.subscribe(tema + '/Log', function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
@@ -53,6 +53,7 @@ client.on('connect', function () {
       console.log('Suscripción exitosa al tema', tema + '/Log');
     }
   });
+  */
 });
 
 // Manejar mensajes recibidos
@@ -276,6 +277,7 @@ async function incidencias(companyNAME, database, client_id, client_secret, tena
 async function archivo(companyNAME, database, client_id, client_secret, tenant, entorno) {
   let res;
   try {
+    console.log(`Intentado sincronizar los archivos`);
     res = await axios.get('http://localhost:3333/syncArchivos', {
       params: {
         companyNAME: companyNAME,
@@ -285,7 +287,6 @@ async function archivo(companyNAME, database, client_id, client_secret, tenant, 
         tenant: tenant,
         entorno: entorno,
       },
-      timeout: getTimeout(),
     });
     console.log('Archivo sync sent...');
   } catch (error) {
