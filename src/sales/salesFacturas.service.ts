@@ -166,7 +166,7 @@ export class salesFacturasService {
             let updBC = await this.sql.runSql(sqlQ, database);
           }
         } catch (error) {
-          console.log('Error update BC_SyncSales_2024') 
+          console.log('Error update BC_SyncSales_2024')
         }
       }
     } else {

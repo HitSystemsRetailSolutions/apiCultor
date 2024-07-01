@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { getTokenService } from '../conection/getToken.service';
 import { runSqlService } from 'src/conection/sqlConection.service';
+import { itemsService } from 'src/items/items.service';
 import axios from 'axios';
 
 const mqtt = require('mqtt');
@@ -18,6 +19,7 @@ export class salesTicketsService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
+    private items: itemsService,
   ) { }
 
   // Get Customer from API
@@ -43,18 +45,18 @@ export class salesTicketsService {
 
     if (res.data.value.length === 0) {
       let res2 = await axios
-      .get(
-        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq 'A'`,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
+        .get(
+          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq 'A'`,
+          {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
           },
-        },
-      )
-      .catch((error) => {
-        throw new Error('Failed to obtain customer');
-      });
+        )
+        .catch((error) => {
+          throw new Error('Failed to obtain customer');
+        });
       customerId = res2.data.value[0].id;
     } else {
       customerId = res.data.value[0].id;
@@ -85,6 +87,7 @@ export class salesTicketsService {
     if (!res.data) throw new Error('Failed to obtain item');
 
     if (res.data.value.length === 0) {
+
     } else {
       itemId = res.data.value[0].id;
     }
@@ -416,7 +419,8 @@ export class salesTicketsService {
       console.log(
         '-------------------------PLU ' + x.Plu + '---------------------',
       );
-      const itemId = await this.getItemFromAPI(x.Plu, companyID, client_id, client_secret, tenant, entorno);
+      let itemId = await this.items.getItemFromAPI(companyID, database, x.Plu, client_id, client_secret, tenant, entorno);
+      console.log(`ItemID: ${itemId}`)
       let res = await axios.get(
         `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`,
         {
@@ -428,6 +432,7 @@ export class salesTicketsService {
       );
 
       res = await this.getSaleLineFromAPI(ticketId, 'CODI-' + x.Plu, companyID, client_id, client_secret, tenant, entorno);
+
       //NO ESTÁ LA LINEA, LA AÑADIMOS
       if (res.data.value.length === 0) {
         let newTickets = await axios
@@ -466,26 +471,10 @@ export class salesTicketsService {
         //console.log("--------------------------resSaleLine: " + resSaleLine + "-----------------------------");
         let sLineId = resSaleLine.data.value[0].id;
 
-        console.log(
-          '--------------------------companyID: ' +
-          companyID +
-          '-----------------------------',
-        );
-        console.log(
-          '--------------------------ticketId: ' +
-          ticketId +
-          '-----------------------------',
-        );
-        console.log(
-          '--------------------------sLineId: ' +
-          sLineId +
-          '-----------------------------',
-        );
-        console.log(
-          '--------------------------idDim: ' +
-          idDim +
-          '-----------------------------',
-        );
+        console.log('--------------------------companyID: ' + companyID + '-----------------------------',);
+        console.log('--------------------------ticketId: ' + ticketId + '-----------------------------',);
+        console.log('--------------------------sLineId: ' + sLineId + '-----------------------------',);
+        console.log('--------------------------idDim: ' + idDim + '-----------------------------',);
 
         //Error aqui !!!
         if (idDimValue == null) {
