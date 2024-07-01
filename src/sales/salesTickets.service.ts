@@ -275,7 +275,8 @@ export class salesTicketsService {
     } catch (error) {
       //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
-      console.log(`Sql: ${sqlQ}`);
+      console.log(`Error: ${error}`);
+
       return false;
     }
 
