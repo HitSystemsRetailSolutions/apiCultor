@@ -182,7 +182,7 @@ export class salesTicketsService {
 
   async getSaleLineFromAPI(idSale, lineObjectNumber, companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
     // Get the authentication token
-    console.log(lineObjectNumber);
+    //console.log(lineObjectNumber);
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let res = await axios
       .get(
@@ -284,7 +284,7 @@ export class salesTicketsService {
     sqlQ += "left join clients c2 on case charindex('AbonarEn:',altres) when 0 then '' else substring(cf.altres, charindex('AbonarEn:', cf.altres)+9, charindex(']', cf.altres, charindex('AbonarEn:', cf.altres)+9)-charindex('AbonarEn:', cf.altres)-9) end =c2.codi ";
     sqlQ += 'where v.botiga = ' + botiga + " and v.data>=(select timestamp from records where concepte='BC_SalesTickets_" + botiga + "') ";
     sqlQ += "group by v.data, num_tick, concat(upper(c.nom), '_', num_tick), case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end, isnull(c2.codi, '1314') order by v.data";
-    console.log(`Sql: ${sqlQ}`);
+    //console.log(`Sql: ${sqlQ}`);
 
     let tickets;
     try {
@@ -313,7 +313,7 @@ export class salesTicketsService {
       let idSaleHit = x.Id;
       //
 
-      console.log("-------------------------" + customerId + "----------------------------");
+      //console.log("-------------------------" + customerId + "----------------------------");
       let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`;
       let res = await axios
         .get(
@@ -358,7 +358,7 @@ export class salesTicketsService {
         else {
           //AÑADIMOS LAS LINEAS DEL TICKET
           let ticketBC = await this.getSaleFromAPI(x.Num_tick, companyID, client_id, client_secret, tenant, entorno);
-          console.log('Tickets BC: ', ticketBC.data.value[0].id);
+          //console.log('Tickets BC: ', ticketBC.data.value[0].id);
           await this.synchronizeSalesTiquetsLines(
             tabVenut,
             botiga,
@@ -372,7 +372,7 @@ export class salesTicketsService {
             entorno
           ).catch(console.error);
           //console.log('Tmst: ', x.tmstStr);
-          console.log('Data: ', x.Data);
+          //console.log('Data: ', x.Data);
           console.log(
             'Synchronizing tickets... -> ' + i + '/' + tickets.recordset.length,
             ' --- ',
@@ -416,12 +416,10 @@ export class salesTicketsService {
 
     for (let i = 0; i < ticketsLines.recordset.length; i++) {
       let x = ticketsLines.recordset[i];
-      console.log(x);
-      console.log(
-        '-------------------------PLU ' + x.Plu + '---------------------',
-      );
+      //console.log(x);
+      //console.log('-------------------------PLU ' + x.Plu + '---------------------',);
       let itemId = await this.items.getItemFromAPI(companyID, database, x.Plu, client_id, client_secret, tenant, entorno);
-      console.log(`ItemID: ${itemId}`)
+      //console.log(`ItemID: ${itemId}`)
       let res = await axios.get(
         `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`,
         {
@@ -472,10 +470,10 @@ export class salesTicketsService {
         //console.log("--------------------------resSaleLine: " + resSaleLine + "-----------------------------");
         let sLineId = resSaleLine.data.value[0].id;
 
-        console.log('--------------------------companyID: ' + companyID + '-----------------------------',);
-        console.log('--------------------------ticketId: ' + ticketId + '-----------------------------',);
-        console.log('--------------------------sLineId: ' + sLineId + '-----------------------------',);
-        console.log('--------------------------idDim: ' + idDim + '-----------------------------',);
+        //console.log('--------------------------companyID: ' + companyID + '-----------------------------',);
+        //console.log('--------------------------ticketId: ' + ticketId + '-----------------------------',);
+        //console.log('--------------------------sLineId: ' + sLineId + '-----------------------------',);
+        //console.log('--------------------------idDim: ' + idDim + '-----------------------------',);
 
         //Error aqui !!!
         if (idDimValue == null) {
