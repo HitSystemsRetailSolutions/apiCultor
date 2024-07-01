@@ -42,6 +42,20 @@ export class salesTicketsService {
     if (!res.data) throw new Error('Failed to obtain customer');
 
     if (res.data.value.length === 0) {
+      let res2 = await axios
+      .get(
+        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq 'A'`,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+      .catch((error) => {
+        throw new Error('Failed to obtain customer');
+      });
+      customerId = res2.data.value[0].id;
     } else {
       customerId = res.data.value[0].id;
     }
@@ -296,8 +310,7 @@ export class salesTicketsService {
       let idSaleHit = x.Id;
       //
 
-      //console.log("-------------------------" + customerId + "----------------------------");
-      console.log(x.Num_tick);
+      console.log("-------------------------" + customerId + "----------------------------");
       let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`;
       let res = await axios
         .get(
@@ -334,6 +347,7 @@ export class salesTicketsService {
             },
           )
           .catch((error) => {
+            console.log(`Datos: ${x.Num_tick}, ${x.Data}, ${customerId}`)
             throw new Error('Failed post ticket A');
           });
 
