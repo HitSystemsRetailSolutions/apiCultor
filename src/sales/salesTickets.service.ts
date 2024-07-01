@@ -372,6 +372,7 @@ export class salesTicketsService {
             entorno
           ).catch(console.error);
           //console.log('Tmst: ', x.tmstStr);
+          console.log('Data: ', x.Data);
           console.log(
             'Synchronizing tickets... -> ' + i + '/' + tickets.recordset.length,
             ' --- ',
