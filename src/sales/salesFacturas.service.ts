@@ -71,7 +71,7 @@ export class salesFacturasService {
     let num;
     if (serieFactura.length <= 0) {
       num = numFactura;
-      console.log('serieFactura vacio');
+      //console.log('serieFactura vacio');
     } else {
       num = serieFactura + numFactura;
     }

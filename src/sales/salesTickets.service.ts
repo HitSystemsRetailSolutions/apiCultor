@@ -218,21 +218,21 @@ export class salesTicketsService {
     try {
       if (record.recordset.length == 0) {
         let fIniQuery = fIni.toISOString();
+        console.log(`Fecha records: ${fIniQuery}`);
         await this.sql.runSql(
           `insert into records (timestamp, concepte) values ('${fIniQuery}', 'BC_SalesTickets_${botiga}')`,
           database,
         );
       } else {
+        console.log('Fecha records: ', fIni);
         fIni = record.recordset[0].TimeStamp;
       }
     } catch (error) {
       console.log('Fecha: ', fIni);
     }
 
-    if (
-      fIni.getMonth() == fFin.getMonth() &&
-      fIni.getFullYear() == fFin.getFullYear()
-    ) {
+    //Revisar codigo
+    if (fIni.getMonth() == fFin.getMonth() && fIni.getFullYear() == fFin.getFullYear()) {
       let mesTab = fIni.getMonth();
       let mes = (mesTab + 1).toString().padStart(2, '0');
 
@@ -248,56 +248,26 @@ export class salesTicketsService {
           if (tabVenut != '') {
             tabVenut = tabVenut + ' union all ';
           }
-          tabVenut =
-            tabVenut +
-            'select * from [V_VENUT_' +
-            fIni.getFullYear() +
-            '-' +
-            mes +
-            ']';
+          tabVenut += 'select * from [V_VENUT_' + fIni.getFullYear() + '-' + mes + ']';
           if (tabMoviments != '') {
-            tabMoviments = tabMoviments + ' union all ';
+            tabMoviments += ' union all ';
           }
-          tabMoviments =
-            tabMoviments +
-            'select * from [V_MOVIMENTS_' +
-            fIni.getFullYear() +
-            '-' +
-            mes +
-            ']';
+          tabMoviments += 'select * from [V_MOVIMENTS_' + fIni.getFullYear() + '-' + mes + ']';
         }
         tabVenut = '(' + tabVenut + ')';
         tabMoviments = '(' + tabMoviments + ')';
       }
     }
+
     let sqlQ;
-    sqlQ =
-      "select num_tick nTickHit, convert(varchar, v.Data, 23) Data, v.Data as tmstStr, concat(upper(c.nom), '_', num_tick) Num_tick, case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end FormaPago, isnull(c2.codi, '1314') Client, sum(v.import) Total ";
-    sqlQ = sqlQ + 'From ' + tabVenut + ' v  ';
-    sqlQ =
-      sqlQ +
-      'left join ' +
-      tabMoviments +
-      " m on m.botiga=v.botiga and concat('Pagat Targeta: ', v.num_tick) = m.motiu ";
-    sqlQ = sqlQ + 'left join clients c on v.botiga=c.codi  ';
-    sqlQ =
-      sqlQ +
-      "left join ClientsFinals cf on concat('[Id:', cf.id, ']') = v.otros ";
-    sqlQ =
-      sqlQ +
-      "left join clients c2 on case charindex('AbonarEn:',altres) when 0 then '' else substring(cf.altres, charindex('AbonarEn:', cf.altres)+9, charindex(']', cf.altres, charindex('AbonarEn:', cf.altres)+9)-charindex('AbonarEn:', cf.altres)-9) end =c2.codi ";
-    sqlQ =
-      sqlQ +
-      'where v.botiga = ' +
-      botiga +
-      " and v.data>=(select timestamp from records where concepte='BC_SalesTickets_" +
-      botiga +
-      "') ";
-    sqlQ =
-      sqlQ +
-      "group by v.data, num_tick, concat(upper(c.nom), '_', num_tick), case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end, isnull(c2.codi, '1314') ";
-    sqlQ = sqlQ + 'order by v.data';
-    //console.log(sqlQ);
+    sqlQ = "select num_tick nTickHit, convert(varchar, v.Data, 23) Data, v.Data as tmstStr, concat(upper(c.nom), '_', num_tick) Num_tick, case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end FormaPago, isnull(c2.codi, '1314') Client, sum(v.import) Total From" + tabVenut + ' v ';
+    sqlQ += 'left join ' + tabMoviments + " m on m.botiga=v.botiga and concat('Pagat Targeta: ', v.num_tick) = m.motiu ";
+    sqlQ += 'left join clients c on v.botiga=c.codi  ';
+    sqlQ += "left join ClientsFinals cf on concat('[Id:', cf.id, ']') = v.otros ";
+    sqlQ += "left join clients c2 on case charindex('AbonarEn:',altres) when 0 then '' else substring(cf.altres, charindex('AbonarEn:', cf.altres)+9, charindex(']', cf.altres, charindex('AbonarEn:', cf.altres)+9)-charindex('AbonarEn:', cf.altres)-9) end =c2.codi ";
+    sqlQ += 'where v.botiga = ' + botiga + " and v.data>=(select timestamp from records where concepte='BC_SalesTickets_" + botiga + "') ";
+    sqlQ += "group by v.data, num_tick, concat(upper(c.nom), '_', num_tick), case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end, isnull(c2.codi, '1314') order by v.data";
+    console.log(`Sql: ${sqlQ}`);
 
     let tickets;
     try {
@@ -305,7 +275,7 @@ export class salesTicketsService {
     } catch (error) {
       //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
-      //console.log(sqlQ);
+      console.log(`Sql: ${sqlQ}`);
       return false;
     }
 
@@ -315,6 +285,7 @@ export class salesTicketsService {
       console.log('No hay registros');
       return false;
     }
+
     console.log("Total tickets: ", tickets.recordset.length)
     for (let i = 0; i < tickets.recordset.length; i++) {
       let x = tickets.recordset[i];
@@ -326,9 +297,10 @@ export class salesTicketsService {
 
       //console.log("-------------------------" + customerId + "----------------------------");
       console.log(x.Num_tick);
+      let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`;
       let res = await axios
         .get(
-          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`,
+          url1,
           {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -343,9 +315,10 @@ export class salesTicketsService {
       if (!res.data) throw new Error('Failed to obtain ticket B');
       if (res.data.value.length === 0) {
         //SI NO EXISTE EL TICKET EN BC LO CREAMOS
+        let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices`;
         let newTickets = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices`,
+            url2,
             {
               externalDocumentNumber: x.Num_tick,
               invoiceDate: x.Data,
@@ -380,19 +353,22 @@ export class salesTicketsService {
             tenant,
             entorno
           ).catch(console.error);
-          console.log('-----------------hola: ', x.tmstStr);
-          let sqlUpdate =
-            `update records set timestamp='${x.tmstStr}' where concepte='BC_SalesTickets_` +
-            botiga +
-            `'`;
-          /*
-         console.log("asodfkspad: ", sqlUpdate)
+          //console.log('Tmst: ', x.tmstStr);
+          console.log(
+            'Synchronizing tickets... -> ' + i + '/' + tickets.recordset.length,
+            ' --- ',
+            ((i / tickets.recordset.length) * 100).toFixed(2) + '%',
+            ' | Time left: ' +
+            ((tickets.recordset.length - i) * (0.5 / 60)).toFixed(2) +
+            ' minutes',
+          );
+
+          let sqlUpdate = `update records set timestamp='${x.tmstStr}' where concepte='BC_SalesTickets_` + botiga + `'`;
           await this.sql.runSql(
             sqlUpdate,
             database,
           );
-          console.log("adios")
-          */
+
         }
       } else {
         console.log('Ya existe el ticket');
