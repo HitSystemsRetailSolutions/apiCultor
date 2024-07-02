@@ -165,12 +165,13 @@ export class PdfService {
           VALUES (newid(), '${nombre}', 'PDF', '${descripcion}', 0x${chunks[i]})
         `;
         */
-        const sql = `
-          UPDATE BC_SyncSales_2024 SET BC_PDF=0x${chunks[i]} WHERE BC_IdSale='${id}'
-        `;
+        const sql = `UPDATE BC_SyncSales_2024 SET BC_PDF=0x${chunks[i]} WHERE BC_IdSale='${id}'`;
+        const sql2 = ``;
         let pdf;
+        let factura;
         try{
-          pdf =  await this.sql.runSql(sql,database,);
+          pdf =  await this.sql.runSql(sql,database);
+          //factura =  await this.sql.runSql(sql2,database);
         } catch{
             console.log("Error")
         }
