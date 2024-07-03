@@ -264,9 +264,10 @@ export class salesTicketsService {
     }
 
     console.log("Total tickets: ", tickets.recordset.length)
+    let clientCodi = 'a6d69889-4339-ef11-8409-000d3ab97f19';
     for (let i = 0; i < tickets.recordset.length; i++) {
       let x = tickets.recordset[i];
-      let customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientCodi, client_id, client_secret, tenant, entorno);
+      let customerId = await this.customers.getCustomerFromAPI(companyID, database, clientCodi, client_id, client_secret, tenant, entorno);
 
       console.log ("CustomerId: " + customerId);
       let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`;
