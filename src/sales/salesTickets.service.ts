@@ -269,7 +269,7 @@ export class salesTicketsService {
       let x = tickets.recordset[i];
       let customerId = await this.customers.getCustomerFromAPI(companyID, database, clientCodi, client_id, client_secret, tenant, entorno);
 
-      console.log ("CustomerId: " + customerId);
+      //console.log ("CustomerId: " + customerId);
       let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`;
       let res = await axios
         .get(
@@ -330,7 +330,7 @@ export class salesTicketsService {
           //console.log('Tmst: ', x.tmstStr);
           //console.log('Data: ', x.Data);
           console.log(
-            'Synchronizing tickets... -> ' + i + '/' + tickets.recordset.length,
+            'Synchronizing tickets... -> ' + (i + 1) + '/' + (tickets.recordset.length + 1),
             ' --- ',
             ((i / tickets.recordset.length) * 100).toFixed(2) + '%',
             ' | Time left: ' +
