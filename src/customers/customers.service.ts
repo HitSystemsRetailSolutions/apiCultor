@@ -191,11 +191,12 @@ export class customersService {
 
     // Get the authentication token
     let token = await this.token.getToken2(client_id, client_secret, tenant);
-
+    let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`;
+    console.log(url);
     // Get Customer from API
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`,
+        url,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -206,6 +207,7 @@ export class customersService {
       .catch((error) => {
         throw new Error('Failed to obtain customer');
       });
+      
 
     if (!res.data) throw new Error('Failed to obtain customer');
 
