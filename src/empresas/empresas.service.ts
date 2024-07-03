@@ -168,7 +168,7 @@ export class empresasService {
 
     //Apply configuration
     const url4 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})/Microsoft.NAV.apply`;
-    console.log(url4)
+    //console.log(url4)
     try {
       const response = await axios.post(
         url4,
@@ -187,7 +187,26 @@ export class empresasService {
       throw new Error(`Ha habido un error al aplicar el archivo de configuracion`);
     }
 
-    console.log(`Se ha creado la empresa ${name} correctamente`);
+    //Apply 2 time configuration
+    try {
+      const response = await axios.post(
+        url4,
+        {},
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      console.log('Archivo de configuracion aplicado exitosamente por segunda vez' + response.data);
+      console.log(`Se ha creado la empresa ${name} correctamente`);
+    } catch (error) {
+      console.error(`Ha habido un error al aplicar el archivo de configuracion: ${error.message}`);
+      throw new Error(`Ha habido un error al aplicar el archivo de configuracion`);
+    }
+    
     return true
   }
 }
