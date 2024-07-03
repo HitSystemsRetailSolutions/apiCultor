@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { getTokenService } from '../conection/getToken.service';
 import { runSqlService } from 'src/conection/sqlConection.service';
 import { itemsService } from 'src/items/items.service';
+import { customersService } from 'src/customers/customers.service';
 import axios from 'axios';
 
 const mqtt = require('mqtt');
@@ -20,49 +21,8 @@ export class salesTicketsService {
     private token: getTokenService,
     private sql: runSqlService,
     private items: itemsService,
+    private customers: customersService,
   ) { }
-
-  // Get Customer from API
-  async getCustomerFromAPI(codiHIT, companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    let customerId = '';
-    // Get the authentication token
-    let token = await this.token.getToken2(client_id, client_secret, tenant);
-    // Get Customer from API
-    let res = await axios
-      .get(
-        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        },
-      )
-      .catch((error) => {
-        throw new Error('Failed to obtain customer');
-      });
-    if (!res.data) throw new Error('Failed to obtain customer');
-
-    if (res.data.value.length === 0) {
-      let res2 = await axios
-        .get(
-          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq 'A'`,
-          {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-            },
-          },
-        )
-        .catch((error) => {
-          throw new Error('Failed to obtain customer');
-        });
-      customerId = res2.data.value[0].id;
-    } else {
-      customerId = res.data.value[0].id;
-    }
-    return customerId;
-  }
 
   // Get Item from API
   async getItemFromAPI(codiHIT, companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -307,7 +267,7 @@ export class salesTicketsService {
     console.log("Total tickets: ", tickets.recordset.length)
     for (let i = 0; i < tickets.recordset.length; i++) {
       let x = tickets.recordset[i];
-      let customerId = await this.getCustomerFromAPI(x.Client, companyID, client_id, client_secret, tenant, entorno);
+      let customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientCodi, client_id, client_secret, tenant, entorno);
 
       //Falta declarar esta variable para utilizarla mas abajo
       let idSaleHit = x.Id;
