@@ -339,6 +339,7 @@ export class salesTicketsService {
           );
 
           let sqlUpdate = `update records set timestamp='${x.Data}' where Concepte='BC_SalesTickets_${botiga}'`;
+          console.log(`update: ${sqlUpdate}`);
           await this.sql.runSql(
             sqlUpdate,
             database,
