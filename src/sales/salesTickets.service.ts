@@ -178,7 +178,6 @@ export class salesTicketsService {
     let monthFin = fFin.getMonth();
     let yearFin = fFin.getFullYear();
     fIni = new Date(yearFin, 0, 1);
-    console.log(new Date(yearFin, 0, 1));
 
     let record;
     try {
@@ -201,8 +200,8 @@ export class salesTicketsService {
           database,
         );
       } else {
-        console.log('Fecha records: ', fIni);
         fIni = record.recordset[0].TimeStamp;
+        console.log('Fecha records: ', fIni);
       }
     } catch (error) {
       console.log('Fecha: ', fIni);
