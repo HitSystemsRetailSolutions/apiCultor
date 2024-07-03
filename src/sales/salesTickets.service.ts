@@ -264,7 +264,7 @@ export class salesTicketsService {
     }
 
     console.log("Total tickets: ", tickets.recordset.length)
-    let clientCodi = 'a6d69889-4339-ef11-8409-000d3ab97f19';
+    let clientCodi = 'A';
     for (let i = 0; i < tickets.recordset.length; i++) {
       let x = tickets.recordset[i];
       let customerId = await this.customers.getCustomerFromAPI(companyID, database, clientCodi, client_id, client_secret, tenant, entorno);
