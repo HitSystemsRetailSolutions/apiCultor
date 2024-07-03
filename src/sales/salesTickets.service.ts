@@ -268,11 +268,7 @@ export class salesTicketsService {
       let x = tickets.recordset[i];
       let customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientCodi, client_id, client_secret, tenant, entorno);
 
-      //Falta declarar esta variable para utilizarla mas abajo
-      let idSaleHit = x.Id;
-      //
-
-      //console.log("-------------------------" + customerId + "----------------------------");
+      console.log ("CustomerId: " + customerId);
       let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`;
       let res = await axios
         .get(

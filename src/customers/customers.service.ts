@@ -20,7 +20,7 @@ export class customersService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) {}
+  ) { }
 
   //Obtener Id del modo de pago
   async getPaymentTermId(pTermCode, companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -29,8 +29,8 @@ export class customersService {
     // Get PaymentTerms from API
     let res = await axios.get(
       `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/paymentTerms?$filter=dueDateCalculation eq '` +
-        pTermCode +
-        `'`,
+      pTermCode +
+      `'`,
       {
         headers: {
           Authorization: 'Bearer ' + token,
@@ -51,8 +51,8 @@ export class customersService {
     // Get Tax from API
     let res = await axios.get(
       `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxAreas?$filter=code eq '` +
-        taxCode +
-        `'`,
+      taxCode +
+      `'`,
       {
         headers: {
           Authorization: 'Bearer ' + token,
