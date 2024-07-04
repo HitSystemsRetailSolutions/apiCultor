@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { getTokenService } from '../conection/getToken.service';
 import { runSqlService } from 'src/conection/sqlConection.service';
 import * as nodemailer from 'nodemailer';
+import axios from 'axios';
 import * as mailgunTransport from 'nodemailer-mailgun-transport';
 
 @Injectable()
@@ -146,8 +147,9 @@ export class PdfService {
     }
   }
 
-  async subirPdf(id: string, archivoBase64: string, database: string) {
+  async subirPdf(id: string, archivoBase64: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string) {
     // Convierte el Base64 a Buffer
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
     const bufferArchivo = Buffer.from(archivoBase64, 'base64');
     const chunks = [];
     const chunkSize = bufferArchivo.length; // Tamaño de cada fragmento en bytes
@@ -165,17 +167,87 @@ export class PdfService {
           VALUES (newid(), '${nombre}', 'PDF', '${descripcion}', 0x${chunks[i]})
         `;
         */
+
+        let res = await axios
+        .get(
+          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=id eq '${id}'`,
+          {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          },
+        )
+        .catch((error) => {
+          throw new Error('Failed get category');
+        });
+
         let mes = "06";
         let año = "2024";
-        let DataInici = "";
-        let DataFi = "";
-        let DataFactura = "";
-        let DataEmissio = "";
-        let DataVenciment = "";
+        let EmpresaCodi = 0;
+        let Serie = 'ABC123';
+        let DataInici = new Date('2023-01-01T00:00:00Z');
+        let DataFi = new Date('2023-12-31T23:59:59Z');
+        let DataFactura = new Date('2023-06-15T12:00:00Z');
+        let DataEmissio = new Date('2023-06-15T12:00:00Z');
+        let DataVenciment = new Date('2023-07-15T12:00:00Z');
+        let FormaPagament = 'Tarjeta';
+        let Total = 1234.56;
+        let ClientCodi = 1001;
+        let ClientCodiFac = 'FAC1001';
+        let ClientNom = 'Nombre del Cliente';
+        let ClientNif = 'NIF12345678';
+        let ClientAdresa = 'Calle Falsa 123';
+        let ClientCp = '08001';
+        let Tel = '123456789';
+        let Fax = '987654321';
+        let eMail = 'cliente@example.com';
+        let ClientLiure = 'Observaciones del Cliente';
+        let ClientCiutat = 'Ciudad del Cliente';
+        let EmpNom = 'Nombre de la Empresa';
+        let EmpNif = 'NIF87654321';
+        let EmpAdresa = 'Avenida Siempre Viva 742';
+        let EmpCp = '08002';
+        let EmpTel = '987654321';
+        let EmpFax = '123456789';
+        let EmpMail = 'empresa@example.com';
+        let EmpLliure = 'Observaciones de la Empresa';
+        let EmpCiutat = 'Ciudad de la Empresa';
+        let CampMercantil = 'Mercantil';
+        let BaseIva1 = 100.0;
+        let Iva1 = 21.0;
+        let BaseIva2 = 200.0;
+        let Iva2 = 10.0;
+        let BaseIva3 = 300.0;
+        let Iva3 = 4.0;
+        let BaseIva4 = 400.0;
+        let Iva4 = 0.0;
+        let BaseRec1 = 50.0;
+        let Rec1 = 5.0;
+        let BaseRec2 = 60.0;
+        let Rec2 = 6.0;
+        let BaseRec3 = 70.0;
+        let Rec3 = 7.0;
+        let BaseRec4 = 80.0;
+        let Rec4 = 8.0;
+        let valorIva1 = 21.0;
+        let valorIva2 = 20.0;
+        let valorIva3 = 12.0;
+        let valoraIva4 = 0.0;
+        let valorRec1 = 5.0;
+        let valorRec2 = 6.0;
+        let valorRec3 = 7.0;
+        let valorRec4 = 8.0;
+        let IvaRec1 = 1.05;
+        let IvaRec2 = 0.6;
+        let IvaRec3 = 0.28;
+        let IvaRec4 = 0.0;
+        let Reservat = 'V1.20040304';
+
         const sql = `UPDATE BC_SyncSales_2024 SET BC_PDF=0x${chunks[i]} WHERE BC_IdSale='${id}'`;
         const sql2 = `INSERT INTO [facturacio_${año}-${mes}_iva] 
         (IdFactura, NumFactura, EmpresaCodi, Serie, DataInici, DataFi, DataFactura, DataEmissio, DataVenciment, FormaPagament, Total, ClientCodi, ClientCodiFac, ClientNom, ClientNif, ClientAdresa, ClientCp, Tel, Fax, eMail, ClientLiure, ClientCiutat, EmpNom, EmpNif, EmpAdresa, EmpCp, EmpTel, EmpFax, EmpMail, EmpLliure, EmpCiutat, CampMercantil, BaseIva1, Iva1, BaseIva2, Iva2, BaseIva3, Iva3, BaseIva4, Iva4, BaseRec1, Rec1, BaseRec2, Rec2, BaseRec3, Rec3, BaseRec4, Rec4, valorIva1, valorIva2, valorIva3, valoraIva4, valorRec1, valorRec2, valorRec3, valorRec4, IvaRec1, IvaRec2, IvaRec3, IvaRec4, Reservat)
-        (NEWID(), ${id}, 0, '', )`;
+        NEWID(), ${id}, ${EmpresaCodi}, ${Serie}, ${DataInici}, ${DataFi}, ${DataFactura}, ${DataEmissio}, ${DataVenciment}, ${FormaPagament}, ${Total}, ${ClientCodi}, ${ClientCodiFac}, ${ClientNom}, ${ClientNif}, ${ClientAdresa}, ${ClientCp}, ${Tel}, ${Fax}, ${eMail}, ${ClientLiure}, ${ClientCiutat}, ${EmpNom}, ${EmpNif}, ${EmpAdresa}, ${EmpCp}, ${EmpTel}, ${EmpFax}, ${EmpMail}, ${EmpLliure}, ${EmpCiutat}, ${CampMercantil}, ${BaseIva1}, ${Iva1}, ${BaseIva2}, ${Iva2}, ${BaseIva3}, ${Iva3}, ${BaseIva4}, ${Iva4}, ${BaseRec1}, ${Rec1}, ${BaseRec2}, ${Rec2}, ${BaseRec3}, ${Rec3}, ${BaseRec4}, ${Rec4}, ${valorIva1}, ${valorIva2}, ${valorIva3}, ${valoraIva4}, ${valorRec1}, ${valorRec2}, ${valorRec3}, ${valorRec4}, ${IvaRec1}, ${IvaRec2}, ${IvaRec3}, ${IvaRec4}, ${Reservat});`;
         let pdf;
         let factura;
         try {
