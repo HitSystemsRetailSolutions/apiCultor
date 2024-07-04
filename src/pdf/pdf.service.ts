@@ -165,12 +165,22 @@ export class PdfService {
           VALUES (newid(), '${nombre}', 'PDF', '${descripcion}', 0x${chunks[i]})
         `;
         */
-        const sql = `
-          UPDATE BC_SyncSales_2024 SET BC_PDF=0x${chunks[i]} WHERE BC_IdSale='${id}'
-        `;
+        let mes = "06";
+        let año = "2024";
+        let DataInici = "";
+        let DataFi = "";
+        let DataFactura = "";
+        let DataEmissio = "";
+        let DataVenciment = "";
+        const sql = `UPDATE BC_SyncSales_2024 SET BC_PDF=0x${chunks[i]} WHERE BC_IdSale='${id}'`;
+        const sql2 = `INSERT INTO [facturacio_${año}-${mes}_iva] 
+        (IdFactura, NumFactura, EmpresaCodi, Serie, DataInici, DataFi, DataFactura, DataEmissio, DataVenciment, FormaPagament, Total, ClientCodi, ClientCodiFac, ClientNom, ClientNif, ClientAdresa, ClientCp, Tel, Fax, eMail, ClientLiure, ClientCiutat, EmpNom, EmpNif, EmpAdresa, EmpCp, EmpTel, EmpFax, EmpMail, EmpLliure, EmpCiutat, CampMercantil, BaseIva1, Iva1, BaseIva2, Iva2, BaseIva3, Iva3, BaseIva4, Iva4, BaseRec1, Rec1, BaseRec2, Rec2, BaseRec3, Rec3, BaseRec4, Rec4, valorIva1, valorIva2, valorIva3, valoraIva4, valorRec1, valorRec2, valorRec3, valorRec4, IvaRec1, IvaRec2, IvaRec3, IvaRec4, Reservat)
+        (NEWID(), ${id}, 0, '', )`;
         let pdf;
+        let factura;
         try {
-          pdf = await this.sql.runSql(sql, database,);
+          pdf = await this.sql.runSql(sql, database);
+          //factura =  await this.sql.runSql(sql2,database);
         } catch {
           console.log("Error")
         }
