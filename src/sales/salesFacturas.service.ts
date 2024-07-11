@@ -71,7 +71,7 @@ export class salesFacturasService {
     let num;
     if (serieFactura.length <= 0) {
       num = numFactura;
-      console.log('serieFactura vacio');
+      //console.log('serieFactura vacio');
     } else {
       num = serieFactura + numFactura;
     }
@@ -142,27 +142,31 @@ export class salesFacturasService {
 
         let resSale = await this.getSaleFromAPI(companyID, num, client_id, client_secret, tenant, entorno);
         if (!resSale.data) throw new Error('Failed to obtain ticket BS');
-        if (resSale.data.value.length != 0) {
-          sqlQ = 'update [BC_SyncSales_2024] set ';
-          sqlQ = sqlQ + "BC_IdSale='" + resSale.data.value[0].id + "', ";
-          sqlQ = sqlQ + "BC_Number='" + resSale.data.value[0].number + "', ";
-          sqlQ =
-            sqlQ +
-            "BC_PostingDate='" +
-            resSale.data.value[0].postingDate +
-            "', ";
-          sqlQ =
-            sqlQ +
-            "BC_CustomerId= '" +
-            resSale.data.value[0].customerId +
-            "', ";
-          sqlQ =
-            sqlQ +
-            "BC_totalAmountIncludingTax= '" +
-            resSale.data.value[0].totalAmountIncludingTax +
-            "' ";
-          sqlQ = sqlQ + "where HIT_IdFactura ='" + idSaleHit + "'";
-          let updBC = await this.sql.runSql(sqlQ, database);
+        try {
+          if (resSale.data.value.length != 0) {
+            sqlQ = 'update [BC_SyncSales_2024] set ';
+            sqlQ = sqlQ + "BC_IdSale='" + resSale.data.value[0].id + "', ";
+            sqlQ = sqlQ + "BC_Number='" + resSale.data.value[0].number + "', ";
+            sqlQ =
+              sqlQ +
+              "BC_PostingDate='" +
+              resSale.data.value[0].postingDate +
+              "', ";
+            sqlQ =
+              sqlQ +
+              "BC_CustomerId= '" +
+              resSale.data.value[0].customerId +
+              "', ";
+            sqlQ =
+              sqlQ +
+              "BC_totalAmountIncludingTax= '" +
+              resSale.data.value[0].totalAmountIncludingTax +
+              "' ";
+            sqlQ = sqlQ + "where HIT_IdFactura ='" + idSaleHit + "'";
+            let updBC = await this.sql.runSql(sqlQ, database);
+          }
+        } catch (error) {
+          console.log('Error update BC_SyncSales_2024')
         }
       }
     } else {

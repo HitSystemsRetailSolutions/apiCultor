@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { getTokenService } from '../conection/getToken.service';
 import { runSqlService } from 'src/conection/sqlConection.service';
 import * as nodemailer from 'nodemailer';
+import axios from 'axios';
 import * as mailgunTransport from 'nodemailer-mailgun-transport';
 
 @Injectable()
@@ -146,8 +147,18 @@ export class PdfService {
     }
   }
 
-  async subirPdf(id: string, archivoBase64: string, database: string) {
+  async esperaYVeras(){
+    // Función de sleep
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    // Esperar 5 segundos
+    await sleep(5000);
+    return true;
+  }
+
+  async subirPdf(id: string, archivoBase64: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string, empresaCodi: string) {
     // Convierte el Base64 a Buffer
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
     const bufferArchivo = Buffer.from(archivoBase64, 'base64');
     const chunks = [];
     const chunkSize = bufferArchivo.length; // Tamaño de cada fragmento en bytes
@@ -158,24 +169,56 @@ export class PdfService {
 
     try {
       for (let i = 0; i < chunks.length; i++) {
-        const descripcion = `part ${i}`;
-        /*
-        const sql = `
-          INSERT INTO archivo (id, nombre, extension, descripcion, archivo)
-          VALUES (newid(), '${nombre}', 'PDF', '${descripcion}', 0x${chunks[i]})
-        `;
-        */
-        const sql = `
-          UPDATE BC_SyncSales_2024 SET BC_PDF=0x${chunks[i]} WHERE BC_IdSale='${id}'
-        `;
+        const sql = `UPDATE BC_SyncSales_2024 SET BC_PDF=0x${chunks[i]} WHERE BC_IdSale='${id}'`;
         let pdf;
         try {
-          pdf = await this.sql.runSql(sql, database,);
+          pdf = await this.sql.runSql(sql, database);
         } catch {
           console.log("Error")
         }
       }
-
+      let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`;
+      let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})/salesInvoiceLines`;
+      let res1 = await axios.get(
+        url1,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        },
+      ).catch((error) => {
+        throw new Error(`Failed get salesInvoices(${id})`);
+      });
+      let res2 = await axios.get(
+        url2,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        },
+      ).catch((error) => {
+        throw new Error(`Failed get salesInvoices(${id})/salesInvoiceLines`);
+      });
+      for (let i = 0; i < res2.data.value.length; i++) {
+        let x = res1.data;
+        let y = res2.data.value[i];
+        let año = x.split("-")[0];
+        let BC_Number = x.number;
+        let BC_TaxCode = y.taxCode;
+        let BC_TaxPercent = y.taxPercent;
+        let BC_AmountExcludingTax = y.amountExcludingTax;
+        let BC_TotalTaxAmount = y.totalTaxAmount;
+        let sql2 = `INSERT INTO [BC_SyncSalesTaxes_${año}] (ID, BC_Number, BC_TaxCode, BC_TaxPercent, BC_AmountExcludingTax, BC_TotalTaxAmount) VALUES 
+        (NEWID(), ${BC_Number}, '${BC_TaxCode}', ${BC_TaxPercent}, ${BC_AmountExcludingTax}, ${BC_TotalTaxAmount})`;
+        let factura;
+        try {
+          factura = await this.sql.runSql(sql2, database);
+        } catch {
+          console.log("Error")
+        }
+      }
       return { msg: "Se ha insertado correctamente" };
     } catch (error) {
       console.error('Error al insertar el PDF en la base de datos:', error);
