@@ -204,7 +204,7 @@ export class PdfService {
       for (let i = 0; i < res2.data.value.length; i++) {
         let x = res1.data;
         let y = res2.data.value[i];
-        let año = x.split("-")[0];
+        let año = x.toString().split("-")[0];
         let BC_Number = x.number;
         let BC_TaxCode = y.taxCode;
         let BC_TaxPercent = y.taxPercent;
