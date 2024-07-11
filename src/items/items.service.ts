@@ -195,7 +195,7 @@ export class itemsService {
     } else {
       itemId = res.data.value[0].id;
     }
-
+    console.log()
     return itemId;
   }
 }

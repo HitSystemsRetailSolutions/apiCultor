@@ -70,4 +70,12 @@ export class PdfController {
     if (!res) return 'Ha habido un error al intentar enviar el correo';
     return 'Se han sincronizado todas las incidencias correctamente';
   }
+
+  @Get('espera')
+  async espera(
+  ) {
+    let res = await this.pdfService.esperaYVeras();
+    if (!res) return 'Ha habido un error al intentar enviar el correo';
+    return 'Se han sincronizado todas las incidencias correctamente';
+  }
 }

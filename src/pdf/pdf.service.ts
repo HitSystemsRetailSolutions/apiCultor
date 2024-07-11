@@ -147,6 +147,15 @@ export class PdfService {
     }
   }
 
+  async esperaYVeras(){
+    // Función de sleep
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    // Esperar 5 segundos
+    await sleep(5000);
+    return true;
+  }
+
   async subirPdf(id: string, archivoBase64: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string, empresaCodi: string) {
     // Convierte el Base64 a Buffer
     let token = await this.token.getToken2(client_id, client_secret, tenant);
