@@ -123,12 +123,13 @@ export class empresasService {
       console.error('El archivo de configuracion no existe:', filePath);
     }
 
+
     //Import configuration
-    const url3 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})/Microsoft.NAV.import`;
+    const url5 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})`;
+    console.log("url get company: "+ url5);
     try {
-      const response = await axios.post(
-        url3,
-        {},
+      const response = await axios.get(
+        url5,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -136,12 +137,35 @@ export class empresasService {
           },
         }
       );
-
-      //console.log('Archivo de configuracion importado exitosamente ' + response.data);
+      packageProgress = response.data.importStatus;
+      //console.log("Progress: ", packageProgress);
     } catch (error) {
-      console.error(`Ha habido un error al importar el archivo de configuracion: ${error.message}`);
-      throw new Error(`Ha habido un error al importar el archivo de configuracion`);
+      console.error(`Ha habido un error al ver el estado de la importacion: ${error.message}`);
+      throw new Error(`Ha habido un error al ver el estado de la importacion`);
     }
+    if (packageProgress == "No") {
+      const url3 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})/Microsoft.NAV.import`;
+      try {
+        const response = await axios.post(
+          url3,
+          {},
+          {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        //console.log('Archivo de configuracion importado exitosamente ' + response.data);
+      } catch (error) {
+        console.error(`Ha habido un error al importar el archivo de configuracion: ${error.message}`);
+        throw new Error(`Ha habido un error al importar el archivo de configuracion`);
+      }
+    }else if(packageProgress == "InProgress" || packageProgress == "Scheduled"){
+      console.log("Importe en progreso o programado");
+    }
+
 
     //Check status import
     while (packageProgress == "No" || packageProgress == "InProgress" || packageProgress == "Scheduled") {
@@ -164,11 +188,11 @@ export class empresasService {
         throw new Error(`Ha habido un error al ver el estado de la importacion`);
       }
     }
-    console.log('Archivo de configuracion importe completado');
+    console.log('Archivo de configuracion importado correctamente');
 
     //Apply configuration
     const url4 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})/Microsoft.NAV.apply`;
-    //console.log(url4)
+
     try {
       const response = await axios.post(
         url4,

@@ -46,6 +46,7 @@ client.on('connect', function () {
       console.log('Suscripción exitosa al tema', tema);
     }
   });
+
   /*
   client.subscribe(tema + '/Log', function (err) {
     if (err) {
@@ -99,7 +100,9 @@ client.on('message', async function (topic, message) {
     let companyNAME = "";
     let database = "";
     if (msgJson.hasOwnProperty('companyID')) {
+
       companyID = msgJson.companyID;
+
       //console.log('El JSON recibido tiene el campo "companyID"');
       if (!isValidCompanyID(msgJson.companyID)) {
         mqttPublish('Error: "companyID" no valido');
@@ -478,7 +481,7 @@ async function bucle(companyID, companyNAME, database, client_id, client_secret,
 
 function mqttPublish(msg) {
   if (debug) client.publish('/Hit/Serveis/Apicultor/Log', msg);
-  console.log(msg);
+  //console.log(msg);
 }
 
 function obtenerCantidadDeValores(): number {
