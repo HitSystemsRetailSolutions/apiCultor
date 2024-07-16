@@ -337,7 +337,6 @@ export class salesTicketsService {
             ((tickets.recordset.length - i) * (0.5 / 60)).toFixed(2) +
             ' minutes',
           );
-
           let sqlUpdate = `update records set timestamp='${x.tmstStr.toISOString()}' where Concepte='BC_SalesTickets_${botiga}'`;
           //console.log(`update: ${sqlUpdate}`);
           await this.sql.runSql(
@@ -410,6 +409,7 @@ export class salesTicketsService {
           .catch((error) => {
             throw new Error('Failed to post Ticket line');
           });
+          console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
 
         //DIMENSION
         let botigaNom = x.BotigaNom;

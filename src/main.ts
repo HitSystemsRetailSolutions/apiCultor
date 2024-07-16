@@ -37,8 +37,8 @@ client.on('connect', function () {
   console.log('Conectado al broker MQTT');
 
   // Suscribirse a un tema
-  let tema = '/Hit/Serveis/Apicultor';
-  //let tema = '/Testing/Hit/Serveis/Apicultor';
+  //let tema = '/Hit/Serveis/Apicultor';
+  let tema = '/Testing/Hit/Serveis/Apicultor';
   client.subscribe(tema, function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
@@ -144,6 +144,10 @@ client.on('message', async function (topic, message) {
     if (msgJson.hasOwnProperty('entorno'))
       entorno = msgJson.entorno;
 
+    let nif = "";
+    if (msgJson.hasOwnProperty('nif'))
+      nif = msgJson.nif;
+
     if (!test) {
       switch (msgJson.msg) {
         case 'SyncEmployes':
@@ -187,7 +191,7 @@ client.on('message', async function (topic, message) {
           await mail(database, msgJson.mailTo, msgJson.idFactura);
           break;
         case 'empresa':
-          await empresa(msgJson.name, msgJson.displayName, client_id, client_secret, tenant, entorno);
+          await empresa(msgJson.name, msgJson.displayName, client_id, client_secret, tenant, entorno, database, msgJson.empresa_id, nif);
           break;
         case 'archivos':
           await archivo(companyNAME, database, client_id, client_secret, tenant, entorno);
@@ -446,7 +450,7 @@ async function mail(database, mailTo, idFactura) {
   }
 }
 
-async function empresa(name, displayName, client_id, client_secret, tenant, entorno) {
+async function empresa(name, displayName, client_id, client_secret, tenant, entorno, database, empresa_id, nif) {
   let res;
   try {
     console.log(`Intentado crear la empresa ${name}`);
@@ -458,6 +462,9 @@ async function empresa(name, displayName, client_id, client_secret, tenant, ento
         client_secret: client_secret,
         tenant: tenant,
         entorno: entorno,
+        database: database,
+        empresa_id: empresa_id,
+        nif: nif,
       },
     });
   } catch (error) {

@@ -15,8 +15,11 @@ export class empresasController {
     @Query('client_secret') client_secret: string,
     @Query('tenant') tenant: string,
     @Query('entorno') entorno: string,
+    @Query('database') database: string,
+    @Query('empresa_id') empresa_id: string,
+    @Query('nif') nif: string,
   ) {
-    const res = await this.empresasService.crearEmpresa(name, displayName, client_id, client_secret, tenant, entorno);
+    const res = await this.empresasService.crearEmpresa(name, displayName, client_id, client_secret, tenant, entorno, database, empresa_id, nif);
     if (res == true) return `Se ha creado la empresa ${name} correctamente`;
     else return `Error al crear la empresa ${name}`;
   }

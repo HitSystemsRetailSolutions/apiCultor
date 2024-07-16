@@ -25,13 +25,14 @@ export class empresasService {
     private token: getTokenService,
     private sql: runSqlService,
   ) { }
-  async crearEmpresa(name: string, displayName: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async crearEmpresa(name: string, displayName: string, client_id: string, client_secret: string, tenant: string, entorno: string, database: string, empresa_id: string, nif: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let id = 'e640b57a-f31c-ef11-9f88-002248a1f043';
     let packageName = "ConfigurationBase";
     let packageCode = "ES.ESP.STANDARD";
     let packageId = "";
     let packageProgress = 'No';
+    let packageProgressApply = 'No';
     //let document = 'src/PackageES.ESP.STANDARD.rapidstart'
 
     //Create company
@@ -126,7 +127,7 @@ export class empresasService {
 
     //Import configuration
     const url5 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})`;
-    console.log("url get company: "+ url5);
+    console.log("url get configurationPackage: " + url5);
     try {
       const response = await axios.get(
         url5,
@@ -162,7 +163,7 @@ export class empresasService {
         console.error(`Ha habido un error al importar el archivo de configuracion: ${error.message}`);
         throw new Error(`Ha habido un error al importar el archivo de configuracion`);
       }
-    }else if(packageProgress == "InProgress" || packageProgress == "Scheduled"){
+    } else if (packageProgress == "InProgress" || packageProgress == "Scheduled") {
       console.log("Importe en progreso o programado");
     }
 
@@ -190,13 +191,11 @@ export class empresasService {
     }
     console.log('Archivo de configuracion importado correctamente');
 
-    //Apply configuration
-    const url4 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})/Microsoft.NAV.apply`;
-
+    const url6 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})`;
+    //console.log("url get company: " + url5);
     try {
-      const response = await axios.post(
-        url4,
-        {},
+      const response = await axios.get(
+        url6,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -204,18 +203,102 @@ export class empresasService {
           },
         }
       );
-
-      console.log('Archivo de configuracion aplicado exitosamente ' + response.data);
+      packageProgressApply = response.data.applyStatus;
+      //console.log("Progress: ", packageProgress);
     } catch (error) {
-      console.error(`Ha habido un error al aplicar el archivo de configuracion: ${error.message}`);
-      throw new Error(`Ha habido un error al aplicar el archivo de configuracion`);
+      console.error(`Ha habido un error al ver el estado de la importacion: ${error.message}`);
+      throw new Error(`Ha habido un error al ver el estado de la importacion`);
     }
 
+    const url4 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})/Microsoft.NAV.apply`;
+    if (packageProgressApply == "No") {
+      //Apply configuration
+      try {
+        const response = await axios.post(
+          url4,
+          {},
+          {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        //console.log('Archivo de configuracion aplicado exitosamente ' + response.data);
+      } catch (error) {
+        console.error(`Ha habido un error al aplicar el archivo de configuracion: ${error.message}`);
+        throw new Error(`Ha habido un error al aplicar el archivo de configuracion`);
+      }
+    } else if (packageProgressApply == "InProgress" || packageProgressApply == "Scheduled") {
+      console.log("Aplicando en progreso o programado");
+    }
+
+    while (packageProgressApply == "No" || packageProgressApply == "InProgress" || packageProgressApply == "Scheduled") {
+      const url5 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})`;
+      //console.log(url5)
+      try {
+        const response = await axios.get(
+          url5,
+          {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        packageProgressApply = response.data.applyStatus;
+        //console.log("Progress: ", packageProgress);
+      } catch (error) {
+        console.error(`Ha habido un error al ver el estado de la aplicar: ${error.message}`);
+        throw new Error(`Ha habido un error al ver el estado de la aplicar`);
+      }
+    }
+    console.log('Archivo de configuracion aplicado exitosamente');
+    console.log(`Se ha creado la empresa ${name} correctamente`);
+
+    if (nif.length > 0) {
+      name = nif;
+      console.log("iepa")
+    }
+    else {
+      console.log("ya estoy por aqui " + nif.length)
+    }
+
+    let sql1 = `INSERT INTO [BC_PARAMS] 
+    (HIT_EmpresaNAME, HIT_EmpresaID, HIT_EmpresaDB, BC_CompanyNAME, BC_CompanyID, BC_Tenant, BC_Client_secret, BC_Client_id) 
+    VALUES
+    ('${name}', '${empresa_id}', '${database}', '${displayName}', '${id}', '${tenant}', '${client_secret}', '${client_id}')`;
+    //console.log(`SQL: ${sql1}`)
+    let empresa;
+    try {
+      empresa = await this.sql.runSql(sql1, "hit");
+    } catch {
+      console.log("Error")
+    }
+    console.log("Trying too apply 2 time " + packageProgressApply)
     //Apply 2 time configuration
     try {
-      const response = await axios.post(
-        url4,
-        {},
+      if (packageProgressApply == "Completed") {
+        const response = await axios.post(
+          url4,
+          {},
+          {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
+    } catch (error) {
+      console.error(`Ha habido un error al aplicar el archivo de configuracion por segunda vez: ${error.message}`);
+      throw new Error(`Ha habido un error al aplicar el archivo de configuracion por segunda vez`);
+    }
+    
+    try {
+      const response = await axios.get(
+        url6,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -223,14 +306,35 @@ export class empresasService {
           },
         }
       );
-
-      console.log('Archivo de configuracion aplicado exitosamente por segunda vez' + response.data);
-      console.log(`Se ha creado la empresa ${name} correctamente`);
+      packageProgressApply = response.data.applyStatus;
+      //console.log("Progress: ", packageProgress);
     } catch (error) {
-      console.error(`Ha habido un error al aplicar el archivo de configuracion: ${error.message}`);
-      throw new Error(`Ha habido un error al aplicar el archivo de configuracion`);
+      console.error(`Ha habido un error al ver el estado de la aplicar: ${error.message}`);
+      throw new Error(`Ha habido un error al ver el estado de la aplicar`);
     }
-    
+
+    while (packageProgressApply == "No" || packageProgressApply == "InProgress" || packageProgressApply == "Scheduled") {
+      const url5 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})`;
+      //console.log(url5)
+      try {
+        const response = await axios.get(
+          url5,
+          {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        packageProgressApply = response.data.applyStatus;
+        //console.log("Progress: ", packageProgress);
+      } catch (error) {
+        console.error(`Ha habido un error al ver el estado de la importacion: ${error.message}`);
+        throw new Error(`Ha habido un error al ver el estado de la importacion`);
+      }
+    }
+    console.log('Archivo de configuracion aplicado exitosamente por segunda vez');
+
     return true
   }
 }

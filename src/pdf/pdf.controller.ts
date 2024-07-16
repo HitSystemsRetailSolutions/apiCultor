@@ -52,7 +52,7 @@ export class PdfController {
     }
 
     try {
-      const result = await this.pdfService.subirPdf(id, archivo, database, client, secret, tenant, entorno, companyId, empresaCodi);
+      const result = await this.pdfService.subirPdf(id, archivo, database, client, secret, tenant, entorno, companyId);
       return res.status(200).json(result);
     } catch (error) {
       console.error('Error al subir el PDF:', error);
