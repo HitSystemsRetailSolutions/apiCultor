@@ -234,6 +234,7 @@ export class salesFacturasService {
               itemId: itemId,
               quantity: x.Quantitat,
               unitPrice: x.UnitPrice,
+              discountPercent: x.Desconte
             },
             {
               headers: {

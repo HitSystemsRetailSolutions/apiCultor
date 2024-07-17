@@ -398,6 +398,7 @@ export class salesTicketsService {
               itemId: itemId,
               quantity: x.Quantitat,
               unitPrice: x.UnitPrice,
+              discountPercent: x.Desconte,
             },
             {
               headers: {
