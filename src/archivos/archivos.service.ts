@@ -61,9 +61,9 @@ export class archivosService {
 
     let idTrabajador = newarchivos.data.value.length
     for (let i = 0; i < archivos.recordset.length; i++) {
+      console.log(`Iteracion: ${i}`)
       let x = archivos.recordset[i];
       let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/archivo?$filter=fecha eq ${x.fecha.toISOString()} and propietario eq '${x.propietario}'`;
-      console.log(url);
       let res = await axios.get(
         url,
         {
@@ -79,6 +79,7 @@ export class archivosService {
         });
 
       if (!res.data) throw new Error('Failed to obtain access token');
+      console.log(`mondongo`)
       if (res.data.value.length === 0) {
         let newarchivos = await axios
           .post(
@@ -86,7 +87,7 @@ export class archivosService {
             {
               archivo: x.nombre,
               tipoArchivo: x.extension,
-              fecha: x.fecha.toISOString(),
+              fecha: x.fecha,
               propietario: x.propietario,
               idTrabajador: idTrabajador
             },
@@ -100,6 +101,7 @@ export class archivosService {
           .catch((error) => {
             throw new Error('Failed to upload archivo');
           });
+        console.log(`mondongo2`)
         let newarchivos2 = await axios
           .put(
             `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/archivo(${idTrabajador})/pdf`,
@@ -109,7 +111,7 @@ export class archivosService {
             {
               headers: {
                 Authorization: `Bearer ${token}`,
-                "Content-Type": "application/octet-stream",
+                "Content-Type": "application/x-www-form-urlencoded",
                 'If-Match': '*',
               }
             },
