@@ -86,7 +86,7 @@ export class archivosService {
             {
               archivo: x.nombre,
               tipoArchivo: x.extension,
-              fecha: x.fecha,
+              fecha: x.fecha.toISOString(),
               propietario: x.propietario,
               idTrabajador: idTrabajador
             },
