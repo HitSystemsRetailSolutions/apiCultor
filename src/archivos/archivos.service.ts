@@ -69,7 +69,8 @@ export class archivosService {
           .post(
             `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/archivo`,
             {
-              archivo: x.archivo,
+              archivo: x.nombre,
+              pdf: x.archivo,
               tipoArchivo: x.extension,
               fecha: x.fecha,
               propietario: x.propietario,
