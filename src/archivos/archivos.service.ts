@@ -45,19 +45,34 @@ export class archivosService {
       return false;
     }
     console.log(`Cantidad a sincronizar: ${archivos.recordset.length}`);
+    let newarchivos = await axios
+      .get(
+        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/archivo`,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+      .catch((error) => {
+        throw new Error('Failed to obtain access token');
+      });
+
+    let idTrabajador = newarchivos.data.value.length
     for (let i = 0; i < archivos.recordset.length; i++) {
       let x = archivos.recordset[i];
       let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/archivo?$filter=fecha eq ${x.fecha.toISOString()} and propietario eq '${x.propietario}'`;
       console.log(url);
       let res = await axios.get(
-          url,
-          {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-            },
+        url,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
           },
-        )
+        },
+      )
         .catch((error) => {
           console.log("!!!Error!!! ", error);
           throw new Error('Failed to obtain access token');
@@ -70,10 +85,10 @@ export class archivosService {
             `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/archivo`,
             {
               archivo: x.nombre,
-              pdf: x.archivo,
               tipoArchivo: x.extension,
               fecha: x.fecha,
               propietario: x.propietario,
+              idTrabajador: idTrabajador
             },
             {
               headers: {
@@ -83,9 +98,25 @@ export class archivosService {
             },
           )
           .catch((error) => {
-            throw new Error('Failed to obtain access token');
+            throw new Error('Failed to upload archivo');
           });
-
+        let newarchivos2 = await axios
+          .put(
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/archivo(${idTrabajador})/pdf`,
+            {
+              pdf: x.archivo
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/octet-stream",
+                'If-Match': '*',
+              }
+            },
+          )
+          .catch((error) => {
+            throw new Error('Failed to upload the pdf');
+          });
         if (!newarchivos.data)
           return new Error('Failed to obtain access token');
         console.log(
