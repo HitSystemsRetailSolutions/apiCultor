@@ -398,7 +398,7 @@ export class salesTicketsService {
               documentId: ticketId,
               itemId: itemId,
               quantity: x.Quantitat,
-              unitPrice: x.UnitPrice,
+              unitPrice: x.UnitPrice
             },
             {
               headers: {
@@ -409,8 +409,8 @@ export class salesTicketsService {
           )
           .catch((error) => {
             console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
+            console.log(`x: ${x}`);
             throw new Error('Failed to post Ticket line');
-
           });
           //console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
 
