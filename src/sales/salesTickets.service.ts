@@ -325,7 +325,8 @@ export class salesTicketsService {
             client_id,
             client_secret,
             tenant,
-            entorno
+            entorno,
+            newTickets.data.value.id
           ).catch(console.error);
           //console.log('Tmst: ', x.tmstStr);
           //console.log('Data: ', x.Data);
@@ -354,7 +355,7 @@ export class salesTicketsService {
   }
 
   //AÑADIMOS LAS LINEAS AL TICKET
-  async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, database, companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, database, companyID, client_id: string, client_secret: string, tenant: string, entorno: string, BC_IdTicket: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
 
     let sqlQ;
@@ -392,7 +393,7 @@ export class salesTicketsService {
       if (res.data.value.length === 0) {
         let newTickets = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines`,
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${BC_IdTicket})/salesInvoiceLines`,
             {
               documentId: ticketId,
               itemId: itemId,
@@ -411,7 +412,7 @@ export class salesTicketsService {
             throw new Error('Failed to post Ticket line');
 
           });
-          console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
+          //console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
 
         //DIMENSION
         let botigaNom = x.BotigaNom;
