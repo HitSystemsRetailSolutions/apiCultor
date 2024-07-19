@@ -191,7 +191,7 @@ export class itemsService {
         .catch((error) => {
           throw new Error('Failed post item ' + items.recordset[0].Nom);
         });
-      itemId = newItems.data.id;
+      itemId = newItems.data.value.id;
     } else {
       itemId = res.data.value[0].id;
     }
