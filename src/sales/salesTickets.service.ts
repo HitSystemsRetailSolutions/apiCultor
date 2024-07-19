@@ -367,7 +367,7 @@ export class salesTicketsService {
     sqlQ =
       sqlQ +
       "group by concat(upper(c.nom), '_', num_tick), CAST(v.Plu as varchar), c.nom ";
-
+      console.log(sqlQ);
     let ticketsLines = await this.sql.runSql(sqlQ, database);
 
     for (let i = 0; i < ticketsLines.recordset.length; i++) {
@@ -409,7 +409,6 @@ export class salesTicketsService {
           )
           .catch((error) => {
             console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
-            console.log(`x: ${x}`);
             throw new Error('Failed to post Ticket line');
           });
           //console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
