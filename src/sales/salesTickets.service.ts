@@ -325,8 +325,7 @@ export class salesTicketsService {
             client_id,
             client_secret,
             tenant,
-            entorno,
-            newTickets.data.value.id
+            entorno
           ).catch(console.error);
           //console.log('Tmst: ', x.tmstStr);
           //console.log('Data: ', x.Data);
@@ -355,7 +354,7 @@ export class salesTicketsService {
   }
 
   //AÑADIMOS LAS LINEAS AL TICKET
-  async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, database, companyID, client_id: string, client_secret: string, tenant: string, entorno: string, BC_IdTicket: string) {
+  async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, database, companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
 
     let sqlQ;
@@ -388,12 +387,13 @@ export class salesTicketsService {
       );
 
       res = await this.getSaleLineFromAPI(ticketId, 'CODI-' + x.Plu, companyID, client_id, client_secret, tenant, entorno);
-
+      let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines`;
+      console.log(url);
       //NO ESTÁ LA LINEA, LA AÑADIMOS
       if (res.data.value.length === 0) {
         let newTickets = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${BC_IdTicket})/salesInvoiceLines`,
+            url,
             {
               documentId: ticketId,
               itemId: itemId,
