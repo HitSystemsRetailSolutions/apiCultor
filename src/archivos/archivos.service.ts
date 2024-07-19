@@ -131,7 +131,7 @@ export class archivosService {
         );
 
         await this.sql.runSql(
-          `update records set timestamp='${x.tmstStr}' where Concepte='BC_Archivos'`,
+          `update records set timestamp='${x.tmstStr.toISOString()}' where Concepte='BC_Archivos'`,
           database,
         );
       }

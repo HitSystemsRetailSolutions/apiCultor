@@ -17,9 +17,9 @@ export class runSqlService {
       pool: {
         max: 10,
         min: 0,
-        idleTimeoutMillis: 20000,
+        idleTimeoutMillis: 65000,
       },
-      requestTimeout: 15000,
+      requestTimeout: 60000,
     };
     pool = await new sql.ConnectionPool(config).connect();
   }
