@@ -121,10 +121,10 @@ export class salesTicketsService {
   async getSaleFromAPI(docNumber, companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
     // Get the authentication token
     let token = await this.token.getToken2(client_id, client_secret, tenant);
-
+    let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`,
+        url,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -133,6 +133,7 @@ export class salesTicketsService {
         },
       )
       .catch((error) => {
+        console.log(`Url ERROR: ${url}`)
         throw new Error('Failed to obtain ticket C');
       });
 
@@ -144,9 +145,10 @@ export class salesTicketsService {
     // Get the authentication token
     //console.log(lineObjectNumber);
     let token = await this.token.getToken2(client_id, client_secret, tenant);
+    let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${idSale})/salesInvoiceLines?$filter=lineObjectNumber eq '${lineObjectNumber}'`;
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${idSale})/salesInvoiceLines?$filter=lineObjectNumber eq '${lineObjectNumber}'`,
+        url,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -155,6 +157,7 @@ export class salesTicketsService {
         },
       )
       .catch((error) => {
+        console.log(`Url ERROR: ${url}`)
         throw new Error('Failed to obtain ticket C');
       });
 
