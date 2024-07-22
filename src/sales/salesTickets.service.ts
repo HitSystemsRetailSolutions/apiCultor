@@ -286,11 +286,13 @@ export class salesTicketsService {
         )
         .catch((error) => {
           console.log(`Url ERROR: ${url1}`)
-          throw new Error('Failed to obtain ticket A');
+          //throw new Error('Failed to obtain ticket A');
+          console.log('Failed to obtain ticket A');
+          res = null; 
         });
 
-      if (!res.data) throw new Error('Failed to obtain ticket B');
-      if (res.data.value.length === 0) {
+      if (!res || !res.data || res != null) throw new Error('Failed to obtain ticket B');
+      if (res.data.value.length === 0 || res == null) {
         //SI NO EXISTE EL TICKET EN BC LO CREAMOS
         let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices`;
         let newTickets = await axios
@@ -372,7 +374,7 @@ export class salesTicketsService {
     sqlQ =
       sqlQ +
       "group by concat(upper(c.nom), '_', num_tick), CAST(v.Plu as varchar), c.nom ";
-      //console.log(sqlQ);
+    //console.log(sqlQ);
     let ticketsLines = await this.sql.runSql(sqlQ, database);
 
     for (let i = 0; i < ticketsLines.recordset.length; i++) {
@@ -416,7 +418,7 @@ export class salesTicketsService {
             //console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
             throw new Error('Failed to post Ticket line');
           });
-          //console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
+        //console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
 
         //DIMENSION
         let botigaNom = x.BotigaNom;
