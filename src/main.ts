@@ -372,7 +372,7 @@ async function tickets(companyID, database, botiga, client_id, client_secret, te
         tenant: tenant,
         entorno: entorno,
       },
-      timeout: 30000,
+      timeout: 60000,
     });
     console.log('Tickets sync sent...');
   } catch (error) {
