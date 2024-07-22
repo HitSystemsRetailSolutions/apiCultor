@@ -307,7 +307,8 @@ export class salesTicketsService {
             },
           )
           .catch((error) => {
-            //console.log(`Datos: ${x.Num_tick}, ${x.Data}, ${customerId}`)
+            console.log(`Datos: ${x.Num_tick}, ${x.Data}, ${customerId}`)
+            console.log(`Url ERROR: ${url2}`)
             throw new Error('Failed post ticket A');
           });
 
