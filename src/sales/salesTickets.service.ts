@@ -307,7 +307,7 @@ export class salesTicketsService {
             },
           )
           .catch((error) => {
-            console.log(`Datos: ${x.Num_tick}, ${x.Data}, ${customerId}`)
+            //console.log(`Datos: ${x.Num_tick}, ${x.Data}, ${customerId}`)
             throw new Error('Failed post ticket A');
           });
 
@@ -368,7 +368,7 @@ export class salesTicketsService {
     sqlQ =
       sqlQ +
       "group by concat(upper(c.nom), '_', num_tick), CAST(v.Plu as varchar), c.nom ";
-      console.log(sqlQ);
+      //console.log(sqlQ);
     let ticketsLines = await this.sql.runSql(sqlQ, database);
 
     for (let i = 0; i < ticketsLines.recordset.length; i++) {
@@ -389,7 +389,7 @@ export class salesTicketsService {
 
       res = await this.getSaleLineFromAPI(ticketId, 'CODI-' + x.Plu, companyID, client_id, client_secret, tenant, entorno);
       let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines`;
-      console.log(url);
+      //console.log(url);
       //NO ESTÁ LA LINEA, LA AÑADIMOS
       if (res.data.value.length === 0) {
         let newTickets = await axios
@@ -409,7 +409,7 @@ export class salesTicketsService {
             },
           )
           .catch((error) => {
-            console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
+            //console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
             throw new Error('Failed to post Ticket line');
           });
           //console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
