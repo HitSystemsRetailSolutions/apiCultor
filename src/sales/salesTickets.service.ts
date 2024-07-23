@@ -274,36 +274,11 @@ export class salesTicketsService {
 
       //console.log ("CustomerId: " + customerId);
       let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`;
-      let res = await axios
-        .get(
-          url1,
-          {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-            },
-          },
-        )
-        .catch((error) => {
-          console.log(`Url ERROR: ${url1}`)
-          //throw new Error('Failed to obtain ticket A');
-          console.log('Failed to obtain ticket A');
-          res = null; 
-        });
-
-      if (!res || !res.data || res != null) throw new Error('Failed to obtain ticket B');
-      if (res.data.value.length === 0 || res == null) {
-        //SI NO EXISTE EL TICKET EN BC LO CREAMOS
-        let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices`;
-        let newTickets = await axios
-          .post(
-            url2,
-            {
-              externalDocumentNumber: x.Num_tick,
-              invoiceDate: x.Data,
-              postingDate: x.Data,
-              customerId: customerId,
-            },
+      let res;
+      try {
+        res = await axios
+          .get(
+            url1,
             {
               headers: {
                 Authorization: 'Bearer ' + token,
@@ -311,12 +286,45 @@ export class salesTicketsService {
               },
             },
           )
-          .catch((error) => {
-            console.log(`Datos: ${x.Num_tick}, ${x.Data}, ${customerId}`)
-            console.log(`Url ERROR: ${url2}`)
-            throw new Error('Failed post ticket A');
-          });
+      } catch (error) {
+        console.log(`Url ERROR: ${url1}`)
+        continue;
+        throw new Error('Failed to obtain ticket A');
+      }
+      //¡if (!res.data) throw new Error('Failed to obtain ticket B');
 
+      if (!res || !res.data) {
+        console.log('Failed to obtain ticket B');
+        continue; // Salir de la función si no se pudo obtener datos
+      }
+
+      if (res.data.value.length === 0) {
+        //SI NO EXISTE EL TICKET EN BC LO CREAMOS
+        let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices`;
+        let newTickets
+        try {
+          newTickets = await axios
+            .post(
+              url2,
+              {
+                externalDocumentNumber: x.Num_tick,
+                invoiceDate: x.Data,
+                postingDate: x.Data,
+                customerId: customerId,
+              },
+              {
+                headers: {
+                  Authorization: 'Bearer ' + token,
+                  'Content-Type': 'application/json',
+                },
+              },
+            )
+        } catch (error) {
+          console.log(`Datos: ${x.Num_tick}, ${x.Data}, ${customerId}`)
+          console.log(`Url ERROR: ${url2}`)
+          continue;
+          throw new Error('Failed post ticket A');
+        }
         if (!newTickets.data) return new Error('Failed post ticket B');
         else {
           //AÑADIMOS LAS LINEAS DEL TICKET
