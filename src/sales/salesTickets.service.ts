@@ -275,21 +275,36 @@ export class salesTicketsService {
 
         //console.log ("CustomerId: " + customerId);
         let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`;
+        let peticiones = 0;
+        let exito = false;
         let res;
-        try {
-          res = await axios
-            .get(
-              url1,
-              {
-                headers: {
-                  Authorization: 'Bearer ' + token,
-                  'Content-Type': 'application/json',
+        while (peticiones < 100 && !exito) {
+          try {
+            res = await axios
+              .get(
+                url1,
+                {
+                  headers: {
+                    Authorization: 'Bearer ' + token,
+                    'Content-Type': 'application/json',
+                  },
                 },
-              },
-            )
-        } catch (error) {
-          console.log(`Url ERROR: ${url1}`)
-          //throw new Error('Failed to obtain ticket A');
+              )
+            if (res.status === 200 && res.data) {
+              console.log('Petición exitosa:', res.data);
+              exito = true; // Marcar que la petición fue exitosa
+            } else {
+              console.log('Respuesta inesperada:', res.status);
+            }
+          } catch (error) {
+            console.log(`Intento ${peticiones + 1}: Error en la URL: ${url1}`);
+            //throw new Error('Failed to obtain ticket A');
+          }
+          peticiones++;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        if (!exito) {
+          console.log('La petición falló después de 100 intentos.');
         }
 
         //if (!res.data) throw new Error('Failed to obtain ticket B');
