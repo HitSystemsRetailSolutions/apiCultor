@@ -291,7 +291,6 @@ export class salesTicketsService {
                 },
               )
             if (res.status === 200 && res.data) {
-              console.log('Petición exitosa:', res.data);
               exito = true; // Marcar que la petición fue exitosa
             } else {
               console.log('Respuesta inesperada:', res.status);
