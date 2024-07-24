@@ -202,7 +202,8 @@ export class salesFacturasService {
     for (let i = 0; i < facturasLines.recordset.length; i++) {
       let x = facturasLines.recordset[i];
       console.log('PRODUCTO ' + x.Plu);
-      let itemId = await this.items.getItemFromAPI(companyID, database, x.Plu, client_id, client_secret, tenant, entorno);
+      let item;
+      item = await this.items.getItemFromAPI(companyID, database, x.Plu, client_id, client_secret, tenant, entorno);
 
       let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`;
 
@@ -219,8 +220,8 @@ export class salesFacturasService {
         });
 
       if (!res.data) throw new Error('Failed to get factura line');
-      if (itemId.length <= 0) {
-        itemId = x.Plu;
+      if (item.length <= 0) {
+        item = x.Plu;
       }
       //NO ESTÁ, LA AÑADIMOS
       let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines`;
@@ -231,10 +232,11 @@ export class salesFacturasService {
             url,
             {
               documentId: BC_facturaId,
-              itemId: itemId,
+              itemId: item.id,
               quantity: x.Quantitat,
               unitPrice: x.UnitPrice,
-              discountPercent: x.Desconte
+              discountPercent: x.Desconte,
+              taxCode: item.generalProductPostingGroupCode
             },
             {
               headers: {
@@ -245,7 +247,7 @@ export class salesFacturasService {
           )
           .catch((error) => {
             console.log('----------', BC_facturaId, '------------------');
-            console.log('----------', itemId, '------------------');
+            console.log('----------', item.id, '------------------');
             console.log('----------', x.Quantitat, '------------------');
             console.log('----------', x.UnitPrice, '------------------');
             throw new Error('Failed to post Factura line');
@@ -260,9 +262,10 @@ export class salesFacturasService {
             `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines(${res.data.value[0].id})`,
             {
               documentId: BC_facturaId,
-              itemId: itemId,
+              itemId: item.id,
               quantity: x.Quantitat,
               unitPrice: x.UnitPrice,
+              taxCode: item.generalProductPostingGroupCode
             },
             {
               headers: {
