@@ -269,49 +269,17 @@ export class salesTicketsService {
     console.log("Total tickets: ", tickets.recordset.length)
     let clientCodi = 'A';
     for (let i = 0; i < tickets.recordset.length; i++) {
-      let x = tickets.recordset[i];
-      let customerId = await this.customers.getCustomerFromAPI(companyID, database, clientCodi, client_id, client_secret, tenant, entorno);
-
-      //console.log ("CustomerId: " + customerId);
-      let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`;
-      let res;
       try {
-        res = await axios
-          .get(
-            url1,
-            {
-              headers: {
-                Authorization: 'Bearer ' + token,
-                'Content-Type': 'application/json',
-              },
-            },
-          )
-      } catch (error) {
-        console.log(`Url ERROR: ${url1}`)
-        continue;
-        throw new Error('Failed to obtain ticket A');
-      }
-      //¡if (!res.data) throw new Error('Failed to obtain ticket B');
+        let x = tickets.recordset[i];
+        let customerId = await this.customers.getCustomerFromAPI(companyID, database, clientCodi, client_id, client_secret, tenant, entorno);
 
-      if (!res || !res.data) {
-        console.log('Failed to obtain ticket B');
-        continue; // Salir de la función si no se pudo obtener datos
-      }
-
-      if (res.data.value.length === 0) {
-        //SI NO EXISTE EL TICKET EN BC LO CREAMOS
-        let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices`;
-        let newTickets
+        //console.log ("CustomerId: " + customerId);
+        let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`;
+        let res;
         try {
-          newTickets = await axios
-            .post(
-              url2,
-              {
-                externalDocumentNumber: x.Num_tick,
-                invoiceDate: x.Data,
-                postingDate: x.Data,
-                customerId: customerId,
-              },
+          res = await axios
+            .get(
+              url1,
               {
                 headers: {
                   Authorization: 'Bearer ' + token,
@@ -320,48 +288,58 @@ export class salesTicketsService {
               },
             )
         } catch (error) {
-          console.log(`Datos: ${x.Num_tick}, ${x.Data}, ${customerId}`)
-          console.log(`Url ERROR: ${url2}`)
-          continue;
-          throw new Error('Failed post ticket A');
+          console.log(`Url ERROR: ${url1}`)
+          //throw new Error('Failed to obtain ticket A');
         }
-        if (!newTickets.data) return new Error('Failed post ticket B');
-        else {
-          //AÑADIMOS LAS LINEAS DEL TICKET
-          let ticketBC = await this.getSaleFromAPI(x.Num_tick, companyID, client_id, client_secret, tenant, entorno);
-          //console.log('Tickets BC: ', ticketBC.data.value[0].id);
-          await this.synchronizeSalesTiquetsLines(
-            tabVenut,
-            botiga,
-            x.nTickHit,
-            ticketBC.data.value[0].id,
-            database,
-            companyID,
-            client_id,
-            client_secret,
-            tenant,
-            entorno
-          ).catch(console.error);
-          //console.log('Tmst: ', x.tmstStr);
-          //console.log('Data: ', x.Data);
-          console.log(
-            'Synchronizing tickets... -> ' + (i + 1) + '/' + (tickets.recordset.length + 1),
-            ' --- ',
-            ((i / tickets.recordset.length) * 100).toFixed(2) + '%',
-            ' | Time left: ' +
-            ((tickets.recordset.length - i) * (0.5 / 60)).toFixed(2) +
-            ' minutes',
-          );
-          let sqlUpdate = `update records set timestamp='${x.tmstStr.toISOString()}' where Concepte='BC_SalesTickets_${botiga}'`;
-          //console.log(`update: ${sqlUpdate}`);
-          await this.sql.runSql(
-            sqlUpdate,
-            database,
-          );
 
+        //if (!res.data) throw new Error('Failed to obtain ticket B');
+
+        if (res.data.value.length === 0) {
+          //SI NO EXISTE EL TICKET EN BC LO CREAMOS
+          let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices`;
+          let newTickets
+          try {
+            newTickets = await axios
+              .post(
+                url2,
+                {
+                  externalDocumentNumber: x.Num_tick,
+                  invoiceDate: x.Data,
+                  postingDate: x.Data,
+                  customerId: customerId,
+                },
+                {
+                  headers: {
+                    Authorization: 'Bearer ' + token,
+                    'Content-Type': 'application/json',
+                  },
+                },
+              )
+          } catch (error) {
+            console.log(`Datos: ${x.Num_tick}, ${x.Data}, ${customerId}`)
+            console.log(`Url ERROR: ${url2}`);
+            //throw new Error('Failed post ticket A');
+          }
+          if (!newTickets.data) return new Error('Failed post ticket B');
+          else {
+            //AÑADIMOS LAS LINEAS DEL TICKET
+            let ticketBC = await this.getSaleFromAPI(x.Num_tick, companyID, client_id, client_secret, tenant, entorno);
+            //console.log('Tickets BC: ', ticketBC.data.value[0].id);
+            await this.synchronizeSalesTiquetsLines(tabVenut, botiga, x.nTickHit, ticketBC.data.value[0].id, database, companyID, client_id, client_secret, tenant, entorno).catch(console.error);
+            //console.log('Tmst: ', x.tmstStr);
+            //console.log('Data: ', x.Data);
+
+            console.log('Synchronizing tickets... -> ' + (i + 1) + '/' + (tickets.recordset.length + 1), ' --- ', ((i / tickets.recordset.length) * 100).toFixed(2) + '%', ' | Time left: ' + ((tickets.recordset.length - i) * (0.5 / 60)).toFixed(2) + ' minutes',);
+            let sqlUpdate = `update records set timestamp='${x.tmstStr.toISOString()}' where Concepte='BC_SalesTickets_${botiga}'`;
+            //console.log(`update: ${sqlUpdate}`);
+            await this.sql.runSql(sqlUpdate, database);
+          }
+        } else {
+          console.log('Ya existe el ticket');
         }
-      } else {
-        console.log('Ya existe el ticket');
+      } catch (error) {
+        console.log('Error:', error);
+        continue;
       }
     }
 
@@ -389,7 +367,9 @@ export class salesTicketsService {
       let x = ticketsLines.recordset[i];
       //console.log(x);
       //console.log('-------------------------PLU ' + x.Plu + '---------------------',);
-      let itemId = await this.items.getItemFromAPI(companyID, database, x.Plu, client_id, client_secret, tenant, entorno);
+      let item;
+      item = await this.items.getItemFromAPI(companyID, database, x.Plu, client_id, client_secret, tenant, entorno);
+
       //console.log(`ItemID: ${itemId}`)
       let res = await axios.get(
         `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`,
@@ -411,9 +391,10 @@ export class salesTicketsService {
             url,
             {
               documentId: ticketId,
-              itemId: itemId,
+              itemId: item.id,
               quantity: x.Quantitat,
-              unitPrice: x.UnitPrice
+              unitPrice: x.UnitPrice,
+              taxCode: item.generalProductPostingGroupCode
             },
             {
               headers: {

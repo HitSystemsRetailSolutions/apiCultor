@@ -19,7 +19,7 @@ export class itemsService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) {}
+  ) { }
 
   async syncItems(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
@@ -131,7 +131,7 @@ export class itemsService {
   }
 
   async getItemFromAPI(companyID, database, codiHIT, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    let itemId = '';
+    let item = '';
 
     // Get the authentication token
     let token = await this.token.getToken2(client_id, client_secret, tenant);
@@ -157,13 +157,13 @@ export class itemsService {
     let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${codiHIT}'`;
 
     // Get Item from API
-    let res = await axios
-      .get(url, {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
-      })
+    let res = await axios.get(
+      url, {
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+    })
       .catch((error) => {
         throw new Error('Failed to obtain item');
       });
@@ -191,11 +191,11 @@ export class itemsService {
         .catch((error) => {
           throw new Error('Failed post item ' + items.recordset[0].Nom);
         });
-      itemId = newItems.data.value.id;
+      item = newItems.data.value;
     } else {
-      itemId = res.data.value[0].id;
+      item = res.data.value[0];
     }
     console.log()
-    return itemId;
+    return item;
   }
 }
