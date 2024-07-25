@@ -353,8 +353,17 @@ export class salesTicketsService {
         }
       } catch (error) {
         console.log('Error:', error);
-        await new Promise(resolve => setTimeout(resolve, 60000)); 
-        continue;
+        let msgJson = {
+          msg: "tickets",
+          companyID: companyID,
+          database: database,
+          botiga: botiga,
+          debug: true,
+          repeat: ""
+        }
+        client.publish('/Hit/Serveis/Apicultor', JSON.stringify(msgJson));
+        //continue;
+        throw new Error('Error:');
       }
     }
 

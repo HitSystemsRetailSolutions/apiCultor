@@ -58,6 +58,8 @@ client.on('connect', function () {
   */
 });
 
+let peticiones = 0
+
 // Manejar mensajes recibidos
 client.on('message', async function (topic, message) {
   if (debug) {
@@ -71,6 +73,12 @@ client.on('message', async function (topic, message) {
   try {
     const msgJson = JSON.parse(message);
     console.log('Mensaje en modo JSON:', msgJson);
+
+
+    if (msgJson.hasOwnProperty('repeat'))
+      peticiones++;
+
+
     if (msgJson.hasOwnProperty('debug')) {
       if (msgJson.debug == 'true') {
         console.log('Debug: activado');
@@ -173,7 +181,7 @@ client.on('message', async function (topic, message) {
           break;
         case 'SyncTickets':
         case 'tickets':
-          await tickets(companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
+          await tickets(companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno, peticiones);
           break;
         case 'factura':
           await facturas(companyID, database, msgJson.idFactura, msgJson.tabla, client_id, client_secret, tenant, entorno);
@@ -360,21 +368,27 @@ async function itemCategories(companyID, database, client_id, client_secret, ten
   }
 }
 
-async function tickets(companyID, database, botiga, client_id, client_secret, tenant, entorno) {
+async function tickets(companyID, database, botiga, client_id, client_secret, tenant, entorno, peticiones) {
   try {
-    await axios.get('http://localhost:3333/syncSalesTickets', {
-      params: {
-        companyID: companyID,
-        database: database,
-        botiga: botiga,
-        client_id: client_id,
-        client_secret: client_secret,
-        tenant: tenant,
-        entorno: entorno,
-      },
-      timeout: 60000,
-    });
-    console.log('Tickets sync sent...');
+    if (peticiones <= 10) {
+      await axios.get('http://localhost:3333/syncSalesTickets', {
+        params: {
+          companyID: companyID,
+          database: database,
+          botiga: botiga,
+          client_id: client_id,
+          client_secret: client_secret,
+          tenant: tenant,
+          entorno: entorno,
+        },
+        timeout: 60000,
+      });
+      console.log('Tickets sync sent...');
+    } else {
+      peticiones = 0
+      console.log(`No se puede repetir esta funcion mas de 10 veces`)
+    }
+
   } catch (error) {
     console.error('Error al sincronizar tickets de ventas:', error);
   }
