@@ -73,6 +73,8 @@ export class itemsService {
           throw new Error('Failed get item');
         });
 
+      if(x.Iva == null) x.Iva = 0;
+
       if (!res.data) throw new Error('Failed get item');
       if (res.data.value.length === 0) {
         let newItems = await axios
@@ -93,7 +95,7 @@ export class itemsService {
             },
           )
           .catch((error) => {
-            throw new Error('Failed post item ' + x.Nom);
+            throw new Error(`Failed post item ${x.Nom} Codi: ${x.Codi}`);
           });
 
         if (!newItems.data) return new Error('Failed post item');
