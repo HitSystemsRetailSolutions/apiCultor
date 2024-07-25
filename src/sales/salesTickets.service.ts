@@ -353,6 +353,7 @@ export class salesTicketsService {
         }
       } catch (error) {
         console.log('Error:', error);
+        await new Promise(resolve => setTimeout(resolve, 60000)); 
         continue;
       }
     }
