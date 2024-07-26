@@ -7,22 +7,6 @@ import axios from 'axios';
 import { mqttPublish } from 'src/main';
 import { mqttPublishRepeat } from 'src/main';
 
-const mqtt = require('mqtt');
-const mqttOptions = {
-  host: process.env.MQTT_HOST,
-  username: process.env.MQTT_USER,
-  password: process.env.MQTT_PASSWORD,
-};
-
-// Crear un cliente MQTT
-const client = mqtt.connect(mqttOptions);
-
-
-// Manejar evento de error
-client.on('error', (err) => {
-  console.error('Error de conexión MQTT:', err);
-});
-
 @Injectable()
 export class salesTicketsService {
   constructor(
@@ -261,7 +245,7 @@ export class salesTicketsService {
       tickets = await this.sql.runSql(sqlQ, database);
     } catch (error) {
       //Comprovacion de errores y envios a mqtt
-      client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
+      mqttPublish('No existe la database');
       console.log(`Error: ${error}`);
 
       return false;
@@ -269,7 +253,7 @@ export class salesTicketsService {
 
     if (tickets.recordset.length == 0) {
       //Comprovacion de errores y envios a mqtt
-      client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
+      mqttPublish('No hay registros');
       console.log('No hay registros');
       return false;
     }
