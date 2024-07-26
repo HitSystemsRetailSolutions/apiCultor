@@ -18,6 +18,11 @@ client.on('connect', () => {
   console.log('Conectado al servidor MQTT');
 });
 
+// Manejar evento de error
+client.on('error', (err) => {
+  console.error('Error de conexión MQTT:', err);
+});
+
 @Injectable()
 export class salesTicketsService {
   constructor(
@@ -193,7 +198,13 @@ export class salesTicketsService {
       );
     } catch (error) {
       //Comprovacion de errores y envios a mqtt
-      client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
+      client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database', (err) => {
+        if (err) {
+          console.error('Error al publicar el mensaje:', err);
+        } else {
+          console.log('Mensaje publicado con éxito');
+        }
+      });
       console.log('No existe la database');
 
       return false;
