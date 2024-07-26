@@ -190,7 +190,7 @@ export class salesTicketsService {
       );
     } catch (error) {
       //Comprovacion de errores y envios a mqtt
-      client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
+      await client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
       console.log('No existe la database');
       return false;
     }
