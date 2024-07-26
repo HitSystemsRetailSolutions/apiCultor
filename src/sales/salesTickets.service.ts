@@ -4,6 +4,8 @@ import { runSqlService } from 'src/conection/sqlConection.service';
 import { itemsService } from 'src/items/items.service';
 import { customersService } from 'src/customers/customers.service';
 import axios from 'axios';
+import { mqttPublish } from 'src/main';
+import { mqttPublishRepeat } from 'src/main';
 
 const mqtt = require('mqtt');
 const mqttOptions = {
@@ -14,9 +16,7 @@ const mqttOptions = {
 
 // Crear un cliente MQTT
 const client = mqtt.connect(mqttOptions);
-client.on('connect', () => {
-  console.log('Conectado al servidor MQTT');
-});
+
 
 // Manejar evento de error
 client.on('error', (err) => {
@@ -198,15 +198,8 @@ export class salesTicketsService {
       );
     } catch (error) {
       //Comprovacion de errores y envios a mqtt
-      client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database', (err) => {
-        if (err) {
-          console.error('Error al publicar el mensaje:', err);
-        } else {
-          console.log('Mensaje publicado con éxito');
-        }
-      });
+      mqttPublish('No existe la database');
       console.log('No existe la database');
-
       return false;
     }
     try {
@@ -376,9 +369,7 @@ export class salesTicketsService {
           debug: true,
           repeat: ""
         }
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        await client.publish('/Hit/Serveis/Apicultor', JSON.stringify(msgJson));
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        mqttPublishRepeat(msgJson)
         //continue;
         throw new Error('Error:');
       }

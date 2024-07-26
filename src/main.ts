@@ -35,6 +35,7 @@ const client = mqtt.connect(mqttOptions);
 // Manejar evento de conexión
 client.on('connect', function () {
   console.log('Conectado al broker MQTT');
+  console.log(`Mqtt Options: ${mqttOptions.host} - ${mqttOptions.username} - ${mqttOptions.password}`)
 
   // Suscribirse a un tema
   let tema = '/Hit/Serveis/Apicultor';
@@ -505,6 +506,11 @@ function mqttPublish(msg) {
   //console.log(msg);
 }
 
+function mqttPublishRepeat(msg) {
+  client.publish('/Hit/Serveis/Apicultor', JSON.stringify(msg));
+  //console.log(msg);
+}
+
 function obtenerCantidadDeValores(): number {
   // Implementa la lógica para obtener la cantidad de valores
   // Por ejemplo, supongamos que aquí obtienes la cantidad de valores de algún lugar
@@ -518,6 +524,11 @@ function getTimeout(): number {
   if (timeout < 30000)
     return 30000;
   return timeout;
+}
+
+export {
+  mqttPublish,
+  mqttPublishRepeat
 }
 
 // bucle()
