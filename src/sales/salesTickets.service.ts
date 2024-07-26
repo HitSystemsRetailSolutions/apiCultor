@@ -278,7 +278,7 @@ export class salesTicketsService {
         let peticiones = 0;
         let exito = false;
         let res;
-        while (peticiones < 100 && !exito) {
+        while (peticiones < 10 && !exito) {
           try {
             res = await axios
               .get(
@@ -361,7 +361,9 @@ export class salesTicketsService {
           debug: true,
           repeat: ""
         }
-        client.publish('/Hit/Serveis/Apicultor', JSON.stringify(msgJson));
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        await client.publish('/Hit/Serveis/Apicultor', JSON.stringify(msgJson));
+        await new Promise(resolve => setTimeout(resolve, 3000));
         //continue;
         throw new Error('Error:');
       }
