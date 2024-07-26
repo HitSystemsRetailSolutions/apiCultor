@@ -14,6 +14,9 @@ const mqttOptions = {
 
 // Crear un cliente MQTT
 const client = mqtt.connect(mqttOptions);
+client.on('connect', () => {
+  console.log('Conectado al servidor MQTT');
+});
 
 @Injectable()
 export class salesTicketsService {
@@ -190,8 +193,9 @@ export class salesTicketsService {
       );
     } catch (error) {
       //Comprovacion de errores y envios a mqtt
-      await client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
+      client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
       console.log('No existe la database');
+
       return false;
     }
     try {
