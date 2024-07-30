@@ -238,7 +238,7 @@ export class salesTicketsService {
     sqlQ += "left join clients c2 on case charindex('AbonarEn:',altres) when 0 then '' else substring(cf.altres, charindex('AbonarEn:', cf.altres)+9, charindex(']', cf.altres, charindex('AbonarEn:', cf.altres)+9)-charindex('AbonarEn:', cf.altres)-9) end =c2.codi ";
     sqlQ += 'where v.botiga = ' + botiga + " and v.data>=(select timestamp from records where concepte='BC_SalesTickets_" + botiga + "') ";
     sqlQ += "group by v.data, num_tick, concat(upper(c.nom), '_', num_tick), case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end, isnull(c2.codi, '1314') order by v.data";
-    //console.log(`Sql: ${sqlQ}`);
+    console.log(`Sql: ${sqlQ}`);
 
     let tickets;
     try {
