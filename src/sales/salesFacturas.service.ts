@@ -83,8 +83,9 @@ export class salesFacturasService {
     );
     let customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientCodi, client_id, client_secret, tenant, entorno);
 
+    // 1. Consultar el método de pago actual del cliente
     const customerResponse = await axios.get(
-      `https://api.businesscentral.dynamics.com/v2.0/${process.env.MBC_TOKEN_TENANT}/ObradorDev/api/v2.0/companies(${process.env.MBC_COMPANYID_FILAPENA_DEV_TEST})/customers(${customerId})`,
+      `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/ObradorDev/api/v2.0/companies(${companyID})/customers(${customerId})`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -99,7 +100,7 @@ export class salesFacturasService {
 
     // Obtener el ID del método de pago segun el ticket que enviaremos
     const paymentMethodsResponse = await axios.get(
-      `https://api.businesscentral.dynamics.com/v2.0/${process.env.MBC_TOKEN_TENANT}/ObradorDev/api/v2.0/companies(${process.env.MBC_COMPANYID_FILAPENA_DEV_TEST})/paymentMethods?$filter=code eq '${x.FormaPago}'`,
+      `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/paymentMethods?$filter=code eq '${x.FormaPago}'`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -119,7 +120,7 @@ export class salesFacturasService {
 
     // 2. Actualizar temporalmente el método de pago del cliente
     await axios.patch(
-      `https://api.businesscentral.dynamics.com/v2.0/${process.env.MBC_TOKEN_TENANT}/ObradorDev/api/v2.0/companies(${process.env.MBC_COMPANYID_FILAPENA_DEV_TEST})/customers(${customerId})`,
+      `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers(${customerId})`,
       {
         paymentMethodId: paymentMethodsResponse.data.value[0].id,
       },
