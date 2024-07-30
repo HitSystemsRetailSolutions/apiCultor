@@ -96,7 +96,7 @@ export class salesFacturasService {
 
     const originalPaymentMethodId = customerResponse.data.paymentMethodId;
     const etag = customerResponse.data['@odata.etag'];
-    console.log(etag);
+    //console.log(etag);
 
     // Obtener el ID del método de pago segun el ticket que enviaremos
     const paymentMethodsResponse = await axios.get(
