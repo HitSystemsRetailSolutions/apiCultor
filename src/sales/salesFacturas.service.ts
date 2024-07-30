@@ -85,7 +85,7 @@ export class salesFacturasService {
 
     // 1. Consultar el método de pago actual del cliente
     const customerResponse = await axios.get(
-      `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/ObradorDev/api/v2.0/companies(${companyID})/customers(${customerId})`,
+      `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers(${customerId})`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
