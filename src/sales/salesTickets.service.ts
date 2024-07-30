@@ -279,6 +279,7 @@ export class salesTicketsService {
         const etag = customerResponse.data['@odata.etag'];
         //console.log(etag);
 
+        console.log(`Forma Pago: ${x.FormaPago}`);
         // Obtener el ID del método de pago segun el ticket que enviaremos
         const paymentMethodsResponse = await axios.get(
           `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/paymentMethods?$filter=code eq '${x.FormaPago}'`,
