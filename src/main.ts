@@ -35,7 +35,7 @@ const client = mqtt.connect(mqttOptions);
 // Manejar evento de conexión
 client.on('connect', function () {
   console.log('Conectado al broker MQTT');
-  console.log(`Mqtt Options: ${mqttOptions.host} - ${mqttOptions.username} - ${mqttOptions.password}`)
+  //console.log(`Mqtt Options: ${mqttOptions.host} - ${mqttOptions.username} - ${mqttOptions.password}`)
 
   // Suscribirse a un tema
   let tema = '/Hit/Serveis/Apicultor';

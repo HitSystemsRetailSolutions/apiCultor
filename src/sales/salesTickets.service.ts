@@ -264,7 +264,6 @@ export class salesTicketsService {
       try {
         let x = tickets.recordset[i];
         let customerId = await this.customers.getCustomerFromAPI(companyID, database, clientCodi, client_id, client_secret, tenant, entorno);
-        console.log(`CustomerID: ${customerId}`)        
         // 1. Consultar el método de pago actual del cliente
         const customerResponse = await axios.get(
           `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers(${customerId})`,
