@@ -230,14 +230,13 @@ export class salesTicketsService {
       }
     }
 
-    let sqlQ;
-    sqlQ = "select num_tick nTickHit, convert(varchar, v.Data, 23) Data, v.Data as tmstStr, concat(upper(c.nom), '_', num_tick) Num_tick, case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end FormaPago, isnull(c2.codi, '1314') Client, sum(v.import) Total From" + tabVenut + ' v ';
-    sqlQ += 'left join ' + tabMoviments + " m on m.botiga=v.botiga and concat('Pagat Targeta: ', v.num_tick) = m.motiu ";
-    sqlQ += 'left join clients c on v.botiga=c.codi  ';
-    sqlQ += "left join ClientsFinals cf on concat('[Id:', cf.id, ']') = v.otros ";
-    sqlQ += "left join clients c2 on case charindex('AbonarEn:',altres) when 0 then '' else substring(cf.altres, charindex('AbonarEn:', cf.altres)+9, charindex(']', cf.altres, charindex('AbonarEn:', cf.altres)+9)-charindex('AbonarEn:', cf.altres)-9) end =c2.codi ";
-    sqlQ += 'where v.botiga = ' + botiga + " and v.data>=(select timestamp from records where concepte='BC_SalesTickets_" + botiga + "') ";
-    sqlQ += "group by v.data, num_tick, concat(upper(c.nom), '_', num_tick), case isnull(m.motiu, 'CAJA') when 'CAJA' then 'CAJA' else 'TARJETA' end, isnull(c2.codi, '1314') order by v.data";
+    let sqlQ = `SELECT num_tick AS nTickHit, CONVERT(VARCHAR, v.Data, 23) AS Data, v.Data AS tmstStr, CONCAT(UPPER(c.nom), '_', num_tick) AS Num_tick, CASE WHEN CHARINDEX('tarjeta', v.otros) > 0 OR CHARINDEX('targeta', m.motiu) > 0 THEN 'TARJETA' WHEN CHARINDEX('3g', v.otros) > 0 OR CHARINDEX('targeta3g', m.motiu) > 0 THEN '3G' ELSE 'CAJA' END AS FormaPago, ISNULL(c2.codi, '1314') AS Client, SUM(v.import) AS Total FROM ${tabVenut} v 
+    LEFT JOIN ${tabMoviments} m ON m.botiga = v.botiga AND CONCAT('Pagat Targeta: ', v.num_tick) = m.motiu 
+    LEFT JOIN clients c ON v.botiga = c.codi 
+    LEFT JOIN ClientsFinals cf ON CONCAT('[Id:', cf.id, ']') = v.otros 
+    LEFT JOIN clients c2 ON CASE WHEN CHARINDEX('AbonarEn:', cf.altres) = 0 THEN '' ELSE SUBSTRING(cf.altres, CHARINDEX('AbonarEn:', cf.altres) + 9, CHARINDEX(']', cf.altres, CHARINDEX('AbonarEn:', cf.altres) + 9) - CHARINDEX('AbonarEn:', cf.altres) - 9) END = c2.codi 
+    WHERE v.botiga = ${botiga} AND v.data >= (SELECT timestamp FROM records WHERE concepte = 'BC_SalesTickets_${botiga}') 
+    GROUP BY v.data, num_tick, CONCAT(UPPER(c.nom), '_', num_tick), CASE WHEN CHARINDEX('tarjeta', v.otros) > 0 OR CHARINDEX('targeta', m.motiu) > 0 THEN 'TARJETA' WHEN CHARINDEX('3g', v.otros) > 0 OR CHARINDEX('targeta3g', m.motiu) > 0 THEN '3G' ELSE 'CAJA' END, ISNULL(c2.codi, '1314') ORDER BY v.data;`
     console.log(`Sql: ${sqlQ}`);
 
     let tickets;
