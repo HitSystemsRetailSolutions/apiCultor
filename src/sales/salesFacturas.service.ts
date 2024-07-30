@@ -82,6 +82,55 @@ export class salesFacturasService {
       ' -----------------------',
     );
     let customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientCodi, client_id, client_secret, tenant, entorno);
+
+    const customerResponse = await axios.get(
+      `https://api.businesscentral.dynamics.com/v2.0/${process.env.MBC_TOKEN_TENANT}/ObradorDev/api/v2.0/companies(${process.env.MBC_COMPANYID_FILAPENA_DEV_TEST})/customers(${customerId})`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    const originalPaymentMethodId = customerResponse.data.paymentMethodId;
+    const etag = customerResponse.data['@odata.etag'];
+    console.log(etag);
+
+    // Obtener el ID del método de pago segun el ticket que enviaremos
+    const paymentMethodsResponse = await axios.get(
+      `https://api.businesscentral.dynamics.com/v2.0/${process.env.MBC_TOKEN_TENANT}/ObradorDev/api/v2.0/companies(${process.env.MBC_COMPANYID_FILAPENA_DEV_TEST})/paymentMethods?$filter=code eq '${x.FormaPago}'`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    if (
+      !paymentMethodsResponse.data.value ||
+      paymentMethodsResponse.data.value.length === 0
+    ) {
+      throw new Error(
+        `Método de pago ${x.FormaPago} no encontrado en la tabla de metodos de pagos de BC.`,
+      );
+    }
+
+    // 2. Actualizar temporalmente el método de pago del cliente
+    await axios.patch(
+      `https://api.businesscentral.dynamics.com/v2.0/${process.env.MBC_TOKEN_TENANT}/ObradorDev/api/v2.0/companies(${process.env.MBC_COMPANYID_FILAPENA_DEV_TEST})/customers(${customerId})`,
+      {
+        paymentMethodId: paymentMethodsResponse.data.value[0].id,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'If-Match': etag, // Usar el ETag para el control de concurrencia
+        },
+      },
+    );
     //console.log("CLIENTE BC: " + customerId);
 
     let idSaleHit = x.IdFactura;
@@ -110,6 +159,7 @@ export class salesFacturasService {
             invoiceDate: datePart,
             postingDate: datePart,
             customerId: customerId,
+            totalAmountIncludingTax: x.Import,
           },
           {
             headers: {

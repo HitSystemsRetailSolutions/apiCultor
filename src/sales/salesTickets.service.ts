@@ -264,6 +264,55 @@ export class salesTicketsService {
       try {
         let x = tickets.recordset[i];
         let customerId = await this.customers.getCustomerFromAPI(companyID, database, clientCodi, client_id, client_secret, tenant, entorno);
+        // 1. Consultar el método de pago actual del cliente
+        const customerResponse = await axios.get(
+          `https://api.businesscentral.dynamics.com/v2.0/${process.env.MBC_TOKEN_TENANT}/ObradorDev/api/v2.0/companies(${process.env.MBC_COMPANYID_FILAPENA_DEV_TEST})/customers(${customerId})`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          },
+        );
+
+        const originalPaymentMethodId = customerResponse.data.paymentMethodId;
+        const etag = customerResponse.data['@odata.etag'];
+        console.log(etag);
+
+        // Obtener el ID del método de pago segun el ticket que enviaremos
+        const paymentMethodsResponse = await axios.get(
+          `https://api.businesscentral.dynamics.com/v2.0/${process.env.MBC_TOKEN_TENANT}/ObradorDev/api/v2.0/companies(${process.env.MBC_COMPANYID_FILAPENA_DEV_TEST})/paymentMethods?$filter=code eq '${x.FormaPago}'`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          },
+        );
+
+        if (
+          !paymentMethodsResponse.data.value ||
+          paymentMethodsResponse.data.value.length === 0
+        ) {
+          throw new Error(
+            `Método de pago ${x.FormaPago} no encontrado en la tabla de metodos de pagos de BC.`,
+          );
+        }
+
+        // 2. Actualizar temporalmente el método de pago del cliente
+        await axios.patch(
+          `https://api.businesscentral.dynamics.com/v2.0/${process.env.MBC_TOKEN_TENANT}/ObradorDev/api/v2.0/companies(${process.env.MBC_COMPANYID_FILAPENA_DEV_TEST})/customers(${customerId})`,
+          {
+            paymentMethodId: paymentMethodsResponse.data.value[0].id,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'If-Match': etag, // Usar el ETag para el control de concurrencia
+            },
+          },
+        );
 
         //console.log ("CustomerId: " + customerId);
         let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${x.Num_tick}'`;
@@ -313,6 +362,7 @@ export class salesTicketsService {
                   invoiceDate: x.Data,
                   postingDate: x.Data,
                   customerId: customerId,
+                  totalAmountIncludingTax: x.Import,
                 },
                 {
                   headers: {
@@ -446,7 +496,6 @@ export class salesTicketsService {
         //console.log('--------------------------sLineId: ' + sLineId + '-----------------------------',);
         //console.log('--------------------------idDim: ' + idDim + '-----------------------------',);
 
-        //Error aqui !!!
         if (idDimValue == null) {
           return true;
         }
