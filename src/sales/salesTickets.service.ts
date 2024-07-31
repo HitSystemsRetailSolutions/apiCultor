@@ -447,7 +447,7 @@ export class salesTicketsService {
             itemId: item.id,
             quantity: x.Quantitat,
             taxCode: item.generalProductPostingGroupCode,
-            amoungIncludingTax: x.UnitPrice
+            unitPrice: x.UnitPrice
           }, {
             headers: {
               Authorization: 'Bearer ' + token,
