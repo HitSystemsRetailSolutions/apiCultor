@@ -413,117 +413,88 @@ export class salesTicketsService {
   }
 
   //AÑADIMOS LAS LINEAS AL TICKET
-  async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, database, companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async synchronizeSalesTiquetsLines(tabVenut, botiga, nTickHit, ticketId, database, companyID, client_id, client_secret, tenant, entorno) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
 
     let sqlQ;
-    sqlQ =
-      "select upper(c.nom) BotigaNom, concat(upper(c.nom), '_', num_tick) Num_tick, sum(v.Quantitat) Quantitat, sum(v.import)/sum(v.Quantitat) UnitPrice, CAST(v.Plu as varchar) Plu ";
-    sqlQ = sqlQ + 'From ' + tabVenut + ' v ';
-    sqlQ = sqlQ + 'left join clients c on v.botiga=c.codi  ';
-    sqlQ =
-      sqlQ + 'where v.botiga=' + botiga + " and num_tick='" + nTickHit + "'";
-    sqlQ =
-      sqlQ +
-      "group by concat(upper(c.nom), '_', num_tick), CAST(v.Plu as varchar), c.nom ";
-    //console.log(sqlQ);
-    let ticketsLines = await this.sql.runSql(sqlQ, database);
+    sqlQ = `
+      select upper(c.nom) BotigaNom, concat(upper(c.nom), '_', num_tick) Num_tick, 
+             sum(v.Quantitat) Quantitat, sum(v.import)/sum(v.Quantitat) UnitPrice, 
+             CAST(v.Plu as varchar) Plu 
+      From ${tabVenut} v 
+      left join clients c on v.botiga=c.codi 
+      where v.botiga=${botiga} and num_tick='${nTickHit}'
+      group by concat(upper(c.nom), '_', num_tick), CAST(v.Plu as varchar), c.nom
+    `;
 
+    let ticketsLines = await this.sql.runSql(sqlQ, database);
+    console.log('Total lines: ', ticketsLines.recordset.length);
+    
     for (let i = 0; i < ticketsLines.recordset.length; i++) {
       let x = ticketsLines.recordset[i];
-      //console.log(x);
-      //console.log('-------------------------PLU ' + x.Plu + '---------------------',);
-      let item;
+      console.log(`Processing line ${i+1}/${ticketsLines.recordset.length}`, x);
+
+      let item
       item = await this.items.getItemFromAPI(companyID, database, x.Plu, client_id, client_secret, tenant, entorno);
-
-      //console.log(`ItemID: ${itemId}`)
-      let res = await axios.get(
-        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-
-      res = await this.getSaleLineFromAPI(ticketId, 'CODI-' + x.Plu, companyID, client_id, client_secret, tenant, entorno);
+      let res = await this.getSaleLineFromAPI(ticketId, 'CODI-' + x.Plu, companyID, client_id, client_secret, tenant, entorno);
       let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines`;
-      //console.log(url);
-      //NO ESTÁ LA LINEA, LA AÑADIMOS
-      if (res.data.value.length === 0) {
-        let newTickets = await axios
-          .post(
-            url,
-            {
-              documentId: ticketId,
-              itemId: item.id,
-              quantity: x.Quantitat,
-              unitPrice: x.UnitPrice,
-              taxCode: item.generalProductPostingGroupCode
-            },
-            {
-              headers: {
-                Authorization: 'Bearer ' + token,
-                'Content-Type': 'application/json',
-              },
-            },
-          )
-          .catch((error) => {
-            //console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
-            throw new Error('Failed to post Ticket line');
-          });
-        //console.log(`ticketID: ${ticketId}, itemID: ${itemId}, Quantity: ${x.Quantitat}, unitPrice: ${x.UnitPrice}`);
 
-        //DIMENSION
+      if (res.data.value.length === 0) {
+        try {
+          await axios.post(url, {
+            documentId: ticketId,
+            itemId: item.id,
+            quantity: x.Quantitat,
+            unitPrice: x.UnitPrice,
+            taxCode: item.generalProductPostingGroupCode
+          }, {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          });
+        } catch (error) {
+          console.error(`Failed to post Ticket line for PLU ${x.Plu}:`, error);
+          continue;
+        }
+
         let botigaNom = x.BotigaNom;
         let idDim = await this.getDimensionFromAPI('BOTIGUES', companyID, client_id, client_secret, tenant, entorno);
-        //console.log("--------------------- idDim: " + idDim + "------------------------------");
-        //console.log("--------------------- botigaNom: " + botigaNom + "------------------------------");
         if (idDim == null) {
-          return true;
+          console.warn(`Dimension 'BOTIGUES' not found`);
+          continue;
         }
         let idDimValue = await this.getDimensionValueIdFromAPI(idDim, botigaNom, companyID, client_id, client_secret, tenant, entorno);
-        //let idDimValue = 'dd06c06f-48bf-ee11-9078-000d3a65ae37';
-        //console.log("--------------------- idDimValue: " + idDimValue + "------------------------------");
-
+        if (idDimValue == null) {
+          console.warn(`Dimension value for ${botigaNom} not found`);
+          continue;
+        }
+        
         let resSaleLine = await this.getSaleLineFromAPI(ticketId, 'CODI-' + x.Plu, companyID, client_id, client_secret, tenant, entorno);
-        //console.log("--------------------------resSaleLine: " + resSaleLine + "-----------------------------");
         let sLineId = resSaleLine.data.value[0].id;
 
-        //console.log('--------------------------companyID: ' + companyID + '-----------------------------',);
-        //console.log('--------------------------ticketId: ' + ticketId + '-----------------------------',);
-        //console.log('--------------------------sLineId: ' + sLineId + '-----------------------------',);
-        //console.log('--------------------------idDim: ' + idDim + '-----------------------------',);
-
-        if (idDimValue == null) {
-          return true;
-        }
-        let setDim = await axios
-          .post(
-            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines(${sLineId})/dimensionSetLines`,
-            {
-              id: idDim,
-              parentId: sLineId,
-              valueId: idDimValue,
-              valueCode: botigaNom,
+        try {
+          await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines(${sLineId})/dimensionSetLines`, {
+            id: idDim,
+            parentId: sLineId,
+            valueId: idDimValue,
+            valueCode: botigaNom,
+          }, {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
             },
-            {
-              headers: {
-                Authorization: 'Bearer ' + token,
-                'Content-Type': 'application/json',
-              },
-            },
-          )
-          .catch((error) => {
-            throw new Error('Failed to post dimension');
           });
+        } catch (error) {
+          console.error(`Failed to post dimension for PLU ${x.Plu}:`, error);
+        }
       } else {
-        console.log('Ya existe el ticket');
+        console.log(`Ticket line for PLU ${x.Plu} already exists`);
       }
     }
     return true;
-  }
+}
+
 
   async cleanSalesTickets(companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);

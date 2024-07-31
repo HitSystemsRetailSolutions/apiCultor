@@ -76,10 +76,11 @@ export class itemsService {
       if(x.Iva == null) x.Iva = 0;
 
       if (!res.data) throw new Error('Failed get item');
+      let url=`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/items`;
       if (res.data.value.length === 0) {
         let newItems = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/items`,
+            url,
             {
               number: 'CODI-' + x.Codi,
               displayName: x.Nom,
@@ -95,6 +96,7 @@ export class itemsService {
             },
           )
           .catch((error) => {
+            console.log(url);
             throw new Error(`Failed post item ${x.Nom} Codi: ${x.Codi}`);
           });
 
@@ -128,6 +130,7 @@ export class itemsService {
           });
         if (!newItems.data) return new Error('Failed to update item');
       }
+      //console.log('Synchronizing items... -> ' + (i + 1) + '/' + (items.recordset.length + 1), ' --- ', ((i / items.recordset.length) * 100).toFixed(2) + '%', ' | Time left: ' + ((items.recordset.length - i) * (0.5 / 60)).toFixed(2) + ' minutes',)
     }
     return true;
   }
