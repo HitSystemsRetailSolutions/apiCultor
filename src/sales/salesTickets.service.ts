@@ -429,24 +429,38 @@ export class salesTicketsService {
 
     let ticketsLines = await this.sql.runSql(sqlQ, database);
     console.log('Total lines: ', ticketsLines.recordset.length);
-    
+
     for (let i = 0; i < ticketsLines.recordset.length; i++) {
       let x = ticketsLines.recordset[i];
-      console.log(`Processing line ${i+1}/${ticketsLines.recordset.length}`, x);
+      console.log(`Processing line ${i + 1}/${ticketsLines.recordset.length}`, x);
 
       let item
       item = await this.items.getItemFromAPI(companyID, database, x.Plu, client_id, client_secret, tenant, entorno);
       let res = await this.getSaleLineFromAPI(ticketId, 'CODI-' + x.Plu, companyID, client_id, client_secret, tenant, entorno);
       let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines`;
 
+      let response;
       if (res.data.value.length === 0) {
         try {
-          await axios.post(url, {
+          response = await axios.post(url, {
             documentId: ticketId,
             itemId: item.id,
             quantity: x.Quantitat,
-            unitPrice: x.UnitPrice,
             taxCode: item.generalProductPostingGroupCode
+          }, {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          });
+        } catch (error) {
+          console.error(`Failed to post Ticket line for PLU ${x.Plu}:`, error);
+          continue;
+        }
+        let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines(${response.data.id})`;
+        try {
+          await axios.patch(url1, {
+            unitPrice: x.UnitPrice
           }, {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -469,7 +483,7 @@ export class salesTicketsService {
           console.warn(`Dimension value for ${botigaNom} not found`);
           continue;
         }
-        
+
         let resSaleLine = await this.getSaleLineFromAPI(ticketId, 'CODI-' + x.Plu, companyID, client_id, client_secret, tenant, entorno);
         let sLineId = resSaleLine.data.value[0].id;
 
@@ -493,7 +507,7 @@ export class salesTicketsService {
       }
     }
     return true;
-}
+  }
 
 
   async cleanSalesTickets(companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
