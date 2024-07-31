@@ -457,7 +457,10 @@ export class salesTicketsService {
           console.error(`Failed to post Ticket line for PLU ${x.Plu}:`, error);
           continue;
         }
+        
         let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines(${response.data.id})`;
+
+        console.log(`URL: ${url1}`)
         try {
           await axios.patch(url1, {
             unitPrice: x.UnitPrice
