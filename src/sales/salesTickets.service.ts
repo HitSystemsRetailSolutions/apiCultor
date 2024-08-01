@@ -362,7 +362,7 @@ export class salesTicketsService {
                   invoiceDate: x.Data,
                   postingDate: x.Data,
                   customerId: customerId,
-                  totalAmountIncludingTax: x.Import,
+                  unitPrice: x.Import,
                 },
                 {
                   headers: {
