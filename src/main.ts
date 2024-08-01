@@ -385,10 +385,11 @@ async function tickets(companyID, database, botiga, client_id, client_secret, te
         },
         timeout: 60000,
       });
+      console.log(`Peticion numero: ${peticiones}`);
       console.log('Tickets sync sent...');
     } else {
+      console.log(`No se puede repetir esta funcion mas de ${maxPeticiones} veces`)
       peticiones = 0
-      console.log(`No se puede repetir esta funcion mas de 10 veces`)
     }
 
   } catch (error) {
