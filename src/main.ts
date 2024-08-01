@@ -373,9 +373,9 @@ async function tickets(companyID, database, botiga, client_id, client_secret, te
   try {
     let maxPeticiones = 30
     let ms = 5000;
+    new Promise(resolve => setTimeout(resolve, ms));
     if (peticiones <= maxPeticiones) {
       console.log(`Peticion numero: ${peticiones}`);
-      new Promise(resolve => setTimeout(resolve, ms));
       await axios.get('http://localhost:3333/syncSalesTickets', {
         params: {
           companyID: companyID,
