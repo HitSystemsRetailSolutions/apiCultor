@@ -376,7 +376,7 @@ export class salesTicketsService {
             console.log(`Url ERROR: ${url2}`);
             //throw new Error('Failed post ticket A');
           }
-          if (!newTickets.data) return new Error('Failed post ticket B');
+          if (!newTickets.data) console.log('Failed post ticket B');
           else {
             //AÑADIMOS LAS LINEAS DEL TICKET
             let ticketBC = await this.getSaleFromAPI(x.Num_tick, companyID, client_id, client_secret, tenant, entorno);
