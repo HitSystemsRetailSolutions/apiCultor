@@ -373,6 +373,7 @@ async function tickets(companyID, database, botiga, client_id, client_secret, te
   try {
     let maxPeticiones = 30
     if (peticiones <= maxPeticiones) {
+      console.log(`Peticion numero: ${peticiones}`);
       await axios.get('http://localhost:3333/syncSalesTickets', {
         params: {
           companyID: companyID,
@@ -385,7 +386,6 @@ async function tickets(companyID, database, botiga, client_id, client_secret, te
         },
         timeout: 60000,
       });
-      console.log(`Peticion numero: ${peticiones}`);
       console.log('Tickets sync sent...');
     } else {
       console.log(`No se puede repetir esta funcion mas de ${maxPeticiones} veces`)
