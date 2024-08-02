@@ -276,6 +276,7 @@ export class salesTicketsService {
           msg: "tickets",
           companyID: companyID,
           database: database,
+          entorno: entorno,
           botiga: botiga,
           debug: true,
           repeat: ""
@@ -423,6 +424,7 @@ export class salesTicketsService {
           msg: "tickets",
           companyID: companyID,
           database: database,
+          entorno: entorno,
           botiga: botiga,
           debug: true,
           repeat: ""
