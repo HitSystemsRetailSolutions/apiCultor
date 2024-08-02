@@ -271,6 +271,19 @@ export class salesTicketsService {
     console.log("Total tickets: ", tickets.recordset.length)
     let clientCodi = 'A';
     for (let i = 0; i < tickets.recordset.length; i++) {
+      if (i = 10) {
+        let msgJson = {
+          msg: "tickets",
+          companyID: companyID,
+          database: database,
+          botiga: botiga,
+          debug: true,
+          repeat: ""
+        }
+        mqttPublishRepeat(msgJson)
+        //continue;
+        throw new Error('Error:');
+      }
       try {
         let x = tickets.recordset[i];
         let customerId = await this.customers.getCustomerFromAPI(companyID, database, clientCodi, client_id, client_secret, tenant, entorno);
