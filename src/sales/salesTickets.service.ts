@@ -271,7 +271,7 @@ export class salesTicketsService {
     console.log("Total tickets: ", tickets.recordset.length)
     let clientCodi = 'A';
     for (let i = 0; i < tickets.recordset.length; i++) {
-      if (i = 10) {
+      if (i == 10) {
         let msgJson = {
           msg: "tickets",
           companyID: companyID,
