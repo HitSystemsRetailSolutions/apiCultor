@@ -270,7 +270,7 @@ export class salesTicketsService {
 
     console.log("Total tickets: ", tickets.recordset.length)
     let clientCodi = 'A';
-    let testing = true
+    let testing = false;
     for (let i = 0; i < tickets.recordset.length; i++) {
       if (i == 10 && testing) {
         let msgJson = {
