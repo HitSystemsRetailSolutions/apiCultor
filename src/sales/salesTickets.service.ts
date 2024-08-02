@@ -270,13 +270,17 @@ export class salesTicketsService {
 
     console.log("Total tickets: ", tickets.recordset.length)
     let clientCodi = 'A';
+    let testing = true
     for (let i = 0; i < tickets.recordset.length; i++) {
-      if (i == 10) {
+      if (i == 10 && testing) {
         let msgJson = {
           msg: "tickets",
           companyID: companyID,
           database: database,
           entorno: entorno,
+          tenant: tenant,
+          client_id: client_id,
+          client_secret: client_secret,
           botiga: botiga,
           debug: true,
           repeat: ""
@@ -425,6 +429,9 @@ export class salesTicketsService {
           companyID: companyID,
           database: database,
           entorno: entorno,
+          tenant: tenant,
+          client_id: client_id,
+          client_secret: client_secret,
           botiga: botiga,
           debug: true,
           repeat: ""
