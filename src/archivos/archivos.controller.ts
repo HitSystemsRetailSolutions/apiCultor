@@ -20,4 +20,18 @@ export class archivosController {
     if (res == true) return 'Se han sincronizado los archivos correctamente';
     else return 'Ha habido un error al sincronizar los archivos';
   }
+
+  @Get('downloadArchivo')
+  async downloadArchivo(
+    @Query('companyNAME') comapanyNAME: string,
+    @Query('client_id') client_id: string,
+    @Query('client_secret') client_secret: string,
+    @Query('tenant') tenant: string,
+    @Query('entorno') entorno: string,
+    @Query('idTrabajador') idTrabajador: string
+  ) {
+    let res = await this.archivosService.downloadArchivo(comapanyNAME, client_id, client_secret, tenant, entorno, idTrabajador);
+    if (res == true) return 'Se ha descargado el archivo correctamente';
+    else return 'Ha habido un error al descargar el archivo';
+  }
 }

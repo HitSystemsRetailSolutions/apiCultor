@@ -46,6 +46,56 @@ export class salesTicketsService {
     return itemId;
   }
 
+  // Get Item from API
+  async getItemVarisFromAPI(companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let item = '';
+    // Get the authentication token
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
+    // Get Item from API
+    let res = await axios
+      .get(
+        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/items?$filter=number eq 'VARIS'`,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+      .catch((error) => {
+        throw new Error('Failed to obtain item');
+      });
+
+    if (!res.data) throw new Error('Failed to obtain item');
+
+    if (res.data.value.length === 0) {
+      let newItems = await axios
+        .post(
+          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/items`,
+          {
+            number: 'VARIS',
+            displayName: 'VARIS',
+            generalProductPostingGroupCode: 'NO IVA',
+            unitPrice: 0.01,
+            baseUnitOfMeasureCode: '002',
+          },
+          {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          },
+        )
+        .catch((error) => {
+          throw new Error('Failed post item VARIS');
+        });
+      item = newItems.data.value;
+    } else {
+      item = res.data.value[0];
+    }
+    return item;
+  }
+
   //=========================================== DIMENSIONES ======================================================
   // Get Dimension Id from API
   async getDimensionFromAPI(code, companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -239,16 +289,61 @@ export class salesTicketsService {
         GROUP BY v.data, num_tick, CONCAT(UPPER(c.nom), '_', num_tick), CASE WHEN CHARINDEX('tarjeta', v.otros) > 0 OR CHARINDEX('targeta', m.motiu) > 0 THEN 'TARJETA' WHEN CHARINDEX('3g', v.otros) > 0 OR CHARINDEX('targeta3g', m.motiu) > 0 THEN '3G' ELSE 'CAJA' END, ISNULL(c2.codi, '1314') ORDER BY v.data;`
         console.log(`Sql: ${sqlQ}`);
         */
+    /*
+        let sqlQuery = ` SELECT num_tick AS nTickHit, CONVERT(VARCHAR, v.Data, 23) AS Data, v.Data AS tmstStr, CONCAT(UPPER(c.nom), '_', num_tick) AS Num_tick, CASE WHEN v.otros LIKE '%tarjeta%' OR m.motiu LIKE '%targeta%' THEN 'TARJETA' WHEN v.otros LIKE '%3g%' OR m.motiu LIKE '%targeta3g%' THEN '3G' ELSE 'CAJA' END AS FormaPago, ISNULL(c2.codi, '1314') AS Client, SUM(v.import) AS Total FROM ${tabVenut} v
+              LEFT JOIN ${tabMoviments} m ON m.botiga = v.botiga AND CONCAT('Pagat Targeta: ', v.num_tick) = m.motiu
+              LEFT JOIN clients c ON v.botiga = c.codi
+              LEFT JOIN ClientsFinals cf ON CONCAT('[Id:', cf.id, ']') = v.otros
+              LEFT JOIN clients c2 ON CASE WHEN CHARINDEX('AbonarEn:', cf.altres) = 0 THEN '' ELSE SUBSTRING(cf.altres, CHARINDEX('AbonarEn:', cf.altres) + 9, CHARINDEX(']', cf.altres, CHARINDEX('AbonarEn:', cf.altres) + 9) - CHARINDEX('AbonarEn:', cf.altres) - 9) END = c2.codi
+              WHERE v.botiga = ${botiga} AND v.data >= (SELECT timestamp FROM records WHERE concepte = 'BC_SalesTickets_${botiga}')
+              GROUP BY v.data, num_tick, CONCAT(UPPER(c.nom), '_', num_tick), CASE WHEN v.otros LIKE '%tarjeta%' OR m.motiu LIKE '%targeta%' THEN 'TARJETA' WHEN v.otros LIKE '%3g%' OR m.motiu LIKE '%targeta3g%' THEN '3G' ELSE 'CAJA' END, ISNULL(c2.codi, '1314') ORDER BY v.data; `;
+        console.log(`Sql: ${sqlQuery}`);
+    */
 
-    let sqlQuery = ` SELECT num_tick AS nTickHit, CONVERT(VARCHAR, v.Data, 23) AS Data, v.Data AS tmstStr, CONCAT(UPPER(c.nom), '_', num_tick) AS Num_tick, CASE WHEN v.otros LIKE '%tarjeta%' OR m.motiu LIKE '%targeta%' THEN 'TARJETA' WHEN v.otros LIKE '%3g%' OR m.motiu LIKE '%targeta3g%' THEN '3G' ELSE 'CAJA' END AS FormaPago, ISNULL(c2.codi, '1314') AS Client, SUM(v.import) AS Total FROM ${tabVenut} v
-          LEFT JOIN ${tabMoviments} m ON m.botiga = v.botiga AND CONCAT('Pagat Targeta: ', v.num_tick) = m.motiu
-          LEFT JOIN clients c ON v.botiga = c.codi
-          LEFT JOIN ClientsFinals cf ON CONCAT('[Id:', cf.id, ']') = v.otros
-          LEFT JOIN clients c2 ON CASE WHEN CHARINDEX('AbonarEn:', cf.altres) = 0 THEN '' ELSE SUBSTRING(cf.altres, CHARINDEX('AbonarEn:', cf.altres) + 9, CHARINDEX(']', cf.altres, CHARINDEX('AbonarEn:', cf.altres) + 9) - CHARINDEX('AbonarEn:', cf.altres) - 9) END = c2.codi
-          WHERE v.botiga = ${botiga} AND v.data >= (SELECT timestamp FROM records WHERE concepte = 'BC_SalesTickets_${botiga}')
-          GROUP BY v.data, num_tick, CONCAT(UPPER(c.nom), '_', num_tick), CASE WHEN v.otros LIKE '%tarjeta%' OR m.motiu LIKE '%targeta%' THEN 'TARJETA' WHEN v.otros LIKE '%3g%' OR m.motiu LIKE '%targeta3g%' THEN '3G' ELSE 'CAJA' END, ISNULL(c2.codi, '1314') ORDER BY v.data; `;
+    const sqlQuery = `
+        SELECT 
+            CONVERT(VARCHAR, v.Data, 23) AS Data, 
+            CASE 
+                WHEN v.otros LIKE '%tarjeta%' OR m.motiu LIKE '%targeta%' THEN 'TARJETA' 
+                WHEN v.otros LIKE '%3g%' OR m.motiu LIKE '%targeta3g%' THEN '3G' 
+                ELSE 'CAJA' 
+            END AS FormaPago, 
+            ISNULL(c2.codi, '1314') AS Client, 
+            COUNT(v.num_tick) AS nTickHit,  -- Cantidad de tickets por día y forma de pago
+            CONCAT(CASE 
+                WHEN v.otros LIKE '%tarjeta%' OR m.motiu LIKE '%targeta%' THEN 'TARJETA' 
+                WHEN v.otros LIKE '%3g%' OR m.motiu LIKE '%targeta3g%' THEN '3G' 
+                ELSE 'CAJA' 
+            END, ' - ', ${botiga}, '/', CONVERT(VARCHAR, v.Data, 23)) AS Num_tick, -- Forma de pago, botiga y fecha
+            SUM(v.import) AS Total
+        FROM 
+            ${tabVenut} v
+        LEFT JOIN 
+            ${tabMoviments} m ON m.botiga = v.botiga AND CONCAT('Pagat Targeta: ', v.num_tick) = m.motiu
+        LEFT JOIN 
+            clients c ON v.botiga = c.codi
+        LEFT JOIN 
+            ClientsFinals cf ON CONCAT('[Id:', cf.id, ']') = v.otros
+        LEFT JOIN 
+            clients c2 ON CASE 
+                             WHEN CHARINDEX('AbonarEn:', cf.altres) = 0 THEN '' 
+                             ELSE SUBSTRING(cf.altres, CHARINDEX('AbonarEn:', cf.altres) + 9, CHARINDEX(']', cf.altres, CHARINDEX('AbonarEn:', cf.altres) + 9) - CHARINDEX('AbonarEn:', cf.altres) - 9) 
+                         END = c2.codi
+        WHERE 
+            v.botiga = ${botiga} 
+            AND v.data >= (SELECT timestamp FROM records WHERE concepte = 'BC_SalesTickets_${botiga}')
+        GROUP BY 
+            CONVERT(VARCHAR, v.Data, 23), 
+            CASE 
+                WHEN v.otros LIKE '%tarjeta%' OR m.motiu LIKE '%targeta%' THEN 'TARJETA' 
+                WHEN v.otros LIKE '%3g%' OR m.motiu LIKE '%targeta3g%' THEN '3G' 
+                ELSE 'CAJA' 
+            END, 
+            ISNULL(c2.codi, '1314')
+        ORDER BY 
+            CONVERT(VARCHAR, v.Data, 23);
+        `;
     console.log(`Sql: ${sqlQuery}`);
-
 
     let tickets;
     try {
@@ -272,6 +367,7 @@ export class salesTicketsService {
     let clientCodi = 'A';
     let testing = false;
     for (let i = 0; i < tickets.recordset.length; i++) {
+      /*
       if (i == 10 && testing) {
         let msgJson = {
           msg: "tickets",
@@ -288,7 +384,7 @@ export class salesTicketsService {
         mqttPublishRepeat(msgJson)
         //continue;
         throw new Error('Error:');
-      }
+      }*/
       try {
         let x = tickets.recordset[i];
         let customerId = await this.customers.getCustomerFromAPI(companyID, database, clientCodi, client_id, client_secret, tenant, entorno);
@@ -408,15 +504,31 @@ export class salesTicketsService {
           if (!newTickets.data) console.log('Failed post ticket B');
           else {
             //AÑADIMOS LAS LINEAS DEL TICKET
+            /*
             let ticketBC = await this.getSaleFromAPI(x.Num_tick, companyID, client_id, client_secret, tenant, entorno);
             //console.log('Tickets BC: ', ticketBC.data.value[0].id);
             await this.synchronizeSalesTiquetsLines(tabVenut, botiga, x.nTickHit, ticketBC.data.value[0].id, database, companyID, client_id, client_secret, tenant, entorno).catch(console.error);
             //console.log('Tmst: ', x.tmstStr);
             //console.log('Data: ', x.Data);
-
+            */
+            let ticketBC = await this.getSaleFromAPI(x.Num_tick, companyID, client_id, client_secret, tenant, entorno);
+            console.log('Tickets BC: ', ticketBC.data.value[0].id);
+            await this.synchronizeSalesTiquetsLinesVARIS(ticketBC.data.value[0].id, x.Total, 0.01, companyID, client_id, client_secret, tenant, entorno).catch(console.error);
             console.log('Synchronizing tickets... -> ' + (i + 1) + '/' + (tickets.recordset.length + 1), ' --- ', ((i / tickets.recordset.length) * 100).toFixed(2) + '%', ' | Time left: ' + ((tickets.recordset.length - i) * (0.5 / 60)).toFixed(2) + ' minutes',);
-            let sqlUpdate = `update records set timestamp='${x.tmstStr.toISOString()}' where Concepte='BC_SalesTickets_${botiga}'`;
-            //console.log(`update: ${sqlUpdate}`);
+
+            // Suponiendo que x.Data es '2024-10-09'
+            let dateString = x.Data; // Formato YYYY-MM-DD
+            let timeString = '00:00:00'; // La hora que quieras añadir, aquí 00:00:00
+
+            // Concatenamos la fecha y la hora para crear una fecha con tiempo
+            let dateTimeString = `${dateString}T${timeString}`;
+
+            // Convertimos el string en un objeto Date
+            let dateObj = new Date(dateTimeString);
+
+            // Generamos el SQL usando la fecha con formato ISO
+            let sqlUpdate = `update records set timestamp='${dateObj.toISOString()}' where Concepte='BC_SalesTickets_${botiga}'`;
+            console.log(`update: ${sqlUpdate}`);
             await this.sql.runSql(sqlUpdate, database);
           }
         } else {
@@ -529,6 +641,36 @@ export class salesTicketsService {
     return true;
   }
 
+  //AÑADIMOS LAS LINEAS AL TICKET
+  async synchronizeSalesTiquetsLinesVARIS(ticketId, quantityItem, unitPrice, companyID, client_id, client_secret, tenant, entorno) {
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
+
+    let item
+    item = await this.getItemVarisFromAPI(companyID, client_id, client_secret, tenant, entorno);
+    let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${ticketId})/salesInvoiceLines`;
+    let unitPriceNumber = stringToNumber(quantityItem);
+    let unitPriceQuantity = unitPriceNumber * 100;
+    console.log(`Quantity ${unitPriceQuantity}`)
+    let response;
+    try {
+      response = await axios.post(url, {
+        documentId: ticketId,
+        itemId: item.id,
+        quantity: unitPriceQuantity,
+        taxCode: item.generalProductPostingGroupCode,
+        unitPrice: unitPrice
+      }, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      console.error(`Failed to post Ticket line:`, error);
+    }
+    return true;
+  }
+
 
   async cleanSalesTickets(companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
@@ -581,4 +723,19 @@ export class salesTicketsService {
 
     return true;
   }
+}
+
+function stringToNumber(input: any): number {
+  if (typeof input !== 'string') {
+    input = String(input); // Convierte el valor a string si no lo es
+  }
+
+  const inputreplace = input.replace(',', '.'); // Reemplaza comas por puntos
+  const result = parseFloat(inputreplace); // Convierte el string a número
+
+  if (isNaN(result)) {
+    throw new Error("El valor de entrada no es un número válido.");
+  }
+
+  return result;
 }

@@ -38,8 +38,8 @@ client.on('connect', function () {
   //console.log(`Mqtt Options: ${mqttOptions.host} - ${mqttOptions.username} - ${mqttOptions.password}`)
 
   // Suscribirse a un tema
-  let tema = '/Hit/Serveis/Apicultor';
-  //let tema = '/Testing/Hit/Serveis/Apicultor';
+  //let tema = '/Hit/Serveis/Apicultor';
+  let tema = '/Testing/Hit/Serveis/Apicultor';
   client.subscribe(tema, function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
@@ -109,9 +109,7 @@ client.on('message', async function (topic, message) {
     let companyNAME = "";
     let database = "";
     if (msgJson.hasOwnProperty('companyID')) {
-
       companyID = msgJson.companyID;
-
       //console.log('El JSON recibido tiene el campo "companyID"');
       if (!isValidCompanyID(msgJson.companyID)) {
         mqttPublish('Error: "companyID" no valido');
@@ -204,6 +202,9 @@ client.on('message', async function (topic, message) {
           break;
         case 'archivos':
           await archivo(companyNAME, database, client_id, client_secret, tenant, entorno);
+          break;
+        case 'downloadArchivo':
+          await downloadArchivo(companyNAME, client_id, client_secret, tenant, entorno, msgJson.idTrabajador);
           break;
         case 'bucle':
           await bucle(companyID, companyNAME, database, client_id, client_secret, tenant, entorno);
@@ -303,6 +304,26 @@ async function archivo(companyNAME, database, client_id, client_secret, tenant, 
         client_secret: client_secret,
         tenant: tenant,
         entorno: entorno,
+      },
+    });
+    console.log('Archivo sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar archivos:', error);
+  }
+}
+
+async function downloadArchivo(companyNAME, client_id, client_secret, tenant, entorno, idTrabajador) {
+  let res;
+  try {
+    console.log(`Intentando descargar un archivo`);
+    res = await axios.get('http://localhost:3333/downloadArchivo', {
+      params: {
+        companyNAME: companyNAME,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+        idTrabajador: idTrabajador,
       },
     });
     console.log('Archivo sync sent...');
