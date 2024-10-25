@@ -26,6 +26,8 @@ import { archivosController } from './archivos/archivos.controller';
 import { archivosService } from './archivos/archivos.service';
 import { empresasController } from './empresas/empresas.controller';
 import { empresasService } from './empresas/empresas.service';
+import { traspasosController } from './traspasos/traspasos.controller';
+import { traspasosService } from './traspasos/traspasos.service';
 
 
 
@@ -43,7 +45,8 @@ import { empresasService } from './empresas/empresas.service';
     PdfController,
     IncidenciaController,
     archivosController,
-    empresasController
+    empresasController,
+    traspasosController
   ],
   providers: [
     employeesService,
@@ -59,7 +62,8 @@ import { empresasService } from './empresas/empresas.service';
     PdfService,
     IncidenciaService,
     archivosService,
-    empresasService
+    empresasService,
+    traspasosService
   ],
 })
 export class AppModule {}

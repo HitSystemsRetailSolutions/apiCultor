@@ -114,12 +114,18 @@ client.on('message', async function (topic, message) {
       if (!isValidCompanyID(msgJson.companyID)) {
         mqttPublish('Error: "companyID" no valido');
       }
-    } else if (msgJson.hasOwnProperty('companyNAME')) {
-      companyNAME = msgJson.companyNAME;
+    } else if (msgJson.hasOwnProperty('companyNAME') || msgJson.hasOwnProperty('companyName')) {
+      if (msgJson.hasOwnProperty('companyNAME'))
+        companyNAME = msgJson.companyNAME;
+      else if (msgJson.hasOwnProperty('companyName'))
+        companyNAME = msgJson.companyName;
       //console.log('El JSON recibido tiene el campo "companyNAME"');
-    } else if (msgJson.hasOwnProperty('companyID') && msgJson.hasOwnProperty('companyNAME')) {
+    } else if (msgJson.hasOwnProperty('companyID') && (msgJson.hasOwnProperty('companyNAME') || msgJson.hasOwnProperty('companyName'))) {
       companyID = msgJson.companyID;
-      companyNAME = msgJson.companyNAME;
+      if (msgJson.hasOwnProperty('companyNAME'))
+        companyNAME = msgJson.companyNAME;
+      else if (msgJson.hasOwnProperty('companyName'))
+        companyNAME = msgJson.companyName;
       //console.log('El JSON recibido tiene el campo "companyNAME" y "companyNAME"');
     } else {
       mqttPublish('El JSON recibido no tiene el campo "companyID" o "companyNAME" ');
@@ -206,6 +212,9 @@ client.on('message', async function (topic, message) {
         case 'downloadArchivo':
           await downloadArchivo(companyNAME, client_id, client_secret, tenant, entorno, msgJson.idTrabajador);
           break;
+        case 'traspasos':
+          await traspasos(companyNAME, database, client_id, client_secret, tenant, entorno);
+          break;
         case 'bucle':
           await bucle(companyID, companyNAME, database, client_id, client_secret, tenant, entorno);
           break;
@@ -269,6 +278,25 @@ async function signings(companyNAME, database, client_id, client_secret, tenant,
     console.log('Signings sync sent...');
   } catch (error) {
     console.error('Error al sincronizar firmas:', error);
+  }
+}
+
+async function traspasos(companyNAME, database, client_id, client_secret, tenant, entorno) {
+  try {
+    await axios.get('http://localhost:3333/syncTraspasos', {
+      params: {
+        companyNAME: companyNAME,
+        database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+      timeout: 30000,
+    });
+    console.log('Traspasos sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar traspasos:', error);
   }
 }
 
