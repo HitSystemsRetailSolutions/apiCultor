@@ -71,7 +71,7 @@ export class salesFacturasService {
     let num;
     if (serieFactura.length <= 0) {
       num = numFactura;
-      console.log('serieFactura vacio');
+      //console.log('serieFactura vacio');
     } else {
       num = serieFactura + numFactura;
     }
@@ -82,6 +82,56 @@ export class salesFacturasService {
       ' -----------------------',
     );
     let customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientCodi, client_id, client_secret, tenant, entorno);
+
+    // 1. Consultar el método de pago actual del cliente
+    const customerResponse = await axios.get(
+      `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers(${customerId})`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    const originalPaymentMethodId = customerResponse.data.paymentMethodId;
+    const etag = customerResponse.data['@odata.etag'];
+    //console.log(etag);
+
+    // Obtener el ID del método de pago segun el ticket que enviaremos
+    const paymentMethodsResponse = await axios.get(
+      `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/paymentMethods?$filter=code eq '${x.FormaPago}'`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
+    if (
+      !paymentMethodsResponse.data.value ||
+      paymentMethodsResponse.data.value.length === 0
+    ) {
+      throw new Error(
+        `Método de pago ${x.FormaPago} no encontrado en la tabla de metodos de pagos de BC.`,
+      );
+    }
+
+    // 2. Actualizar temporalmente el método de pago del cliente
+    await axios.patch(
+      `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers(${customerId})`,
+      {
+        paymentMethodId: paymentMethodsResponse.data.value[0].id,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'If-Match': etag, // Usar el ETag para el control de concurrencia
+        },
+      },
+    );
     //console.log("CLIENTE BC: " + customerId);
 
     let idSaleHit = x.IdFactura;
@@ -110,6 +160,7 @@ export class salesFacturasService {
             invoiceDate: datePart,
             postingDate: datePart,
             customerId: customerId,
+            totalAmountIncludingTax: x.Import,
           },
           {
             headers: {
@@ -142,27 +193,31 @@ export class salesFacturasService {
 
         let resSale = await this.getSaleFromAPI(companyID, num, client_id, client_secret, tenant, entorno);
         if (!resSale.data) throw new Error('Failed to obtain ticket BS');
-        if (resSale.data.value.length != 0) {
-          sqlQ = 'update [BC_SyncSales_2024] set ';
-          sqlQ = sqlQ + "BC_IdSale='" + resSale.data.value[0].id + "', ";
-          sqlQ = sqlQ + "BC_Number='" + resSale.data.value[0].number + "', ";
-          sqlQ =
-            sqlQ +
-            "BC_PostingDate='" +
-            resSale.data.value[0].postingDate +
-            "', ";
-          sqlQ =
-            sqlQ +
-            "BC_CustomerId= '" +
-            resSale.data.value[0].customerId +
-            "', ";
-          sqlQ =
-            sqlQ +
-            "BC_totalAmountIncludingTax= '" +
-            resSale.data.value[0].totalAmountIncludingTax +
-            "' ";
-          sqlQ = sqlQ + "where HIT_IdFactura ='" + idSaleHit + "'";
-          let updBC = await this.sql.runSql(sqlQ, database);
+        try {
+          if (resSale.data.value.length != 0) {
+            sqlQ = 'update [BC_SyncSales_2024] set ';
+            sqlQ = sqlQ + "BC_IdSale='" + resSale.data.value[0].id + "', ";
+            sqlQ = sqlQ + "BC_Number='" + resSale.data.value[0].number + "', ";
+            sqlQ =
+              sqlQ +
+              "BC_PostingDate='" +
+              resSale.data.value[0].postingDate +
+              "', ";
+            sqlQ =
+              sqlQ +
+              "BC_CustomerId= '" +
+              resSale.data.value[0].customerId +
+              "', ";
+            sqlQ =
+              sqlQ +
+              "BC_totalAmountIncludingTax= '" +
+              resSale.data.value[0].totalAmountIncludingTax +
+              "' ";
+            sqlQ = sqlQ + "where HIT_IdFactura ='" + idSaleHit + "'";
+            let updBC = await this.sql.runSql(sqlQ, database);
+          }
+        } catch (error) {
+          console.log('Error update BC_SyncSales_2024')
         }
       }
     } else {
@@ -198,7 +253,8 @@ export class salesFacturasService {
     for (let i = 0; i < facturasLines.recordset.length; i++) {
       let x = facturasLines.recordset[i];
       console.log('PRODUCTO ' + x.Plu);
-      let itemId = await this.items.getItemFromAPI(companyID, database, x.Plu, client_id, client_secret, tenant, entorno);
+      let item;
+      item = await this.items.getItemFromAPI(companyID, database, x.Plu, client_id, client_secret, tenant, entorno);
 
       let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines?$filter=lineObjectNumber eq 'CODI-${x.Plu}'`;
 
@@ -215,8 +271,8 @@ export class salesFacturasService {
         });
 
       if (!res.data) throw new Error('Failed to get factura line');
-      if (itemId.length <= 0) {
-        itemId = x.Plu;
+      if (item.length <= 0) {
+        item = x.Plu;
       }
       //NO ESTÁ, LA AÑADIMOS
       let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines`;
@@ -227,9 +283,11 @@ export class salesFacturasService {
             url,
             {
               documentId: BC_facturaId,
-              itemId: itemId,
+              itemId: item.id,
               quantity: x.Quantitat,
               unitPrice: x.UnitPrice,
+              discountPercent: x.Desconte,
+              taxCode: item.generalProductPostingGroupCode
             },
             {
               headers: {
@@ -240,7 +298,7 @@ export class salesFacturasService {
           )
           .catch((error) => {
             console.log('----------', BC_facturaId, '------------------');
-            console.log('----------', itemId, '------------------');
+            console.log('----------', item.id, '------------------');
             console.log('----------', x.Quantitat, '------------------');
             console.log('----------', x.UnitPrice, '------------------');
             throw new Error('Failed to post Factura line');
@@ -255,9 +313,10 @@ export class salesFacturasService {
             `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${BC_facturaId})/salesInvoiceLines(${res.data.value[0].id})`,
             {
               documentId: BC_facturaId,
-              itemId: itemId,
+              itemId: item.id,
               quantity: x.Quantitat,
               unitPrice: x.UnitPrice,
+              taxCode: item.generalProductPostingGroupCode
             },
             {
               headers: {

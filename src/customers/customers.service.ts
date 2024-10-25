@@ -20,7 +20,7 @@ export class customersService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) {}
+  ) { }
 
   //Obtener Id del modo de pago
   async getPaymentTermId(pTermCode, companyID, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -29,8 +29,8 @@ export class customersService {
     // Get PaymentTerms from API
     let res = await axios.get(
       `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/paymentTerms?$filter=dueDateCalculation eq '` +
-        pTermCode +
-        `'`,
+      pTermCode +
+      `'`,
       {
         headers: {
           Authorization: 'Bearer ' + token,
@@ -51,8 +51,8 @@ export class customersService {
     // Get Tax from API
     let res = await axios.get(
       `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxAreas?$filter=code eq '` +
-        taxCode +
-        `'`,
+      taxCode +
+      `'`,
       {
         headers: {
           Authorization: 'Bearer ' + token,
@@ -191,11 +191,12 @@ export class customersService {
 
     // Get the authentication token
     let token = await this.token.getToken2(client_id, client_secret, tenant);
-
+    let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`;
+    //console.log("URL: " + url);
     // Get Customer from API
     let res = await axios
       .get(
-        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`,
+        url,
         {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -206,6 +207,7 @@ export class customersService {
       .catch((error) => {
         throw new Error('Failed to obtain customer');
       });
+      
 
     if (!res.data) throw new Error('Failed to obtain customer');
 
@@ -215,7 +217,6 @@ export class customersService {
       console.log('CLIENTE NUEVO ---------------------');
       let customers;
       let taxId = await this.getTaxAreaId('UE', companyID, client_id, client_secret, tenant, entorno);
-
       try {
         customers = await this.sql.runSql(
           `SELECT cast(c.Codi as nvarchar) Codi, upper(c.Nom) Nom, c.Adresa, c.Ciutat, c.CP, cc1.valor Tel, cc2.valor eMail from clients c left join constantsClient cc1 on c.codi= cc1.codi and cc1.variable='Tel' join constantsClient cc2 on c.codi= cc2.codi and cc2.variable='eMail' where c.codi=${codiHIT} order by c.codi`,
@@ -224,10 +225,10 @@ export class customersService {
       } catch (error) {
         //Comprovacion de errores y envios a mqtt
         client.publish(
-          '/Hit/Serveis/Apicultor/Log',
-          'Customers. No existe la database',
+          `/Hit/Serveis/Apicultor/Log`,
+          `Customers: No existe la database ${database}`,
         );
-        console.log('Customers. No existe la database');
+        console.log(`Customers: No existe la database ${database}`);
         return false;
       }
 

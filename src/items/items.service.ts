@@ -19,7 +19,7 @@ export class itemsService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) {}
+  ) { }
 
   async syncItems(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
@@ -73,11 +73,14 @@ export class itemsService {
           throw new Error('Failed get item');
         });
 
+      if(x.Iva == null) x.Iva = 0;
+
       if (!res.data) throw new Error('Failed get item');
+      let url=`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/items`;
       if (res.data.value.length === 0) {
         let newItems = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/items`,
+            url,
             {
               number: 'CODI-' + x.Codi,
               displayName: x.Nom,
@@ -93,7 +96,8 @@ export class itemsService {
             },
           )
           .catch((error) => {
-            throw new Error('Failed post item ' + x.Nom);
+            console.log(url);
+            throw new Error(`Failed post item ${x.Nom} Codi: ${x.Codi}`);
           });
 
         if (!newItems.data) return new Error('Failed post item');
@@ -126,12 +130,13 @@ export class itemsService {
           });
         if (!newItems.data) return new Error('Failed to update item');
       }
+      //console.log('Synchronizing items... -> ' + (i + 1) + '/' + (items.recordset.length + 1), ' --- ', ((i / items.recordset.length) * 100).toFixed(2) + '%', ' | Time left: ' + ((items.recordset.length - i) * (0.5 / 60)).toFixed(2) + ' minutes',)
     }
     return true;
   }
 
   async getItemFromAPI(companyID, database, codiHIT, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    let itemId = '';
+    let item = '';
 
     // Get the authentication token
     let token = await this.token.getToken2(client_id, client_secret, tenant);
@@ -157,13 +162,13 @@ export class itemsService {
     let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/items?$filter=number eq 'CODI-${codiHIT}'`;
 
     // Get Item from API
-    let res = await axios
-      .get(url, {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
-      })
+    let res = await axios.get(
+      url, {
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+    })
       .catch((error) => {
         throw new Error('Failed to obtain item');
       });
@@ -191,11 +196,11 @@ export class itemsService {
         .catch((error) => {
           throw new Error('Failed post item ' + items.recordset[0].Nom);
         });
-      itemId = newItems.data.id;
+      item = newItems.data.value;
     } else {
-      itemId = res.data.value[0].id;
+      item = res.data.value[0];
     }
-
-    return itemId;
+    console.log()
+    return item;
   }
 }
