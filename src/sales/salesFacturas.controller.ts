@@ -35,7 +35,7 @@ export class salesFacturasController {
   ) {
     let res = await this.salesFacturasService.generateXML(companyID, idFactura, client_id, client_secret, tenant, entorno);
     if (res.success == true) {
-      fs.writeFileSync("nameDeEjemplo.xml", res.xmlData);
+      fs.writeFileSync("../nameDeEjemplo.xml", res.xmlData);
     }
     else return 'Ha habido un error al hacerel xml y tal';
   }
@@ -50,6 +50,8 @@ export class salesFacturasController {
     @Query('entorno') entorno: string,
     @Res() response: any,
   ) {
+    if(tenant == null) tenant = process.env.tenant
+    if (entorno == null) entorno = process.env.entorno
     let res = await this.salesFacturasService.generateXML(companyID, idFactura, client_id, client_secret, tenant, entorno);
     if (res.success == true) {
       // Configura los headers de la respuesta para indicar que es un archivo XML
