@@ -28,6 +28,8 @@ import { empresasController } from './empresas/empresas.controller';
 import { empresasService } from './empresas/empresas.service';
 import { traspasosController } from './traspasos/traspasos.controller';
 import { traspasosService } from './traspasos/traspasos.service';
+import { salesSilemaController } from './sales/salesSilema.controller';
+import { salesSilemaService } from './sales/salesSilema.service';
 
 
 
@@ -46,7 +48,8 @@ import { traspasosService } from './traspasos/traspasos.service';
     IncidenciaController,
     archivosController,
     empresasController,
-    traspasosController
+    traspasosController,
+    salesSilemaController
   ],
   providers: [
     employeesService,
@@ -63,7 +66,8 @@ import { traspasosService } from './traspasos/traspasos.service';
     IncidenciaService,
     archivosService,
     empresasService,
-    traspasosService
+    traspasosService,
+    salesSilemaService
   ],
 })
 export class AppModule {}

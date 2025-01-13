@@ -212,6 +212,9 @@ client.on('message', async function (topic, message) {
         case 'downloadArchivo':
           await downloadArchivo(companyNAME, client_id, client_secret, tenant, entorno, msgJson.idTrabajador);
           break;
+        case 'silema':
+          await syncSalesSilema(companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
+          break;
         case 'traspasos':
           await traspasos(companyNAME, database, client_id, client_secret, tenant, entorno);
           break;
@@ -297,6 +300,26 @@ async function traspasos(companyNAME, database, client_id, client_secret, tenant
     console.log('Traspasos sync sent...');
   } catch (error) {
     console.error('Error al sincronizar traspasos:', error);
+  }
+}
+
+async function syncSalesSilema(companyID, database, botiga, client_id, client_secret, tenant, entorno) {
+  try {
+    await axios.get('http://localhost:3333/syncSalesSilema', {
+      params: {
+        companyID: companyID,
+        database: database,
+        botiga: botiga,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+      timeout: 30000,
+    });
+    console.log('Sales Silema sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar Sales Silema:', error);
   }
 }
 
