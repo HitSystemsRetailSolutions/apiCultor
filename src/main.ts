@@ -216,7 +216,7 @@ client.on('message', async function (topic, message) {
           await syncSalesSilemaRecords(companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
           break;
         case 'silemaDate':
-          await syncSalesSilemaRecords(companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
+          await syncSalesSilemaDate(msgJson.dayStart, msgJson.dayEnd, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
           break;
         case 'silema':
           await syncSalesSilema(msgJson.day, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
@@ -229,6 +229,15 @@ client.on('message', async function (topic, message) {
           break;
         case 'silemaItems':
           await syncItemsSilema(companyID, database, client_id, client_secret, tenant, entorno);
+          break;
+        case 'silemaCustomers':
+          await syncCustomersSilema(companyID, database, client_id, client_secret, tenant, entorno);
+          break;
+        case 'silemaContacts':
+          await syncContactsSilema(companyID, database, client_id, client_secret, tenant, entorno);
+          break;
+        case 'silemaVendors':
+          await syncVendorsSilema(companyID, database, client_id, client_secret, tenant, entorno);
           break;
         case 'traspasos':
           await traspasos(companyNAME, database, client_id, client_secret, tenant, entorno);
@@ -434,6 +443,63 @@ async function syncSalesSilemaRecap(client, tienda, dayStart, dayEnd, month, yea
 async function syncItemsSilema(companyID, database, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/syncItemsSilema', {
+      params: {
+        companyID: companyID,
+        database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+      timeout: 30000,
+    });
+    console.log('Sales Silema sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar Sales Silema:', error);
+  }
+}
+
+async function syncCustomersSilema(companyID, database, client_id, client_secret, tenant, entorno) {
+  try {
+    await axios.get('http://localhost:3333/syncCustomersSilema', {
+      params: {
+        companyID: companyID,
+        database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+      timeout: 30000,
+    });
+    console.log('Sales Silema sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar Sales Silema:', error);
+  }
+}
+
+async function syncContactsSilema(companyID, database, client_id, client_secret, tenant, entorno) {
+  try {
+    await axios.get('http://localhost:3333/syncContactsSilema', {
+      params: {
+        companyID: companyID,
+        database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+      timeout: 30000,
+    });
+    console.log('Sales Silema sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar Sales Silema:', error);
+  }
+}
+
+async function syncVendorsSilema(companyID, database, client_id, client_secret, tenant, entorno) {
+  try {
+    await axios.get('http://localhost:3333/syncVendorsSilema', {
       params: {
         companyID: companyID,
         database: database,

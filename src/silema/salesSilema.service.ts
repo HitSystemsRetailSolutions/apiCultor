@@ -2,17 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { getTokenService } from '../conection/getToken.service';
 import { runSqlService } from 'src/conection/sqlConection.service';
 import axios from 'axios';
-import { response } from 'express';
-import { customersService } from 'src/customers/customers.service';
-import { itemsService } from 'src/items/items.service';
 
 @Injectable()
 export class salesSilemaService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-    private customers: customersService,
-    private items: itemsService,
   ) { }
 
   async getSaleFromAPI(companyID, docNumber, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -1155,7 +1150,7 @@ order by v.data`;
       let formattedDateAlbaran = `${day}/${month}/${shortYear}`;
       let salesLineAlbaran = {
         documentNo: `${salesData.no}`,
-        lineNo: countLines,
+        lineNo: 0,
         description: `albaran nº ${x.TICKET} ${formattedDateAlbaran}`,
         quantity: 1,
         shipmentDate: `${isoDate}`,
@@ -1336,135 +1331,4 @@ ORDER BY MIN(V.data);`;
 
     return true;
   }
-
-  async syncItemsSilema(companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    let token = await this.token.getToken2(client_id, client_secret, tenant);
-    let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/items?$filter=processedHIT eq false`;
-    let res = await axios
-      .get(
-        url1,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        },
-      )
-      .catch((error) => {
-        console.log(`Url ERROR: ${url1}`)
-        throw new Error('Failed to obtain sale');
-      });
-    console.log("Cantidad: " + res.data.value.length)
-    for (let i = 0; i < res.data.value.length; i++) {
-      //console.log(`Iteracion numero ${i}`)
-      if (!res.data.value[i].processedHIT && res.data.value[i].familyDimValue !== "" && res.data.value[i].subfamilyDimValue !== "" && res.data.value[i].level3DimValue !== "") {
-        let sqlIva = `select * from tipusIva where Iva = ${res.data.value[i].vatPercent}`
-        let queryIva = await this.sql.runSql(sqlIva, database)
-        let Codi = res.data.value[i].number ?? 0;
-        let NOM = res.data.value[i].displayName ?? 'Nombre de ejemplo'
-        let PREU = res.data.value[i].unitPrice ?? 0;
-        let PreuMajor = res.data.value[i].unitPriceExcludeVAT ?? 0;
-        let Desconte = 1
-        let EsSumable = 1
-        if (res.data.value[i].baseUnitOfMeasureCode == 'KG') EsSumable = 0
-        let Familia = res.data.value[i].level3DimValue;
-        let CodiGenetic = Codi;
-        let TipoIva = queryIva.recordset[0].Tipus ?? 6
-        let NoDescontesEspecials = 0; // ?? Producte acabat o no
-        //console.log("Hay que procesar este producto en HIT")
-        // Familia N1
-        let sqlFamilia = `SELECT * FROM [families] WHERE Nom = '${res.data.value[i].familyDimValue}'`;
-        let queryFamilia = await this.sql.runSql(sqlFamilia, database)
-        if (queryFamilia.recordset.length == 0) {
-          let sqlInsert = `INSERT INTO families (Nom, Pare, Nivell) VALUES ('${res.data.value[i].familyDimValue}', 'Article', 1);`;
-          let recordsInsert = await this.sql.runSql(sqlInsert, database);
-        }
-        // Familia N2
-        sqlFamilia = `SELECT * FROM [families] WHERE Nom = '${res.data.value[i].subfamilyDimValue}'`;
-        queryFamilia = await this.sql.runSql(sqlFamilia, database)
-        if (queryFamilia.recordset.length == 0) {
-          let sqlInsert = `INSERT INTO families (Nom, Pare, Nivell) VALUES ('${res.data.value[i].subfamilyDimValue}', '${res.data.value[i].familyDimValue}', 2);`;
-          let recordsInsert = await this.sql.runSql(sqlInsert, database);
-        }
-        // Familia N3
-        sqlFamilia = `SELECT * FROM [families] WHERE Nom = '${res.data.value[i].level3DimValue}'`;
-        queryFamilia = await this.sql.runSql(sqlFamilia, database)
-        if (queryFamilia.recordset.length == 0) {
-          let sqlInsert = `INSERT INTO families (Nom, Pare, Nivell) VALUES ('${res.data.value[i].level3DimValue}', '${res.data.value[i].subfamilyDimValue}', 3);`;
-          let recordsInsert = await this.sql.runSql(sqlInsert, database);
-        }
-        // Insert producte
-        let sqlInsert = `INSERT INTO articles 
-        (Codi, NOM, PREU, PreuMajor, Desconte, EsSumable, Familia, CodiGenetic, TipoIva, NoDescontesEspecials) VALUES
-        (${Codi}, '${NOM}', ${PREU}, ${PreuMajor}, ${Desconte}, ${EsSumable}, '${Familia}', ${CodiGenetic}, ${TipoIva}, ${NoDescontesEspecials})`
-        //console.log(sql)
-
-        try {
-          let queryInsert = await this.sql.runSql(sqlInsert, database)
-          const data = {
-            processedHIT: true,
-            processHIT: false
-          };
-          let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/items(${res.data.value[i].id})`
-          const patchResponse = await axios.patch(url2, data, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-              "If-Match": "*",
-            },
-          });
-        } catch (error) {
-          throw new Error('Failed to put item');
-        }
-        console.log("Producto procesado")
-      }
-    }
-    return true;
-  }
-
-  async syncCustomersSilema(companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    let token = await this.token.getToken2(client_id, client_secret, tenant);
-    let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/customers?$filter=processedHIT eq false`;
-    let res = await axios
-      .get(
-        url1,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        },
-      )
-      .catch((error) => {
-        console.log(`Url ERROR: ${url1}`)
-        throw new Error('Failed to obtain sale');
-      });
-    console.log("Cantidad: " + res.data.value.length)
-    for (let i = 0; i < res.data.value.length; i++) {
-      let Codi = 0;
-      let Nom = "";
-      let Nif = "";
-      let Adresa = "";
-      let Ciutat = "";
-      let Cp = 0;
-      let NomLlarg = "";
-      let TipusIva = 0;
-      let PreuBase = 0;
-      let DesconteProntoPago = 0;
-      let Desconte1 = 0;
-      let Desconte2 = 0;
-      let Desconte3 = 0;
-      let Desconte4 = 0;
-      let Desconte5 = 0;
-      let AlbaraValorat = 0;
-
-      
-      let sqlInsert = `INSERT INTO articles 
-      (Codi, Nom, Nif, Adresa, Ciutat, Cp, NomLlarg, TipusIva, PreuBase, DesconteProntoPago, Desconte1, Desconte2, Desconte3, Desconte4, Desconte5, AlbaraValorat) VALUES
-      (${Codi}, '${Nom}', ${Nif}, ${Adresa}, ${Ciutat}, ${Cp}, '${NomLlarg}', ${TipusIva}, ${PreuBase}, ${DesconteProntoPago}, ${Desconte1}, ${Desconte2}, ${Desconte3}, ${Desconte4}, ${Desconte5}, ${AlbaraValorat})`
-      //console.log(sql)
-    }
-  }
-
-
 }

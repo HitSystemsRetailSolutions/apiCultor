@@ -28,8 +28,16 @@ import { empresasController } from './empresas/empresas.controller';
 import { empresasService } from './empresas/empresas.service';
 import { traspasosController } from './traspasos/traspasos.controller';
 import { traspasosService } from './traspasos/traspasos.service';
-import { salesSilemaController } from './sales/salesSilema.controller';
-import { salesSilemaService } from './sales/salesSilema.service';
+import { salesSilemaController } from './silema/salesSilema.controller';
+import { salesSilemaService } from './silema/salesSilema.service';
+import { itemsSilemaController } from './silema/itemsSilema.controller';
+import { itemsSilemaService } from './silema/itemsSilema.service';
+import { contactsSilemaController } from './silema/contactsSilema.controller';
+import { contactsSilemaService } from './silema/contactsSilema.service';
+import { customersSilemaController } from './silema/customersSilema.controller';
+import { customersSilemaService } from './silema/customersSilema.service';
+import { vendorsSilemaController } from './silema/vendorsSilema.controller';
+import { vendorsSilemaService } from './silema/vendorsSilema.service';
 
 
 
@@ -49,7 +57,12 @@ import { salesSilemaService } from './sales/salesSilema.service';
     archivosController,
     empresasController,
     traspasosController,
-    salesSilemaController
+    salesSilemaController,
+    itemsSilemaController,
+    contactsSilemaController,
+    customersSilemaController,
+    vendorsSilemaController
+
   ],
   providers: [
     employeesService,
@@ -67,7 +80,11 @@ import { salesSilemaService } from './sales/salesSilema.service';
     archivosService,
     empresasService,
     traspasosService,
-    salesSilemaService
+    salesSilemaService,
+    itemsSilemaService,
+    contactsSilemaService,
+    customersSilemaService,
+    vendorsSilemaService
   ],
 })
 export class AppModule {}
