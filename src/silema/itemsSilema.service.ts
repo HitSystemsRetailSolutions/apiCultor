@@ -48,9 +48,8 @@ export class itemsSilemaService {
       )
       .catch((error) => {
         console.log(`Url ERROR: ${url1}`)
-        throw new Error('Failed to obtain sale');
+        throw new Error('Failed to obtain items');
       });
-    console.log("Cantidad: " + res.data.value.length)
     for (let i = 0; i < res.data.value.length; i++) {
       //console.log(`Iteracion numero ${i}`)
       if (!res.data.value[i].processedHIT && res.data.value[i].processHIT && res.data.value[i].familyDimValue !== "" && res.data.value[i].subfamilyDimValue !== "" && res.data.value[i].level3DimValue !== "") {
@@ -121,9 +120,9 @@ export class itemsSilemaService {
           } catch (error) {
             throw new Error('Failed to put item');
           }
-          console.log("Producto procesado")
-        } 
-        else{
+          console.log("Item procesado")
+        }
+        else {
           let sqlUpdate = ` UPDATE articles SET 
           NOM = '${NOM}', 
           PREU = ${PREU}, 
@@ -154,6 +153,7 @@ export class itemsSilemaService {
           console.log("Item actualizado")
         }
       }
+      console.log(`Synchronizing items... -> ${i}/${res.data.value.length} --- ${((i / res.data.value.length) * 100).toFixed(2)}%`);
     }
     return true;
   }

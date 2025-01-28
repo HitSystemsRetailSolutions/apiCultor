@@ -245,6 +245,12 @@ client.on('message', async function (topic, message) {
         case 'bucle':
           await bucle(companyID, companyNAME, database, client_id, client_secret, tenant, entorno);
           break;
+        case 'maestros':
+          await syncItemsSilema(companyID, database, client_id, client_secret, tenant, entorno);
+          await syncContactsSilema(companyID, database, client_id, client_secret, tenant, entorno);
+          await syncCustomersSilema(companyID, database, client_id, client_secret, tenant, entorno);
+          await syncVendorsSilema(companyID, database, client_id, client_secret, tenant, entorno);
+          break;
         default:
           mqttPublish('Mensaje recibido no coincide con ninguna acción esperada');
           break;
@@ -340,9 +346,9 @@ async function syncSalesSilemaRecords(companyID, database, botiga, client_id, cl
         entorno: entorno,
       },
     });
-    console.log('Sales Silema sync sent...');
+    console.log('Sales Silema Records sync sent...');
   } catch (error) {
-    console.error('Error al sincronizar Sales Silema:', error);
+    console.error('Error al sincronizar Sales Silema Records:', error);
   }
 }
 
@@ -363,9 +369,9 @@ async function syncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, dat
         entorno: entorno,
       },
     });
-    console.log('Sales Silema sync sent...');
+    console.log('Sales Silema Date sync sent...');
   } catch (error) {
-    console.error('Error al sincronizar Sales Silema:', error);
+    console.error('Error al sincronizar Sales Silema Date:', error);
   }
 }
 
@@ -409,9 +415,9 @@ async function syncSalesSilemaAbono(day, month, year, companyID, database, botig
       },
       timeout: 30000,
     });
-    console.log('Sales Silema sync sent...');
+    console.log('Sales Silema Abono sync sent...');
   } catch (error) {
-    console.error('Error al sincronizar Sales Silema:', error);
+    console.error('Error al sincronizar Sales Silema Abono:', error);
   }
 }
 
@@ -434,9 +440,9 @@ async function syncSalesSilemaRecap(client, tienda, dayStart, dayEnd, month, yea
         entorno: entorno,
       },
     });
-    console.log('Sales Silema sync sent...');
+    console.log('Sales Silema Recap sync sent...');
   } catch (error) {
-    console.error('Error al sincronizar Sales Silema:', error);
+    console.error('Error al sincronizar Sales Silema Recap:', error);
   }
 }
 
@@ -453,9 +459,9 @@ async function syncItemsSilema(companyID, database, client_id, client_secret, te
       },
       timeout: 30000,
     });
-    console.log('Sales Silema sync sent...');
+    console.log('Items Silema sync sent...');
   } catch (error) {
-    console.error('Error al sincronizar Sales Silema:', error);
+    console.error('Error al sincronizar Items Silema:', error);
   }
 }
 
@@ -472,9 +478,9 @@ async function syncCustomersSilema(companyID, database, client_id, client_secret
       },
       timeout: 30000,
     });
-    console.log('Sales Silema sync sent...');
+    console.log('Customers Silema sync sent...');
   } catch (error) {
-    console.error('Error al sincronizar Sales Silema:', error);
+    console.error('Error al sincronizar Customers Silema:', error);
   }
 }
 
@@ -491,9 +497,9 @@ async function syncContactsSilema(companyID, database, client_id, client_secret,
       },
       timeout: 30000,
     });
-    console.log('Sales Silema sync sent...');
+    console.log('Contacts Silema sync sent...');
   } catch (error) {
-    console.error('Error al sincronizar Sales Silema:', error);
+    console.error('Error al sincronizar Contacts Silema:', error);
   }
 }
 
@@ -510,9 +516,9 @@ async function syncVendorsSilema(companyID, database, client_id, client_secret, 
       },
       timeout: 30000,
     });
-    console.log('Sales Silema sync sent...');
+    console.log('Vendors Silema sync sent...');
   } catch (error) {
-    console.error('Error al sincronizar Sales Silema:', error);
+    console.error('Error al sincronizar Vendors Silema:', error);
   }
 }
 

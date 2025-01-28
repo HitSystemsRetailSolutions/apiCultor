@@ -49,11 +49,11 @@ export class customersSilemaService {
       )
       .catch((error) => {
         console.log(`Url ERROR: ${url1}`)
-        throw new Error('Failed to obtain sale');
+        throw new Error('Failed to obtain customers');
       });
-    console.log("Cantidad: " + res.data.value.length)
     for (let i = 0; i < res.data.value.length; i++) {
       if (res.data.value[i].processHIT) {
+        // console.log(`Cliente a procesar: ${res.data.value[i].number}`)
         let sqlCodi = `SELECT MAX(t1.Codi + 1) AS codigo_disponible FROM clients t1 LEFT JOIN clients t2 ON t1.Codi + 1 = t2.Codi WHERE t2.Codi IS NULL;`
         let queryCodi = await this.sql.runSql(sqlCodi, database)
 
@@ -106,9 +106,11 @@ export class customersSilemaService {
               break;
           }
           if (primaryContactNo != "") {
-            let sqlCFINAL = `SELECT * FROM BC_SincroIds WHERE IdBc = '${res.data.value[i].number}'`;
+            let sqlCFINAL = `SELECT * FROM BC_SincroIds WHERE IdBc = '${res.data.value[i].primaryContactNo}'`;
+            console.log(sqlCFINAL);
             let queryCFINAL = await this.sql.runSql(sqlCFINAL, database)
-            IdHitCFINAL = queryCFINAL.recordset[0].IdHit;
+            if (queryCFINAL.recordset.length > 0 && queryCFINAL.recordset[0].IdHit != null) IdHitCFINAL = queryCFINAL.recordset[0].IdHit;
+            else console.log(`El "clientFinal" con IdBc *${res.data.value[i].primaryContactNo}* no existe en la base de datos o no tiene un IdHit`);
           }
 
           try {
@@ -150,6 +152,7 @@ export class customersSilemaService {
           Cp = '${Cp}',
           [Nom Llarg] = '${NomLlarg}'
           WHERE Codi = ${Codi};`;
+          console.log(sqlUpdate);
           let eMail = res.data.value[i].eMail || "";
           let phone = res.data.value[i].phoneNo || "";
           let FormaPago = res.data.value[i].paymentMethodCode || "";
@@ -205,6 +208,7 @@ export class customersSilemaService {
         }
 
       }
+      console.log(`Synchronizing customers... -> ${i}/${res.data.value.length} --- ${((i / res.data.value.length) * 100).toFixed(2)}%`);
     }
     return true;
   }
@@ -218,20 +222,20 @@ export class customersSilemaService {
     query = 5 //DELETE ALL from Codi
     */
     if (query == 1) {
-      let sql = `SELECT * FROM constantClient WHERE Codi = ${Codi} and Variable = ${Variable}}`
+      let sql = `SELECT * FROM constantClient WHERE Codi = ${Codi} and Variable = ${Variable}`
       let sqlQuery = await this.sql.runSql(sql, database)
       return sqlQuery.length;
     } else if (query == 2) {
       let sql = `INSERT INTO constantsclient (Codi, Variable, Valor) VALUES ('${Codi}', '${Variable}', '${Valor}')`
       let sqlQuery = await this.sql.runSql(sql, database)
     } else if (query == 3) {
-      let sql = `UPDATE constantsclient SET Valor = '${Valor}' WHERE Codi = ${Codi} and Variable = ${Variable}}`
+      let sql = `UPDATE constantsclient SET Valor = '${Valor}' WHERE Codi = ${Codi} and Variable = ${Variable}`
       let sqlQuery = await this.sql.runSql(sql, database)
     } else if (query == 4) {
-      let sql = `DELETE FROM constantsclient WHERE Codi = ${Codi} and Variable = ${Variable}}`
+      let sql = `DELETE FROM constantsclient WHERE Codi = ${Codi} and Variable = ${Variable}`
       let sqlQuery = await this.sql.runSql(sql, database)
     } else if (query == 5) {
-      let sql = `DELETE FROM constantsclient WHERE Codi = ${Codi}}`
+      let sql = `DELETE FROM constantsclient WHERE Codi = ${Codi}`
       let sqlQuery = await this.sql.runSql(sql, database)
     }
 

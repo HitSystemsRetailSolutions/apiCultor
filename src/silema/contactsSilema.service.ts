@@ -48,9 +48,8 @@ export class contactsSilemaService {
       )
       .catch((error) => {
         console.log(`Url ERROR: ${url1}`)
-        throw new Error('Failed to obtain sale');
+        throw new Error('Failed to obtain contacts');
       });
-    console.log("Cantidad: " + res.data.value.length)
     for (let i = 0; i < res.data.value.length; i++) {
       if (res.data.value[i].processHIT) {
         let Id = `CliBoti_000_{${res.data.value[i].id.toUpperCase() || ""}}`
@@ -127,6 +126,7 @@ export class contactsSilemaService {
         }
 
       }
+      console.log(`Synchronizing contacts... -> ${i}/${res.data.value.length} --- ${((i / res.data.value.length) * 100).toFixed(2)}%`);
     }
     return true
   }
