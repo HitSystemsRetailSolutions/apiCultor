@@ -52,7 +52,7 @@ export class itemsSilemaService {
       });
     for (let i = 0; i < res.data.value.length; i++) {
       //console.log(`Iteracion numero ${i}`)
-      if (!res.data.value[i].processedHIT && res.data.value[i].processHIT && res.data.value[i].familyDimValue !== "" && res.data.value[i].subfamilyDimValue !== "" && res.data.value[i].level3DimValue !== "") {
+      if (res.data.value[i].processHIT) {
         let sqlIva = `select * from tipusIva where Iva = ${res.data.value[i].vatPercent}`
         let queryIva = await this.sql.runSql(sqlIva, database)
         let Codi = res.data.value[i].number ?? 0;
@@ -62,38 +62,46 @@ export class itemsSilemaService {
         let Desconte = 1
         let EsSumable = 1
         if (res.data.value[i].baseUnitOfMeasureCode == 'KG') EsSumable = 0
-        let Familia = res.data.value[i].level3DimValue;
+        let Familia = res.data.value[i].level3DimValue ?? "";
         let CodiGenetic = Codi;
         let TipoIva = queryIva.recordset[0].Tipus ?? 6
         let NoDescontesEspecials = 0; // ?? Producte acabat o no
+        let familiaL1 = res.data.value[i].familyDimValue ?? "";
+        let familiaL2 = res.data.value[i].subfamilyDimValue ?? "";
+        let familiaL3 = res.data.value[i].level3DimValue ?? "";
         //console.log("Hay que procesar este producto en HIT")
-        // Familia N1
-        let sqlFamilia = `SELECT * FROM [families] WHERE Nom = '${res.data.value[i].familyDimValue}'`;
-        let queryFamilia = await this.sql.runSql(sqlFamilia, database)
-        if (queryFamilia.recordset.length == 0) {
-          let sqlInsert = `INSERT INTO families (Nom, Pare, Nivell) VALUES ('${res.data.value[i].familyDimValue}', 'Article', 1);`;
-          let recordsInsert = await this.sql.runSql(sqlInsert, database);
+        // Check si hay familia en BC para insertarla en Hit
+        if (res.data.value[i].familyDimValue !== "" && res.data.value[i].subfamilyDimValue !== "" && res.data.value[i].level3DimValue !== "") {
+          // Familia N1
+          let sqlFamilia = `SELECT * FROM [families] WHERE Nom = '${res.data.value[i].familyDimValue}'`;
+          let queryFamilia = await this.sql.runSql(sqlFamilia, database)
+          if (queryFamilia.recordset.length == 0) {
+            let sqlInsert = `INSERT INTO families (Nom, Pare, Nivell) VALUES ('${res.data.value[i].familyDimValue}', 'Article', 1);`;
+            let recordsInsert = await this.sql.runSql(sqlInsert, database);
+          }
+          // Familia N2
+          sqlFamilia = `SELECT * FROM [families] WHERE Nom = '${res.data.value[i].subfamilyDimValue}'`;
+          queryFamilia = await this.sql.runSql(sqlFamilia, database)
+          if (queryFamilia.recordset.length == 0) {
+            let sqlInsert = `INSERT INTO families (Nom, Pare, Nivell) VALUES ('${res.data.value[i].subfamilyDimValue}', '${res.data.value[i].familyDimValue}', 2);`;
+            let recordsInsert = await this.sql.runSql(sqlInsert, database);
+          }
+          // Familia N3
+          sqlFamilia = `SELECT * FROM [families] WHERE Nom = '${res.data.value[i].level3DimValue}'`;
+          queryFamilia = await this.sql.runSql(sqlFamilia, database)
+          if (queryFamilia.recordset.length == 0) {
+            let sqlInsert = `INSERT INTO families (Nom, Pare, Nivell) VALUES ('${res.data.value[i].level3DimValue}', '${res.data.value[i].subfamilyDimValue}', 3);`;
+            let recordsInsert = await this.sql.runSql(sqlInsert, database);
+          }
         }
-        // Familia N2
-        sqlFamilia = `SELECT * FROM [families] WHERE Nom = '${res.data.value[i].subfamilyDimValue}'`;
-        queryFamilia = await this.sql.runSql(sqlFamilia, database)
-        if (queryFamilia.recordset.length == 0) {
-          let sqlInsert = `INSERT INTO families (Nom, Pare, Nivell) VALUES ('${res.data.value[i].subfamilyDimValue}', '${res.data.value[i].familyDimValue}', 2);`;
-          let recordsInsert = await this.sql.runSql(sqlInsert, database);
-        }
-        // Familia N3
-        sqlFamilia = `SELECT * FROM [families] WHERE Nom = '${res.data.value[i].level3DimValue}'`;
-        queryFamilia = await this.sql.runSql(sqlFamilia, database)
-        if (queryFamilia.recordset.length == 0) {
-          let sqlInsert = `INSERT INTO families (Nom, Pare, Nivell) VALUES ('${res.data.value[i].level3DimValue}', '${res.data.value[i].subfamilyDimValue}', 3);`;
-          let recordsInsert = await this.sql.runSql(sqlInsert, database);
-        }
-
         let sqlSincroIds = `SELECT * FROM BC_SincroIds WHERE IdBc = '${res.data.value[i].number}'`;
         let querySincro = await this.sql.runSql(sqlSincroIds, database)
         if (querySincro.recordset.length == 0) {
           // Insert producte
-          let sqlInsert = `INSERT INTO articles (Codi, NOM, PREU, PreuMajor, Desconte, EsSumable, Familia, CodiGenetic, TipoIva, NoDescontesEspecials) VALUES
+          let sqlInsert;
+          if (Familia == '') sqlInsert = `INSERT INTO articles (Codi, NOM, PREU, PreuMajor, Desconte, EsSumable, , CodiGenetic, TipoIva, NoDescontesEspecials) VALUES
+          (${Codi}, '${NOM}', ${PREU}, ${PreuMajor}, ${Desconte}, ${EsSumable}, ${CodiGenetic}, ${TipoIva}, ${NoDescontesEspecials})`
+          else sqlInsert = `INSERT INTO articles (Codi, NOM, PREU, PreuMajor, Desconte, EsSumable, Familia, CodiGenetic, TipoIva, NoDescontesEspecials) VALUES
           (${Codi}, '${NOM}', ${PREU}, ${PreuMajor}, ${Desconte}, ${EsSumable}, '${Familia}', ${CodiGenetic}, ${TipoIva}, ${NoDescontesEspecials})`
           //console.log(sql)
           let TipoDato = "item"
