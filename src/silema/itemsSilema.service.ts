@@ -53,9 +53,11 @@ export class itemsSilemaService {
     for (let i = 0; i < res.data.value.length; i++) {
       //console.log(`Iteracion numero ${i}`)
       if (res.data.value[i].processHIT) {
+        let sqlCodi = `SELECT MAX(t1.Codi + 1) AS codigo_disponible FROM articles t1 LEFT JOIN articles t2 ON t1.Codi + 1 = t2.Codi WHERE t2.Codi IS NULL;`
+        let queryCodi = await this.sql.runSql(sqlCodi, database)
         let sqlIva = `select * from tipusIva where Iva = ${res.data.value[i].vatPercent}`
         let queryIva = await this.sql.runSql(sqlIva, database)
-        let Codi = res.data.value[i].number ?? 0;
+        let Codi = queryCodi.recordset[0].codigo_disponible || 0;
         let NOM = res.data.value[i].displayName ?? 'Nombre de ejemplo'
         let PREU = res.data.value[i].unitPrice ?? 0;
         let PreuMajor = res.data.value[i].unitPriceExcludeVAT ?? 0;
