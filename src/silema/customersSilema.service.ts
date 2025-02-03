@@ -81,8 +81,8 @@ export class customersSilemaService {
           if (querySincro.recordset.length == 0) {
             // Insert clients
             let sqlInsert = `INSERT INTO clients 
-          (Codi, Nom, Nif, Adresa, Ciutat, Cp, [Nom Llarg]) VALUES
-          (${Codi}, '${Nom}', '${Nif}', '${Adresa}', '${Ciutat}', '${Cp}', '${NomLlarg}')`
+            (Codi, Nom, Nif, Adresa, Ciutat, Cp, [Nom Llarg]) VALUES
+            (${Codi}, '${Nom}', '${Nif}', '${Adresa}', '${Ciutat}', '${Cp}', '${NomLlarg}')`
             //console.log(sql)
 
             let TipoDato = "customer"
@@ -91,8 +91,8 @@ export class customersSilemaService {
             let IdEmpresaBc = companyID;
             let IdEmpresaHit = database;
             sqlSincroIds = `INSERT INTO BC_SincroIds 
-          (TmSt, TipoDato, IdBc, IdHit, IdEmpresaBc, IdEmpresaHit) VALUES
-          (GETDATE(), '${TipoDato}', '${IdBc}', '${IdHit}', '${IdEmpresaBc}', '${IdEmpresaHit}')`
+            (TmSt, TipoDato, IdBc, IdHit, IdEmpresaBc, IdEmpresaHit) VALUES
+            (GETDATE(), '${TipoDato}', '${IdBc}', '${IdHit}', '${IdEmpresaBc}', '${IdEmpresaHit}')`
 
             //Comprovar que paymentMethodCode es 
             switch (FormaPago) {
@@ -149,14 +149,14 @@ export class customersSilemaService {
           else {
             Codi = querySincro.recordset[0].IdHit
             let sqlUpdate = `UPDATE clients SET 
-          Nom = '${Nom}',
-          Nif = '${Nif}',
-          Adresa = '${Adresa}',
-          Ciutat = '${Ciutat}',
-          Cp = '${Cp}',
-          [Nom Llarg] = '${NomLlarg}'
-          WHERE Codi = ${Codi};`;
-            console.log(sqlUpdate);
+            Nom = '${Nom}',
+            Nif = '${Nif}',
+            Adresa = '${Adresa}',
+            Ciutat = '${Ciutat}',
+            Cp = '${Cp}',
+            [Nom Llarg] = '${NomLlarg}'
+            WHERE Codi = ${Codi};`;
+            //console.log(sqlUpdate);
             let eMail = res.data.value[i].eMail || "";
             let phone = res.data.value[i].phoneNo || "";
             let FormaPago = res.data.value[i].paymentMethodCode || "";
@@ -213,6 +213,76 @@ export class customersSilemaService {
 
         } else {
           console.log(`Customer con NIF *${res.data.value[i].vatRegistrationNo}* ya existe en la base de datos`);
+          let sqlCodi = `SELECT MAX(t1.Codi + 1) AS codigo_disponible FROM clients t1 LEFT JOIN clients t2 ON t1.Codi + 1 = t2.Codi WHERE t2.Codi IS NULL;`
+          let queryCodi = await this.sql.runSql(sqlCodi, database)
+          let Codi = queryCodi.recordset[0].codigo_disponible || 0; // Número convertido a entero o 0 si es inválido
+          let Nom = res.data.value[i].name || ""; // Nombre o cadena vacía
+          let Nif = res.data.value[i].vatRegistrationNo || ""; // CIF/NIF o cadena vacía
+          let Adresa = res.data.value[i].address || ""; // Dirección o cadena vacía
+          let Ciutat = res.data.value[i].city || ""; // Ciudad o cadena vacía
+          let Cp = res.data.value[i].postCode || 0; // Código postal como entero o 0
+          let NomLlarg = res.data.value[i].name || ""; // Nombre largo concatenado
+          let sqlUpdate = `UPDATE clients SET 
+            Nom = '${Nom}',
+            Nif = '${Nif}',
+            Adresa = '${Adresa}',
+            Ciutat = '${Ciutat}',
+            Cp = '${Cp}',
+            [Nom Llarg] = '${NomLlarg}'
+            WHERE Codi = ${Codi};`;
+          //console.log(sqlUpdate);
+          let eMail = res.data.value[i].eMail || "";
+          let phone = res.data.value[i].phoneNo || "";
+          let FormaPago = res.data.value[i].paymentMethodCode || "";
+          let FormaPagoValor = 0;
+          let primaryContactNo = res.data.value[i].primaryContactNo || "";
+          let IdHitCFINAL = "";
+          let pagaEnTienda = res.data.value[i].payInStore || true;
+          switch (FormaPago) {
+            case 'RebutDomiciliat':
+              FormaPagoValor = 1;
+              break;
+            case 'Cheque':
+              FormaPagoValor = 2;
+              break;
+            case 'CLI_EFECTIVO':
+              FormaPagoValor = 3;
+              break;
+            case 'CLI_TRANSF':
+              FormaPagoValor = 4;
+              break;
+          }
+          if (primaryContactNo != "") {
+            IdHitCFINAL = Codi;
+          }
+          await this.sqlConstantClient(Codi, '', '', 5, database)
+          try {
+            let queryUpdate = await this.sql.runSql(sqlUpdate, database)
+            if (eMail != "")
+              await this.sqlConstantClient(Codi, 'eMail', eMail, 2, database)
+            if (phone != "")
+              await this.sqlConstantClient(Codi, 'Tel', phone, 2, database)
+            if (FormaPagoValor == 0)
+              await this.sqlConstantClient(Codi, 'FormaPagoLlista', FormaPagoValor, 2, database)
+            if (!pagaEnTienda)
+              await this.sqlConstantClient(Codi, 'NoPagaEnTienda', 'NoPagaEnTienda', 2, database)
+            if (IdHitCFINAL != "")
+              await this.sqlConstantClient(Codi, 'CFINAL', IdHitCFINAL, 2, database)
+            const data = {
+              processedHIT: true
+            };
+            let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/customers(${res.data.value[i].id})`
+            const patchResponse = await axios.patch(url2, data, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+                "If-Match": "*",
+              },
+            });
+          } catch (error) {
+            throw new Error('Failed to put customer');
+          }
+          console.log("Customer actualizado")
         }
       }
       console.log(`Synchronizing customers... -> ${i}/${res.data.value.length} --- ${((i / res.data.value.length) * 100).toFixed(2)}%`);

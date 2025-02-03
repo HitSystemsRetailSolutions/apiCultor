@@ -53,12 +53,12 @@ export class contactsSilemaService {
     for (let i = 0; i < res.data.value.length; i++) {
       if (res.data.value[i].processHIT) {
         let Id = `CliBoti_000_{${res.data.value[i].id.toUpperCase() || ""}}`
-        let Nom = res.data.value[i].name || "";
-        let Telefon = res.data.value[i].phoneNo || "";
-        let Adreca = res.data.value[i].address || "";
-        let emili = res.data.value[i].eMail || "";
-        let Nif = res.data.value[i].vatRegistrationNo || "";
-        let IdExterna = res.data.value[i].loyaltyNo || "";
+        let Nom = res.data.value[i].name || "0";
+        let Telefon = res.data.value[i].phoneNo || "0";
+        let Adreca = res.data.value[i].address || "0";
+        let emili = res.data.value[i].eMail || "0";
+        let Nif = res.data.value[i].vatRegistrationNo || "0";
+        let IdExterna = res.data.value[i].loyaltyNo || "0";
         let sqlSincroIds = `SELECT * FROM BC_SincroIds WHERE IdBc = '${res.data.value[i].number}'`;
         let querySincro = await this.sql.runSql(sqlSincroIds, database)
         if (querySincro.recordset.length == 0) {
@@ -79,19 +79,93 @@ export class contactsSilemaService {
 
 
           try {
-            let queryInsert = await this.sql.runSql(sqlInsert, database)
-            let queryInsertSincro = await this.sql.runSql(sqlSincroIds, database)
-            const data = {
-              processedHIT: true
-            };
-            let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/contacts(${res.data.value[i].id})`
-            const patchResponse = await axios.patch(url2, data, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-                "If-Match": "*",
-              },
-            });
+            let sqlCheck = `SELECT * FROM clientsFinals WHERE emili = '${emili}'`
+            let queryCheck = await this.sql.runSql(sqlCheck, database)
+            let sqlInserted = false;
+            if (queryCheck.recordset.length == 0) {
+              let queryInsert = await this.sql.runSql(sqlInsert, database);
+              let queryInsertSincro = await this.sql.runSql(sqlSincroIds, database);
+
+              const data = { processedHIT: true };
+              let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/contacts(${res.data.value[i].id})`;
+
+              const patchResponse = await axios.patch(url2, data, {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                  "If-Match": "*",
+                },
+              });
+              sqlInserted = true;
+            }
+
+            sqlCheck = `SELECT * FROM clientsFinals WHERE IdExterna = '${IdExterna}'`;
+            queryCheck = await this.sql.runSql(sqlCheck, database);
+            if (queryCheck.recordset.length == 0 && !sqlInserted) {
+              let queryInsert = await this.sql.runSql(sqlInsert, database);
+              let queryInsertSincro = await this.sql.runSql(sqlSincroIds, database);
+
+              const data = { processedHIT: true };
+              let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/contacts(${res.data.value[i].id})`;
+
+              const patchResponse = await axios.patch(url2, data, {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                  "If-Match": "*",
+                },
+              });
+              sqlInserted = true;
+            }
+
+            sqlCheck = `SELECT * FROM clientsFinals WHERE Telefon = '${Telefon}'`;
+            queryCheck = await this.sql.runSql(sqlCheck, database);
+            if (queryCheck.recordset.length == 0 && !sqlInserted) {
+              let queryInsert = await this.sql.runSql(sqlInsert, database);
+              let queryInsertSincro = await this.sql.runSql(sqlSincroIds, database);
+
+              const data = { processedHIT: true };
+              let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/contacts(${res.data.value[i].id})`;
+
+              const patchResponse = await axios.patch(url2, data, {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                  "If-Match": "*",
+                },
+              });
+              sqlInserted = true;
+            }
+
+            sqlCheck = `SELECT * FROM clientsFinals WHERE Telefon = '${Telefon}' AND emili = '${emili}' AND IdExterna = '${IdExterna}'`;
+            queryCheck = await this.sql.runSql(sqlCheck, database);
+            if (queryCheck.recordset.length > 0) {
+              console.log("El cliente ya existe en la base de datos");
+              let sqlUpdate = ` UPDATE clientsFinals SET 
+                  Nom = '${Nom}', 
+                  Telefon = '${Telefon}', 
+                  Adreca = '${Adreca}', 
+                  emili = '${emili}', 
+                  Nif = '${Nif}',
+                  WHERE Id = '${Id}'; `;
+              try {
+                let queryInsert = await this.sql.runSql(sqlUpdate, database)
+                const data = {
+                  processedHIT: true
+                };
+                let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/contacts(${res.data.value[i].id})`
+                const patchResponse = await axios.patch(url2, data, {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                    "If-Match": "*",
+                  },
+                });
+              } catch (error) {
+                throw new Error('Failed to put contact');
+              }
+              console.log("Contact actualizado")
+            }
           } catch (error) {
             throw new Error('Failed to put contact');
           }
@@ -99,13 +173,13 @@ export class contactsSilemaService {
         }
         else {
           let sqlUpdate = ` UPDATE clientsFinals SET 
-          Nom = '${Nom}', 
-          Telefon = '${Telefon}', 
-          Adreca = '${Adreca}', 
-          emili = '${emili}', 
-          Nif = '${Nif}', 
-          IdExterna = '${IdExterna}' 
-          WHERE Id = '${Id}'; `;
+            Nom = '${Nom}', 
+            Telefon = '${Telefon}', 
+            Adreca = '${Adreca}', 
+            emili = '${emili}', 
+            Nif = '${Nif}', 
+            IdExterna = '${IdExterna}' 
+            WHERE Id = '${Id}'; `;
           try {
             let queryInsert = await this.sql.runSql(sqlUpdate, database)
             const data = {
