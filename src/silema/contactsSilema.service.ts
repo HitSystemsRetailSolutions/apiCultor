@@ -139,21 +139,31 @@ export class contactsSilemaService {
 
             sqlCheck = `SELECT * FROM clientsFinals WHERE Telefon = '${Telefon}' AND emili = '${emili}' AND IdExterna = '${IdExterna}'`;
             queryCheck = await this.sql.runSql(sqlCheck, database);
-            if (queryCheck.recordset.length > 0) {
-              console.log("El cliente ya existe en la base de datos");
-              let sqlUpdate = ` UPDATE clientsFinals SET 
-                  Nom = '${Nom}', 
-                  Telefon = '${Telefon}', 
-                  Adreca = '${Adreca}', 
-                  emili = '${emili}', 
-                  Nif = '${Nif}',
-                  WHERE Id = '${Id}'; `;
-              try {
-                let queryInsert = await this.sql.runSql(sqlUpdate, database)
-                const data = {
-                  processedHIT: true
-                };
-                let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/contacts(${res.data.value[i].id})`
+            if (queryCheck.recordset.length == 0 && !sqlInserted) {
+              let queryInsert = await this.sql.runSql(sqlInsert, database);
+              let queryInsertSincro = await this.sql.runSql(sqlSincroIds, database);
+
+              const data = { processedHIT: true };
+              let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/contacts(${res.data.value[i].id})`;
+
+              const patchResponse = await axios.patch(url2, data, {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                  "If-Match": "*",
+                },
+              });
+            }
+            else {
+              sqlCheck = `SELECT * FROM clientsFinals WHERE Id = '${Id}'`;
+              queryCheck = await this.sql.runSql(sqlCheck, database);
+              if (queryCheck.recordset.length == 0 && !sqlInserted) {
+                let queryInsert = await this.sql.runSql(sqlInsert, database);
+                let queryInsertSincro = await this.sql.runSql(sqlSincroIds, database);
+
+                const data = { processedHIT: true };
+                let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/contacts(${res.data.value[i].id})`;
+
                 const patchResponse = await axios.patch(url2, data, {
                   headers: {
                     Authorization: `Bearer ${token}`,
@@ -161,10 +171,34 @@ export class contactsSilemaService {
                     "If-Match": "*",
                   },
                 });
-              } catch (error) {
-                throw new Error('Failed to put contact');
               }
-              console.log("Contact actualizado")
+              else {
+                console.log("El cliente ya existe en la base de datos");
+                let sqlUpdate = ` UPDATE clientsFinals SET 
+                    Nom = '${Nom}', 
+                    Telefon = '${Telefon}', 
+                    Adreca = '${Adreca}', 
+                    emili = '${emili}', 
+                    Nif = '${Nif}'
+                    WHERE Id = '${Id}'; `;
+                try {
+                  let queryInsert = await this.sql.runSql(sqlUpdate, database)
+                  const data = {
+                    processedHIT: true
+                  };
+                  let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/contacts(${res.data.value[i].id})`
+                  const patchResponse = await axios.patch(url2, data, {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      "Content-Type": "application/json",
+                      "If-Match": "*",
+                    },
+                  });
+                } catch (error) {
+                  throw new Error('Failed to put contact');
+                }
+                console.log("Contact actualizado")
+              }
             }
           } catch (error) {
             throw new Error('Failed to put contact');
@@ -177,7 +211,7 @@ export class contactsSilemaService {
             Telefon = '${Telefon}', 
             Adreca = '${Adreca}', 
             emili = '${emili}', 
-            Nif = '${Nif}', 
+            Nif = '${Nif}'
             IdExterna = '${IdExterna}'
             WHERE Id = '${Id}'; `;
           try {

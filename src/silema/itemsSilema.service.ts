@@ -66,7 +66,9 @@ export class itemsSilemaService {
         if (res.data.value[i].baseUnitOfMeasureCode == 'KG') EsSumable = 0
         let Familia = res.data.value[i].level3DimValue ?? "";
         let CodiGenetic = Codi;
-        let TipoIva = queryIva.recordset[0].Tipus || 6
+        let TipoIva;
+        if (queryIva.recordset.length == 0) TipoIva = 6
+        else TipoIva = queryIva.recordset[0].Tipus || 6
         let NoDescontesEspecials = 0; // ?? Producte acabat o no
         let familiaL1 = res.data.value[i].familyDimValue ?? "";
         let familiaL2 = res.data.value[i].subfamilyDimValue ?? "";
@@ -101,7 +103,7 @@ export class itemsSilemaService {
         if (querySincro.recordset.length == 0) {
           // Insert producte
           let sqlInsert;
-          if (Familia == '') sqlInsert = `INSERT INTO articles (Codi, NOM, PREU, PreuMajor, Desconte, EsSumable, , CodiGenetic, TipoIva, NoDescontesEspecials) VALUES
+          if (Familia == '') sqlInsert = `INSERT INTO articles (Codi, NOM, PREU, PreuMajor, Desconte, EsSumable, CodiGenetic, TipoIva, NoDescontesEspecials) VALUES
           (${Codi}, '${NOM}', ${PREU}, ${PreuMajor}, ${Desconte}, ${EsSumable}, ${CodiGenetic}, ${TipoIva}, ${NoDescontesEspecials})`
           else sqlInsert = `INSERT INTO articles (Codi, NOM, PREU, PreuMajor, Desconte, EsSumable, Familia, CodiGenetic, TipoIva, NoDescontesEspecials) VALUES
           (${Codi}, '${NOM}', ${PREU}, ${PreuMajor}, ${Desconte}, ${EsSumable}, '${Familia}', ${CodiGenetic}, ${TipoIva}, ${NoDescontesEspecials})`
