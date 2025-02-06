@@ -213,9 +213,7 @@ export class customersSilemaService {
 
         } else {
           console.log(`Customer con NIF *${res.data.value[i].vatRegistrationNo}* ya existe en la base de datos`);
-          let sqlCodi = `SELECT MAX(t1.Codi + 1) AS codigo_disponible FROM clients t1 LEFT JOIN clients t2 ON t1.Codi + 1 = t2.Codi WHERE t2.Codi IS NULL;`
-          let queryCodi = await this.sql.runSql(sqlCodi, database)
-          let Codi = queryCodi.recordset[0].codigo_disponible || 0; // Número convertido a entero o 0 si es inválido
+          let Codi = queryNif.recordset[0].Codi; // Número convertido a entero o 0 si es inválido
           let Nom = res.data.value[i].name || ""; // Nombre o cadena vacía
           let Nif = res.data.value[i].vatRegistrationNo || ""; // CIF/NIF o cadena vacía
           let Adresa = res.data.value[i].address || ""; // Dirección o cadena vacía
@@ -255,9 +253,20 @@ export class customersSilemaService {
           if (primaryContactNo != "") {
             IdHitCFINAL = Codi;
           }
+
+          let TipoDato = "customer"
+          let IdBc = res.data.value[i].number || "";
+          let IdHit = Codi;
+          let IdEmpresaBc = companyID;
+          let IdEmpresaHit = database;
+          let sqlSincroIds = `INSERT INTO BC_SincroIds 
+          (TmSt, TipoDato, IdBc, IdHit, IdEmpresaBc, IdEmpresaHit) VALUES
+          (GETDATE(), '${TipoDato}', '${IdBc}', '${IdHit}', '${IdEmpresaBc}', '${IdEmpresaHit}')`
+
           await this.sqlConstantClient(Codi, '', '', 5, database)
           try {
             let queryUpdate = await this.sql.runSql(sqlUpdate, database)
+            let queryInsert = await this.sql.runSql(sqlSincroIds, database)
             if (eMail != "")
               await this.sqlConstantClient(Codi, 'eMail', eMail, 2, database)
             if (phone != "")

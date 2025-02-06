@@ -66,7 +66,7 @@ export class itemsSilemaService {
         if (res.data.value[i].baseUnitOfMeasureCode == 'KG') EsSumable = 0
         let Familia = res.data.value[i].level3DimValue ?? "";
         let CodiGenetic = Codi;
-        let TipoIva = queryIva.recordset[0].Tipus ?? 6
+        let TipoIva = queryIva.recordset[0].Tipus || 6
         let NoDescontesEspecials = 0; // ?? Producte acabat o no
         let familiaL1 = res.data.value[i].familyDimValue ?? "";
         let familiaL2 = res.data.value[i].subfamilyDimValue ?? "";
@@ -115,6 +115,11 @@ export class itemsSilemaService {
           (GETDATE(), '${TipoDato}', '${IdBc}', '${IdHit}', '${IdEmpresaBc}', '${IdEmpresaHit}')`
           try {
             let queryInsert = await this.sql.runSql(sqlInsert, database)
+            if (!res.data.value[i].transferToStore) {
+              let sqlPropietats = `INSERT INTO articlesPropietats (CodiArticle, Variable, Valor) VALUES
+              (${Codi},'NoEsVen', 'on')`;
+              let querySincro = await this.sql.runSql(sqlPropietats, database)
+            }
             let queryInsertSincro = await this.sql.runSql(sqlSincroIds, database)
             const data = {
               processedHIT: true
@@ -144,8 +149,14 @@ export class itemsSilemaService {
           TipoIva = ${TipoIva}, 
           NoDescontesEspecials = ${NoDescontesEspecials} 
           WHERE Codi = ${Codi}; `;
+          let sqlPropietats = `DELETE FROM articlesPropietats WHERE CodiArticle = ${Codi} AND Variable = 'NoEsVen'`;
           try {
             let queryUpdate = await this.sql.runSql(sqlUpdate, database)
+            if (!res.data.value[i].transferToStore) {
+              let sqlPropietats = `INSERT INTO articlesPropietats (CodiArticle, Variable, Valor) VALUES
+              (${Codi},'NoEsVen', 'on')`;
+              let querySincro = await this.sql.runSql(sqlPropietats, database)
+            }
             const data = {
               processedHIT: true
             };

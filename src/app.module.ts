@@ -38,6 +38,8 @@ import { customersSilemaController } from './silema/customersSilema.controller';
 import { customersSilemaService } from './silema/customersSilema.service';
 import { vendorsSilemaController } from './silema/vendorsSilema.controller';
 import { vendorsSilemaService } from './silema/vendorsSilema.service';
+import { locationSilemaController } from './silema/locationSilema.controller';
+import { locationSilemaService } from './silema/locationSilema.service';
 
 
 
@@ -61,7 +63,8 @@ import { vendorsSilemaService } from './silema/vendorsSilema.service';
     itemsSilemaController,
     contactsSilemaController,
     customersSilemaController,
-    vendorsSilemaController
+    vendorsSilemaController,
+    locationSilemaController
 
   ],
   providers: [
@@ -84,7 +87,8 @@ import { vendorsSilemaService } from './silema/vendorsSilema.service';
     itemsSilemaService,
     contactsSilemaService,
     customersSilemaService,
-    vendorsSilemaService
+    vendorsSilemaService,
+    locationSilemaService
   ],
 })
 export class AppModule {}

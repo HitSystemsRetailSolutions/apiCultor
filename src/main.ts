@@ -239,6 +239,9 @@ client.on('message', async function (topic, message) {
         case 'silemaVendors':
           await syncVendorsSilema(companyID, database, client_id, client_secret, tenant, entorno);
           break;
+        case 'silemaLocations':
+          await syncLocationsSilema(companyID, database, client_id, client_secret, tenant, entorno);
+          break;
         case 'traspasos':
           await traspasos(companyNAME, database, client_id, client_secret, tenant, entorno);
           break;
@@ -246,6 +249,11 @@ client.on('message', async function (topic, message) {
           await bucle(companyID, companyNAME, database, client_id, client_secret, tenant, entorno);
           break;
         case 'maestros':
+          await syncContactsSilema(companyID, database, client_id, client_secret, tenant, entorno);
+          await syncCustomersSilema(companyID, database, client_id, client_secret, tenant, entorno);
+          await syncVendorsSilema(companyID, database, client_id, client_secret, tenant, entorno);
+          break;
+        case 'maestrosItems':
           await syncItemsSilema(companyID, database, client_id, client_secret, tenant, entorno);
           await syncContactsSilema(companyID, database, client_id, client_secret, tenant, entorno);
           await syncCustomersSilema(companyID, database, client_id, client_secret, tenant, entorno);
@@ -519,6 +527,25 @@ async function syncVendorsSilema(companyID, database, client_id, client_secret, 
     console.log('Vendors Silema sync sent...');
   } catch (error) {
     console.error('Error al sincronizar Vendors Silema:', error);
+  }
+}
+
+async function syncLocationsSilema(companyID, database, client_id, client_secret, tenant, entorno) {
+  try {
+    await axios.get('http://localhost:3333/syncLocationSilema', {
+      params: {
+        companyID: companyID,
+        database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+      timeout: 30000,
+    });
+    console.log('Locations Silema sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar Locations Silema:', error);
   }
 }
 

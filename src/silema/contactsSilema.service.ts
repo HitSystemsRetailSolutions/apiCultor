@@ -178,7 +178,7 @@ export class contactsSilemaService {
             Adreca = '${Adreca}', 
             emili = '${emili}', 
             Nif = '${Nif}', 
-            IdExterna = '${IdExterna}' 
+            IdExterna = '${IdExterna}'
             WHERE Id = '${Id}'; `;
           try {
             let queryInsert = await this.sql.runSql(sqlUpdate, database)
