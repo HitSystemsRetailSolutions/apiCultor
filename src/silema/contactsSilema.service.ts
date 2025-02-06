@@ -183,6 +183,7 @@ export class contactsSilemaService {
                     WHERE Id = '${Id}'; `;
                 try {
                   let queryInsert = await this.sql.runSql(sqlUpdate, database)
+                  let queryInsertSincro = await this.sql.runSql(sqlSincroIds, database);
                   const data = {
                     processedHIT: true
                   };
@@ -211,7 +212,7 @@ export class contactsSilemaService {
             Telefon = '${Telefon}', 
             Adreca = '${Adreca}', 
             emili = '${emili}', 
-            Nif = '${Nif}'
+            Nif = '${Nif}',
             IdExterna = '${IdExterna}'
             WHERE Id = '${Id}'; `;
           try {
