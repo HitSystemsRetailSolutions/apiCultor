@@ -105,7 +105,6 @@ export class salesSilemaService {
 
         // Llama a tu función con el día formateado
         await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
-        console.log('mondongo')
         await this.syncSalesSilemaAbono(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
       }
     } catch (error) {
@@ -190,7 +189,7 @@ export class salesSilemaService {
         type: `Item`,
         no: `${x.Codi}`,
         lineNo: i + 1,
-        description: `${x.producte}`,
+        description: `${x.Producte}`,
         quantity: parseFloat(x.Quantitat),
         lineTotalAmount: parseFloat(x.Import),
         vatProdPostingGroup: `${x.Iva}`
@@ -294,7 +293,7 @@ export class salesSilemaService {
         type: `Item`,
         no: `${x.Codi}`,
         lineNo: i + 1,
-        description: `${x.producte}`,
+        description: `${x.Producte}`,
         quantity: parseFloat(x.Quantitat),
         lineTotalAmount: parseFloat(x.Import),
         vatProdPostingGroup: `IVA${x.Iva}`
@@ -348,11 +347,9 @@ export class salesSilemaService {
 
   //Abono
   async syncSalesSilemaAbono(day, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    console.log('pata')
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let sqlQHora = `select CONVERT(Time, Data) as hora, CONVERT(Date, Data) as data, Import from [V_Moviments_${year}-${month}] where botiga = ${botiga} and Tipus_moviment = 'Z' and day(data)=${day} group by Data, Import order by Data`
     //console.log(sqlQHora);
-    console.log('ta')
 
     let queryHora = await this.sql.runSql(sqlQHora, database);
     let hora = queryHora.recordset[0].hora;
