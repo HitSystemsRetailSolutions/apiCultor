@@ -94,7 +94,7 @@ export class salesSilemaService {
   }
 
   // Funcion que pasandole un dia de inicio y otro 
-  async ºsyncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async syncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
       // Itera desde el día inicial hasta el día final
       for (let day = dayStart; day <= dayEnd; day++) {
