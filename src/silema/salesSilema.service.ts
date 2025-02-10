@@ -147,96 +147,98 @@ export class salesSilemaService {
     //console.log(sqlQT1);
 
     let data = await this.sql.runSql(sqlQT1, database);
-    let x = data.recordset[0];
-    let date = new Date(x.Data);
+    if (data.recordset.length > 0) {
+      let x = data.recordset[0];
+      let date = new Date(x.Data);
 
-    // Extraemos el día, el mes y el año
-    day = String(date.getDate()).padStart(2, '0');
-    month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() es 0-indexado, así que sumamos 1
-    let formattedYear = String(date.getFullYear()).slice(2); // Obtenemos solo los últimos dos dígitos del año
+      // Extraemos el día, el mes y el año
+      day = String(date.getDate()).padStart(2, '0');
+      month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() es 0-indexado, así que sumamos 1
+      let formattedYear = String(date.getFullYear()).slice(2); // Obtenemos solo los últimos dos dígitos del año
 
-    // Formateamos la fecha en el formato ddmmyy
-    let formattedDate = `${day}-${month}-${formattedYear}`;
-    let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
-    let turno = 1
+      // Formateamos la fecha en el formato ddmmyy
+      let formattedDate = `${day}-${month}-${formattedYear}`;
+      let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
+      let turno = 1
 
-    let salesData = {
-      no: `${x.Nom}_${turno}_${formattedDate}`, // Nº factura
-      documentType: 'Invoice', // Tipo de documento
-      dueDate: `${formattedDate2}`, // Fecha vencimiento
-      externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}`, // Nº documento externo
-      locationCode: `${x.Nom}`, // Cód. almacén
-      orderDate: `${formattedDate2}`, // Fecha pedido
-      postingDate: `${formattedDate2}`, // Fecha registro
-      recapInvoice: false, // Factura recap //false
-      remainingAmount: parseFloat(importTurno1), //Precio total incluyendo IVA por factura
-      sellToCustomerNo: "430001314",
-      shift: `Shift_x0020_${turno}`, // Turno
-      shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
-      storeInvoice: true, // Factura tienda
-      vatRegistrationNo: `${x.Nif}`, // CIF/NIF
-      firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
-      lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
-      invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
-      invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
-      salesLinesBuffer: [] // Array vacío para las líneas de ventas
-    };
-
-    for (let i = 0; i < data.recordset.length; i++) {
-      x = data.recordset[i];
-      let salesLine = {
-        documentNo: `${salesData.no}`,
-        type: `Item`,
-        no: `${x.Codi}`,
-        lineNo: i + 1,
-        description: `${x.Producte}`,
-        quantity: parseFloat(x.Quantitat),
-        lineTotalAmount: parseFloat(x.Import),
-        vatProdPostingGroup: `${x.Iva}`
+      let salesData = {
+        no: `${x.Nom}_${turno}_${formattedDate}`, // Nº factura
+        documentType: 'Invoice', // Tipo de documento
+        dueDate: `${formattedDate2}`, // Fecha vencimiento
+        externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}`, // Nº documento externo
+        locationCode: `${x.Nom}`, // Cód. almacén
+        orderDate: `${formattedDate2}`, // Fecha pedido
+        postingDate: `${formattedDate2}`, // Fecha registro
+        recapInvoice: false, // Factura recap //false
+        remainingAmount: parseFloat(importTurno1), //Precio total incluyendo IVA por factura
+        sellToCustomerNo: "430001314",
+        shift: `Shift_x0020_${turno}`, // Turno
+        shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
+        storeInvoice: true, // Factura tienda
+        vatRegistrationNo: `${x.Nif}`, // CIF/NIF
+        firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
+        lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
+        invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
+        invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
+        salesLinesBuffer: [] // Array vacío para las líneas de ventas
       };
-      salesData.salesLinesBuffer.push(salesLine);
-    }
 
-    //console.log(salesData)
-    let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=no eq '${salesData.no}' and documentType eq '${salesData.documentType}'`;
-    let resGet1 = await axios
-      .get(
-        url1,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        },
-      )
-      .catch((error) => {
-        console.log(`Url ERROR: ${url1}`)
-        throw new Error('Failed to obtain sale');
-      });
+      for (let i = 0; i < data.recordset.length; i++) {
+        x = data.recordset[i];
+        let salesLine = {
+          documentNo: `${salesData.no}`,
+          type: `Item`,
+          no: `${x.Codi}`,
+          lineNo: i + 1,
+          description: `${x.Producte}`,
+          quantity: parseFloat(x.Quantitat),
+          lineTotalAmount: parseFloat(x.Import),
+          vatProdPostingGroup: `${x.Iva}`
+        };
+        salesData.salesLinesBuffer.push(salesLine);
+      }
 
-    if (!resGet1.data) throw new Error('Failed to get factura line');
-    if (resGet1.data.value.length === 0) {
-      let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$expand=salesLinesBuffer`;
-      try {
-        const response = await axios.post(
-          url2,
-          salesData, // Envía salesData directamente
+      //console.log(salesData)
+      let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=no eq '${salesData.no}' and documentType eq '${salesData.documentType}'`;
+      let resGet1 = await axios
+        .get(
+          url1,
           {
             headers: {
               Authorization: 'Bearer ' + token,
               'Content-Type': 'application/json',
             },
-          }
-        );
-        //console.log('Response:', response.data);
-        console.log('Factura subida con exito');
-      } catch (error) {
-        console.error('Error posting sales data:', error.response?.data || error.message);
-      }
+          },
+        )
+        .catch((error) => {
+          console.log(`Url ERROR: ${url1}`)
+          throw new Error('Failed to obtain sale');
+        });
 
-    }
-    else {
-      console.log("Ya existe la factura")
+      if (!resGet1.data) throw new Error('Failed to get factura line');
+      if (resGet1.data.value.length === 0) {
+        let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$expand=salesLinesBuffer`;
+        try {
+          const response = await axios.post(
+            url2,
+            salesData, // Envía salesData directamente
+            {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+          //console.log('Response:', response.data);
+          console.log('Factura subida con exito');
+        } catch (error) {
+          console.error('Error posting sales data:', error.response?.data || error.message);
+        }
+
+      }
+      else {
+        console.log("Ya existe la factura")
+      }
     }
 
 
@@ -250,97 +252,99 @@ export class salesSilemaService {
     LEFT JOIN clients c ON v.botiga = c.codi LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
     LEFT JOIN TipusIva2012 tz ON az.TipoIva = tz.Tipus AND t.Tipus IS NULL 
     WHERE v.botiga = ${botiga} AND DAY(v.data) = ${day} AND CONVERT(TIME, v.data) > '${formattedHora}' GROUP BY COALESCE(a.NOM, az.NOM), COALESCE(a.Codi, az.Codi), COALESCE(a.PREU, az.PREU), c.nom, c.Nif, COALESCE(t.Iva, tz.Iva);`
-    turno = 2
+    let turno = 2
     data = await this.sql.runSql(sqlQT2, database);
-    x = data.recordset[0];
-    date = new Date(x.Data);
+    let x = data.recordset[0];
+    if (data.recordset.length > 0) {
+      let date = new Date(x.Data);
 
-    // Extraemos el día, el mes y el año
-    day = String(date.getDate()).padStart(2, '0');
-    month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() es 0-indexado, así que sumamos 1
-    year = String(date.getFullYear()).slice(2); // Obtenemos solo los últimos dos dígitos del año
+      // Extraemos el día, el mes y el año
+      day = String(date.getDate()).padStart(2, '0');
+      month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() es 0-indexado, así que sumamos 1
+      year = String(date.getFullYear()).slice(2); // Obtenemos solo los últimos dos dígitos del año
 
-    // Formateamos la fecha en el formato ddmmyy
-    formattedDate = `${day}-${month}-${year}`;
-    formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
+      // Formateamos la fecha en el formato ddmmyy
+      let formattedDate = `${day}-${month}-${year}`;
+      let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
 
-    let salesData2 = {
-      no: `${x.Nom}_${turno}_${formattedDate}`, // Nº factura
-      documentType: 'Invoice', // Tipo de documento
-      dueDate: `${formattedDate2}`, // Fecha vencimiento
-      externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}`, // Nº documento externo
-      locationCode: `${x.Nom}`, // Cód. almacén
-      orderDate: `${formattedDate2}`, // Fecha pedido
-      postingDate: `${formattedDate2}`, // Fecha registro
-      recapInvoice: false, // Factura recap //false
-      remainingAmount: parseFloat(importTurno2), // Precio total incluyendo IVA por factura
-      sellToCustomerNo: "430001314",
-      shift: `Shift_x0020_${turno}`, // Turno
-      shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
-      storeInvoice: true, // Factura tienda
-      vatRegistrationNo: `${x.Nif}`, // CIF/NIF
-      firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
-      lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
-      invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
-      invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
-      salesLinesBuffer: [] // Array vacío para las líneas de ventas
-    };
-
-    for (let i = 0; i < data.recordset.length; i++) {
-      x = data.recordset[i];
-      let salesLine = {
-        documentNo: `${salesData2.no}`,
-        type: `Item`,
-        no: `${x.Codi}`,
-        lineNo: i + 1,
-        description: `${x.Producte}`,
-        quantity: parseFloat(x.Quantitat),
-        lineTotalAmount: parseFloat(x.Import),
-        vatProdPostingGroup: `IVA${x.Iva}`
+      let salesData2 = {
+        no: `${x.Nom}_${turno}_${formattedDate}`, // Nº factura
+        documentType: 'Invoice', // Tipo de documento
+        dueDate: `${formattedDate2}`, // Fecha vencimiento
+        externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}`, // Nº documento externo
+        locationCode: `${x.Nom}`, // Cód. almacén
+        orderDate: `${formattedDate2}`, // Fecha pedido
+        postingDate: `${formattedDate2}`, // Fecha registro
+        recapInvoice: false, // Factura recap //false
+        remainingAmount: parseFloat(importTurno2), // Precio total incluyendo IVA por factura
+        sellToCustomerNo: "430001314",
+        shift: `Shift_x0020_${turno}`, // Turno
+        shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
+        storeInvoice: true, // Factura tienda
+        vatRegistrationNo: `${x.Nif}`, // CIF/NIF
+        firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
+        lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
+        invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
+        invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
+        salesLinesBuffer: [] // Array vacío para las líneas de ventas
       };
-      salesData2.salesLinesBuffer.push(salesLine);
-    }
 
-    //console.log(salesData2)
-    let url3 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=no eq '${salesData2.no}' and documentType eq '${salesData.documentType}'`;
-    let resGet2 = await axios
-      .get(
-        url3,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        },
-      )
-      .catch((error) => {
-        console.log(`Url ERROR: ${url1}`)
-        throw new Error('Failed to obtain sale');
-      });
+      for (let i = 0; i < data.recordset.length; i++) {
+        x = data.recordset[i];
+        let salesLine = {
+          documentNo: `${salesData2.no}`,
+          type: `Item`,
+          no: `${x.Codi}`,
+          lineNo: i + 1,
+          description: `${x.Producte}`,
+          quantity: parseFloat(x.Quantitat),
+          lineTotalAmount: parseFloat(x.Import),
+          vatProdPostingGroup: `IVA${x.Iva}`
+        };
+        salesData2.salesLinesBuffer.push(salesLine);
+      }
 
-    if (!resGet2.data) throw new Error('Failed to get factura line');
-    if (resGet2.data.value.length === 0) {
-      let url4 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$expand=salesLinesBuffer`;
-      try {
-        const response = await axios.post(
-          url4,
-          salesData2, // Envía salesData directamente
+      //console.log(salesData2)
+      let url3 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=no eq '${salesData2.no}' and documentType eq '${salesData2.documentType}'`;
+      let resGet2 = await axios
+        .get(
+          url3,
           {
             headers: {
               Authorization: 'Bearer ' + token,
               'Content-Type': 'application/json',
             },
-          }
-        );
-        //console.log('Response:', response.data);
-        console.log('Factura subida con exito');
-      } catch (error) {
-        console.error('Error posting sales data:', error.response?.data || error.message);
-      }
+          },
+        )
+        .catch((error) => {
+          console.log(`Url ERROR: ${url3}`)
+          throw new Error('Failed to obtain sale');
+        });
 
-    }
-    else {
-      console.log("Ya existe la factura")
+      if (!resGet2.data) throw new Error('Failed to get factura line');
+      if (resGet2.data.value.length === 0) {
+        let url4 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$expand=salesLinesBuffer`;
+        try {
+          const response = await axios.post(
+            url4,
+            salesData2, // Envía salesData directamente
+            {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+          //console.log('Response:', response.data);
+          console.log('Factura subida con exito');
+        } catch (error) {
+          console.error('Error posting sales data:', error.response?.data || error.message);
+        }
+
+      }
+      else {
+        console.log("Ya existe la factura")
+      }
     }
     return true;
   }
