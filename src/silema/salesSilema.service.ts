@@ -94,7 +94,7 @@ export class salesSilemaService {
   }
 
   // Funcion que pasandole un dia de inicio y otro 
-  async syncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async ºsyncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
       // Itera desde el día inicial hasta el día final
       for (let day = dayStart; day <= dayEnd; day++) {
@@ -135,8 +135,7 @@ export class salesSilemaService {
     //console.log(formattedHora); // Debería mostrar "14:31:43"
 
     //Turno 1
-    let sqlQT1 = `use fac_tena;
-select c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) as Data, a.Codi, a.NOM as producte, a.PREU, sum(import) as Import, sum(quantitat) as Quantitat, t.Iva, 
+    let sqlQT1 = `select c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) as Data, a.Codi, a.NOM as producte, a.PREU, sum(import) as Import, sum(quantitat) as Quantitat, t.Iva, 
 (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MinNumTick,
 (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MaxNumTick
 from [v_venut_${year}-${month}] v 
@@ -187,7 +186,7 @@ where botiga=${botiga} and day(data)=${day} and CONVERT(TIME, data) < '${formatt
       let salesLine = {
         documentNo: `${salesData.no}`,
         type: `Item`,
-        no: `${x.Codi}`,
+        ºno: `${x.Codi}`,
         lineNo: i + 1,
         description: `${x.producte}`,
         quantity: parseFloat(x.Quantitat),
@@ -241,8 +240,7 @@ where botiga=${botiga} and day(data)=${day} and CONVERT(TIME, data) < '${formatt
 
 
     //Turno 2
-    let sqlQT2 = `use fac_tena;
-select c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) as Data, a.Codi, a.NOM as producte, a.PREU, sum(import) as Import, sum(quantitat) as Quantitat, t.Iva, 
+    let sqlQT2 = `select c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) as Data, a.Codi, a.NOM as producte, a.PREU, sum(import) as Import, sum(quantitat) as Quantitat, t.Iva, 
 (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MinNumTick,
 (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MaxNumTick
 from [v_venut_${year}-${month}] v 
