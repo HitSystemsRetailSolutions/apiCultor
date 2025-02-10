@@ -135,14 +135,15 @@ export class salesSilemaService {
     //console.log(formattedHora); // Debería mostrar "14:31:43"
 
     //Turno 1
-    let sqlQT1 = `select c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) as Data, a.Codi, a.NOM as producte, a.PREU, sum(import) as Import, sum(quantitat) as Quantitat, t.Iva, 
-(SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MinNumTick,
-(SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MaxNumTick
-from [v_venut_${year}-${month}] v 
-left join articles a on v.plu = a.codi
-left join clients c on v.botiga = c.codi
-left join TipusIva2012 t on a.TipoIva = t.Tipus
-where botiga=${botiga} and day(data)=${day} and CONVERT(TIME, data) < '${formattedHora}' group by a.NOM, a.Codi, a.PREU, c.nom, c.Nif, t.Iva`;
+    let sqlQT1 = `SELECT c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) AS Data, COALESCE(a.Codi, az.Codi) AS Codi, COALESCE(a.NOM, az.NOM) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, 
+    (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MinNumTick, 
+    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MaxNumTick 
+    FROM [v_venut_${year}-${month}] v 
+    LEFT JOIN articles a ON v.plu = a.codi 
+    LEFT JOIN articles_zombis az ON v.plu = az.codi AND a.codi IS NULL 
+    LEFT JOIN clients c ON v.botiga = c.codi LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
+    LEFT JOIN TipusIva2012 tz ON az.TipoIva = tz.Tipus AND t.Tipus IS NULL 
+    WHERE v.botiga = ${botiga} AND DAY(v.data) = ${day} AND CONVERT(TIME, v.data) < '${formattedHora}' GROUP BY COALESCE(a.NOM, az.NOM), COALESCE(a.Codi, az.Codi), COALESCE(a.PREU, az.PREU), c.nom, c.Nif, COALESCE(t.Iva, tz.Iva);`
     //console.log(sqlQT1);
 
     let data = await this.sql.runSql(sqlQT1, database);
@@ -240,14 +241,15 @@ where botiga=${botiga} and day(data)=${day} and CONVERT(TIME, data) < '${formatt
 
 
     //Turno 2
-    let sqlQT2 = `select c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) as Data, a.Codi, a.NOM as producte, a.PREU, sum(import) as Import, sum(quantitat) as Quantitat, t.Iva, 
-(SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MinNumTick,
-(SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MaxNumTick
-from [v_venut_${year}-${month}] v 
-left join articles a on v.plu = a.codi
-left join clients c on v.botiga = c.codi
-left join TipusIva2012 t on a.TipoIva = t.Tipus
-where botiga=${botiga} and day(data)=${day} and CONVERT(TIME, data) > '${formattedHora}' group by a.NOM, a.Codi, a.PREU, c.nom, c.Nif, t.Iva`;
+    let sqlQT2 = `SELECT c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) AS Data, COALESCE(a.Codi, az.Codi) AS Codi, COALESCE(a.NOM, az.NOM) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, 
+    (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MinNumTick, 
+    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MaxNumTick 
+    FROM [v_venut_${year}-${month}] v 
+    LEFT JOIN articles a ON v.plu = a.codi 
+    LEFT JOIN articles_zombis az ON v.plu = az.codi AND a.codi IS NULL 
+    LEFT JOIN clients c ON v.botiga = c.codi LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
+    LEFT JOIN TipusIva2012 tz ON az.TipoIva = tz.Tipus AND t.Tipus IS NULL 
+    WHERE v.botiga = ${botiga} AND DAY(v.data) = ${day} AND CONVERT(TIME, v.data) > '${formattedHora}' GROUP BY COALESCE(a.NOM, az.NOM), COALESCE(a.Codi, az.Codi), COALESCE(a.PREU, az.PREU), c.nom, c.Nif, COALESCE(t.Iva, tz.Iva);`
     turno = 2
     data = await this.sql.runSql(sqlQT2, database);
     x = data.recordset[0];
