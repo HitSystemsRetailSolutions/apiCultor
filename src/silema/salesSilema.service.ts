@@ -187,7 +187,7 @@ export class salesSilemaService {
       let salesLine = {
         documentNo: `${salesData.no}`,
         type: `Item`,
-        ºno: `${x.Codi}`,
+        no: `${x.Codi}`,
         lineNo: i + 1,
         description: `${x.producte}`,
         quantity: parseFloat(x.Quantitat),
