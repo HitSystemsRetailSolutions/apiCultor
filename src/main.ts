@@ -252,12 +252,14 @@ client.on('message', async function (topic, message) {
           await syncContactsSilema(companyID, database, client_id, client_secret, tenant, entorno);
           await syncCustomersSilema(companyID, database, client_id, client_secret, tenant, entorno);
           await syncVendorsSilema(companyID, database, client_id, client_secret, tenant, entorno);
+          await syncLocationsSilema(companyID, database, client_id, client_secret, tenant, entorno);
           break;
         case 'maestrosItems':
           await syncItemsSilema(companyID, database, client_id, client_secret, tenant, entorno);
           await syncContactsSilema(companyID, database, client_id, client_secret, tenant, entorno);
           await syncCustomersSilema(companyID, database, client_id, client_secret, tenant, entorno);
           await syncVendorsSilema(companyID, database, client_id, client_secret, tenant, entorno);
+          await syncLocationsSilema(companyID, database, client_id, client_secret, tenant, entorno);
           break;
         default:
           mqttPublish('Mensaje recibido no coincide con ninguna acción esperada');
