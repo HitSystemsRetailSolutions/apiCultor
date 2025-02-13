@@ -30,10 +30,7 @@ export class employeesService {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let employees;
     try {
-      employees = await this.sql.runSql(
-        `select cast(Codi as nvarchar) Codi, left(Nom, 30) Nom from dependentes order by nom`,
-        database,
-      );
+      employees = await this.sql.runSql(`select cast(Codi as nvarchar) Codi, left(Nom, 30) Nom from dependentes order by nom`, database);
     } catch (error) {
       //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
@@ -51,15 +48,12 @@ export class employeesService {
     for (let i = 0; i < employees.recordset.length; i++) {
       let x = employees.recordset[i];
       let res = await axios
-        .get(
-          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/employees?$filter=number eq '${x.Codi}'`,
-          {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-            },
+        .get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/employees?$filter=number eq '${x.Codi}'`, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
           },
-        )
+        })
         .catch((error) => {
           throw new Error('Failed to obtain employee ' + x.Codi);
         });
@@ -87,9 +81,8 @@ export class employeesService {
             throw new Error('Failed to post employee ' + x.Codi);
           });
 
-        if (!newEmployees.data)
-          return new Error('Failed to post employee ' + x.Codi);
-        //Ya está dado de alta en BC, se tiene que actulizar
+        if (!newEmployees.data) return new Error('Failed to post employee ' + x.Codi);
+        //Ya está dado de alta en BC, se tiene que actualizar
       } else {
         let z = res.data.value[0]['@odata.etag'];
         let newEmployees = await axios
@@ -111,8 +104,7 @@ export class employeesService {
           .catch((error) => {
             throw new Error('Failed to patch employee ' + x.Codi);
           });
-        if (!newEmployees.data)
-          return new Error('Failed to patch employee ' + x.Codi);
+        if (!newEmployees.data) return new Error('Failed to patch employee ' + x.Codi);
       }
     }
     return true;

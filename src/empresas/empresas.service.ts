@@ -24,13 +24,13 @@ export class empresasService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) { }
+  ) {}
   async crearEmpresa(name: string, displayName: string, client_id: string, client_secret: string, tenant: string, entorno: string, database: string, empresa_id: string, nif: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let id = 'e640b57a-f31c-ef11-9f88-002248a1f043';
-    let packageName = "ConfigurationBase";
-    let packageCode = "ES.ESP.STANDARD";
-    let packageId = "";
+    let packageName = 'ConfigurationBase';
+    let packageCode = 'ES.ESP.STANDARD';
+    let packageId = '';
     let packageProgress = 'No';
     let packageProgressApply = 'No';
     //let document = 'src/PackageES.ESP.STANDARD.rapidstart'
@@ -43,14 +43,14 @@ export class empresasService {
         {
           name: name,
           displayName: displayName,
-          businessProfileId: ""
+          businessProfileId: '',
         },
         {
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-        }
+        },
       );
 
       //console.log('Empresa creada exitosamente:', response.data);
@@ -85,7 +85,7 @@ export class empresasService {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-        }
+        },
       );
       //console.log('Archivo de configuracion creado:', response.data);
       packageId = response.data.id;
@@ -105,9 +105,9 @@ export class empresasService {
         const response = await axios.patch(url2, fileContent, {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "application/octet-stream",
+            'Content-Type': 'application/octet-stream',
             'If-Match': '*',
-          }
+          },
         });
         //console.log('Archivo de configuracion subido ', response.data);
       } catch (error) {
@@ -124,27 +124,23 @@ export class empresasService {
       console.error('El archivo de configuracion no existe:', filePath);
     }
 
-
     //Import configuration
     const url5 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})`;
-    console.log("url get configurationPackage: " + url5);
+    console.log('url get configurationPackage: ' + url5);
     try {
-      const response = await axios.get(
-        url5,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const response = await axios.get(url5, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
       packageProgress = response.data.importStatus;
       //console.log("Progress: ", packageProgress);
     } catch (error) {
       console.error(`Ha habido un error al ver el estado de la importacion: ${error.message}`);
       throw new Error(`Ha habido un error al ver el estado de la importacion`);
     }
-    if (packageProgress == "No") {
+    if (packageProgress == 'No') {
       const url3 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})/Microsoft.NAV.import`;
       try {
         const response = await axios.post(
@@ -155,7 +151,7 @@ export class empresasService {
               Authorization: 'Bearer ' + token,
               'Content-Type': 'application/json',
             },
-          }
+          },
         );
 
         //console.log('Archivo de configuracion importado exitosamente ' + response.data);
@@ -163,25 +159,21 @@ export class empresasService {
         console.error(`Ha habido un error al importar el archivo de configuracion: ${error.message}`);
         throw new Error(`Ha habido un error al importar el archivo de configuracion`);
       }
-    } else if (packageProgress == "InProgress" || packageProgress == "Scheduled") {
-      console.log("Importe en progreso o programado");
+    } else if (packageProgress == 'InProgress' || packageProgress == 'Scheduled') {
+      console.log('Importe en progreso o programado');
     }
 
-
     //Check status import
-    while (packageProgress == "No" || packageProgress == "InProgress" || packageProgress == "Scheduled") {
+    while (packageProgress == 'No' || packageProgress == 'InProgress' || packageProgress == 'Scheduled') {
       const url5 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})`;
       //console.log(url5)
       try {
-        const response = await axios.get(
-          url5,
-          {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
+        const response = await axios.get(url5, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        });
         packageProgress = response.data.importStatus;
         //console.log("Progress: ", packageProgress);
       } catch (error) {
@@ -194,15 +186,12 @@ export class empresasService {
     const url6 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})`;
     //console.log("url get company: " + url5);
     try {
-      const response = await axios.get(
-        url6,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const response = await axios.get(url6, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
       packageProgressApply = response.data.applyStatus;
       //console.log("Progress: ", packageProgress);
     } catch (error) {
@@ -211,7 +200,7 @@ export class empresasService {
     }
 
     const url4 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})/Microsoft.NAV.apply`;
-    if (packageProgressApply == "No") {
+    if (packageProgressApply == 'No') {
       //Apply configuration
       try {
         const response = await axios.post(
@@ -222,7 +211,7 @@ export class empresasService {
               Authorization: 'Bearer ' + token,
               'Content-Type': 'application/json',
             },
-          }
+          },
         );
 
         //console.log('Archivo de configuracion aplicado exitosamente ' + response.data);
@@ -230,23 +219,20 @@ export class empresasService {
         console.error(`Ha habido un error al aplicar el archivo de configuracion: ${error.message}`);
         throw new Error(`Ha habido un error al aplicar el archivo de configuracion`);
       }
-    } else if (packageProgressApply == "InProgress" || packageProgressApply == "Scheduled") {
-      console.log("Aplicando en progreso o programado");
+    } else if (packageProgressApply == 'InProgress' || packageProgressApply == 'Scheduled') {
+      console.log('Aplicando en progreso o programado');
     }
 
-    while (packageProgressApply == "No" || packageProgressApply == "InProgress" || packageProgressApply == "Scheduled") {
+    while (packageProgressApply == 'No' || packageProgressApply == 'InProgress' || packageProgressApply == 'Scheduled') {
       const url5 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})`;
       //console.log(url5)
       try {
-        const response = await axios.get(
-          url5,
-          {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
+        const response = await axios.get(url5, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        });
         packageProgressApply = response.data.applyStatus;
         //console.log("Progress: ", packageProgress);
       } catch (error) {
@@ -259,10 +245,9 @@ export class empresasService {
 
     if (nif.length > 0) {
       name = nif;
-      console.log("iepa")
-    }
-    else {
-      console.log("ya estoy por aqui " + nif.length)
+      console.log('iepa');
+    } else {
+      console.log('ya estoy por aqui ' + nif.length);
     }
 
     let sql1 = `INSERT INTO [BC_PARAMS] 
@@ -272,14 +257,14 @@ export class empresasService {
     //console.log(`SQL: ${sql1}`)
     let empresa;
     try {
-      empresa = await this.sql.runSql(sql1, "hit");
+      empresa = await this.sql.runSql(sql1, 'hit');
     } catch {
-      console.log("Error")
+      console.log('Error');
     }
-    console.log("Trying too apply 2 time " + packageProgressApply)
+    console.log('Trying too apply 2 time ' + packageProgressApply);
     //Apply 2 time configuration
     try {
-      if (packageProgressApply == "Completed") {
+      if (packageProgressApply == 'Completed') {
         const response = await axios.post(
           url4,
           {},
@@ -288,24 +273,21 @@ export class empresasService {
               Authorization: 'Bearer ' + token,
               'Content-Type': 'application/json',
             },
-          }
+          },
         );
       }
     } catch (error) {
       console.error(`Ha habido un error al aplicar el archivo de configuracion por segunda vez: ${error.message}`);
       throw new Error(`Ha habido un error al aplicar el archivo de configuracion por segunda vez`);
     }
-    
+
     try {
-      const response = await axios.get(
-        url6,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const response = await axios.get(url6, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
       packageProgressApply = response.data.applyStatus;
       //console.log("Progress: ", packageProgress);
     } catch (error) {
@@ -313,19 +295,16 @@ export class empresasService {
       throw new Error(`Ha habido un error al ver el estado de la aplicar`);
     }
 
-    while (packageProgressApply == "No" || packageProgressApply == "InProgress" || packageProgressApply == "Scheduled") {
+    while (packageProgressApply == 'No' || packageProgressApply == 'InProgress' || packageProgressApply == 'Scheduled') {
       const url5 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/microsoft/automation/v2.0/companies(${id})/configurationPackages(${packageId})`;
       //console.log(url5)
       try {
-        const response = await axios.get(
-          url5,
-          {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
+        const response = await axios.get(url5, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        });
         packageProgressApply = response.data.applyStatus;
         //console.log("Progress: ", packageProgress);
       } catch (error) {
@@ -335,6 +314,6 @@ export class empresasService {
     }
     console.log('Archivo de configuracion aplicado exitosamente por segunda vez');
 
-    return true
+    return true;
   }
 }

@@ -48,15 +48,12 @@ export class signingsService {
       let x = signings.recordset[i];
 
       let res = await axios
-        .get(
-          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/cdpDadesFichador2?$filter=idr eq '${x.idr}'`,
-          {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-            },
+        .get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/cdpDadesFichador2?$filter=idr eq '${x.idr}'`, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
           },
-        )
+        })
         .catch((error) => {
           throw new Error('Failed to obtain access token');
         });
@@ -90,21 +87,10 @@ export class signingsService {
             throw new Error('Failed to obtain access token');
           });
 
-        if (!newSignings.data)
-          return new Error('Failed to obtain access token');
-        console.log(
-          'Synchronizing signings... -> ' + i + '/' + signings.recordset.length,
-          ' --- ',
-          ((i / signings.recordset.length) * 100).toFixed(2) + '%',
-          ' | Time left: ' +
-            ((signings.recordset.length - i) * (0.5 / 60)).toFixed(2) +
-            ' minutes',
-        );
+        if (!newSignings.data) return new Error('Failed to obtain access token');
+        console.log(`Synchronizing signings... -> ${i}/${signings.recordset.length} --- ${((i / signings.recordset.length) * 100).toFixed(2)}% `);
 
-        await this.sql.runSql(
-          `update records set timestamp='${x.tmstStr}' where Concepte='BC_CdpDadesFichador'`,
-          database,
-        );
+        await this.sql.runSql(`update records set timestamp='${x.tmstStr}' where Concepte='BC_CdpDadesFichador'`, database);
       }
     }
     return true;

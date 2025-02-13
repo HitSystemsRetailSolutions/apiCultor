@@ -5,7 +5,7 @@ import { itemCategoriesService } from './itemCategories.service';
 // GET ---> SOLO ESPERAS RESPUESTA (LA HORA)
 @Controller()
 export class itemCategoriesController {
-  constructor(private readonly itemCategoriesService: itemCategoriesService) { }
+  constructor(private readonly itemCategoriesService: itemCategoriesService) {}
 
   @Get('syncItemCategories')
   async itemCategories(

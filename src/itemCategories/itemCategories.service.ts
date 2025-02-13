@@ -30,10 +30,7 @@ export class itemCategoriesService {
 
     let categories;
     try {
-      categories = await this.sql.runSql(
-        'SELECT left(nom, 20) Code, Nom FROM Families',
-        database,
-      );
+      categories = await this.sql.runSql('SELECT left(nom, 20) Code, Nom FROM Families', database);
     } catch (error) {
       //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
@@ -53,15 +50,12 @@ export class itemCategoriesService {
       console.log(x.Nom);
 
       let res = await axios
-        .get(
-          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/itemCategories?$filter=code eq '${x.Code}'`,
-          {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-            },
+        .get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/itemCategories?$filter=code eq '${x.Code}'`, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
           },
-        )
+        })
         .catch((error) => {
           throw new Error('Failed get category');
         });
