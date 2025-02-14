@@ -106,6 +106,7 @@ export class salesSilemaService {
         // Llama a tu función con el día formateado
         await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
         await this.syncSalesSilemaAbono(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
+        //await this.syncSalesSilemaCierre(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
       }
     } catch (error) {
       throw new Error('Error');
@@ -445,7 +446,6 @@ ORDER BY FilteredData.iva, FilteredData.nifTienda;
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
         remainingAmount: importTotal, // Precio total incluyendo IVA por factura
-        sellToCustomerNo: "430001314",
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
@@ -592,7 +592,6 @@ ORDER BY FilteredData.nif, FilteredData.iva;
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
         remainingAmount: importTotal, // Precio total incluyendo IVA por factura
-        sellToCustomerNo: `43000${String(x.CodigoCliente)}`,
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
@@ -652,7 +651,7 @@ ORDER BY FilteredData.nif, FilteredData.iva;
 
           salesData.salesLinesBuffer = [];
           salesData.vatRegistrationNo = x.NIF;
-          salesData.sellToCustomerNo = `43000${String(x.CodigoCliente)}`;
+          //salesData.sellToCustomerNo = `43000${String(x.CodigoCliente)}`;
           nCliente++;
           cliente = `C${nCliente}`
           salesData.no = `${x.Nom}_${turno}_${formattedDate}_${cliente}`
@@ -1067,8 +1066,246 @@ ORDER BY FilteredData.nif, FilteredData.iva;
     return true
   }
 
+  //Sincroniza tickets HIT-BC, Ventas
+  async syncSalesSilemaCierre(day, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
+    let sqlQHora = `select CONVERT(Time, Data) as hora, Import from [V_Moviments_${year}-${month}] where botiga = ${botiga} and Tipus_moviment = 'Z' and day(data)=${day} group by Data, Import order by Data`
+    //console.log(sqlQHora);
 
-  async syncSalesSilemaRecapitulativa(client, tienda, dayStart, dayEnd, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let queryHora = await this.sql.runSql(sqlQHora, database);
+    let hora = queryHora.recordset[0].hora;
+
+    // Extraer la hora, minutos y segundos
+    let hours = String(hora.getHours()).padStart(2, '0');
+    let minutes = String(hora.getMinutes()).padStart(2, '0');
+    let seconds = String(hora.getSeconds()).padStart(2, '0');
+
+    // Formatear en "hh:mm:ss"
+    let formattedHora = `${hours}:${minutes}:${seconds}`;
+    //console.log(formattedHora); // Debería mostrar "14:31:43"
+
+    //Turno 1 Cierre
+    let sqlQT1 = `SELECT
+    SUM(CASE WHEN Tipus_moviment = 'Z' THEN Import ELSE 0 END) AS Ventas,
+    SUM(CASE WHEN Motiu LIKE 'Deute client%' THEN Import ELSE 0 END) AS Deute_Client,
+    SUM(CASE WHEN Tipus_moviment = 'DATAFONO' THEN Import ELSE 0 END) AS Tarjeta,
+    SUM(CASE WHEN Tipus_moviment = 'DATAFONO_3G' THEN Import ELSE 0 END) AS Tarjeta_3G,
+    SUM(CASE WHEN Motiu = 'Entrega Diària' THEN Import ELSE 0 END) AS Entregas_Diarias,
+    SUM(CASE WHEN Tipus_moviment = 'J' THEN Import ELSE 0 END) AS Descuadre,
+    (SUM(CASE WHEN Tipus_moviment = 'Z' THEN Import ELSE 0 END) + SUM(CASE WHEN Motiu LIKE 'Deute client%' THEN Import ELSE 0 END) + SUM(CASE WHEN Tipus_moviment = 'DATAFONO' THEN Import ELSE 0 END) + SUM(CASE WHEN Tipus_moviment = 'DATAFONO_3G' THEN Import ELSE 0 END)) AS Calculado_Metalic,
+    CONVERT(Date, Data) as Data,
+	  (SELECT Nom FROM clients WHERE Codi = ${botiga}) as Nom
+    FROM [V_Moviments_${year}-${month}] 
+    WHERE DAY(data) = ${day} AND botiga = ${botiga} AND CONVERT(TIME, data) <= '${formattedHora}'
+    GROUP BY CONVERT(Date, Data)`
+    //console.log(sqlQT1);
+
+    let data = await this.sql.runSql(sqlQT1, database);
+    if (data.recordset.length > 0) {
+      let x = data.recordset[0];
+      let date = new Date(x.Data);
+
+      // Extraemos el día, el mes y el año
+      day = String(date.getDate()).padStart(2, '0');
+      month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() es 0-indexado, así que sumamos 1
+      let formattedYear = String(date.getFullYear()).slice(2); // Obtenemos solo los últimos dos dígitos del año
+
+      // Formateamos la fecha en el formato ddmmyy
+      let formattedDate = `${day}-${month}-${formattedYear}`;
+      let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
+      let turno = 1
+
+      let salesData = {
+        no: `${x.Nom}_${turno}_${formattedDate}`, // Nº factura
+        documentType: 'Invoice', // Tipo de documento
+        dueDate: `${formattedDate2}`, // Fecha vencimiento
+        externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}`, // Nº documento externo
+        locationCode: `${x.Nom}`, // Cód. almacén
+        orderDate: `${formattedDate2}`, // Fecha pedido
+        postingDate: `${formattedDate2}`, // Fecha registro
+        recapInvoice: false, // Factura recap //false
+        sellToCustomerNo: "430001314",
+        shift: `Shift_x0020_${turno}`, // Turno
+        shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
+        storeInvoice: true, // Factura tienda
+        vatRegistrationNo: `${x.Nif}`, // CIF/NIF
+        firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
+        lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
+        invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
+        invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
+        salesLinesBuffer: [] // Array vacío para las líneas de ventas
+      };
+
+      for (let i = 0; i < data.recordset.length; i++) {
+        x = data.recordset[i];
+        let salesLine = {
+          documentNo: `${salesData.no}`,
+          type: `Item`,
+          no: `${x.Codi}`,
+          lineNo: i + 1,
+          description: `${x.Producte}`,
+          quantity: parseFloat(x.Quantitat),
+          lineTotalAmount: parseFloat(x.Import),
+          vatProdPostingGroup: `${x.Iva}`
+        };
+        salesData.salesLinesBuffer.push(salesLine);
+      }
+
+      //console.log(salesData)
+      let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=no eq '${salesData.no}' and documentType eq '${salesData.documentType}'`;
+      let resGet1 = await axios
+        .get(
+          url1,
+          {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          },
+        )
+        .catch((error) => {
+          console.log(`Url ERROR: ${url1}`)
+          throw new Error('Failed to obtain sale');
+        });
+
+      if (!resGet1.data) throw new Error('Failed to get factura line');
+      if (resGet1.data.value.length === 0) {
+        let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$expand=salesLinesBuffer`;
+        try {
+          const response = await axios.post(
+            url2,
+            salesData, // Envía salesData directamente
+            {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+          //console.log('Response:', response.data);
+          console.log('Factura subida con exito');
+        } catch (error) {
+          console.error('Error posting sales data:', error.response?.data || error.message);
+        }
+
+      }
+      else {
+        console.log("Ya existe la factura")
+      }
+    }
+
+    //Turno 2 Cierre
+    let sqlQT2 = `SELECT
+    SUM(CASE WHEN Tipus_moviment = 'Z' THEN Import ELSE 0 END) AS Ventas,
+    SUM(CASE WHEN Motiu LIKE 'Deute client%' THEN Import ELSE 0 END) AS Deute_Client,
+    SUM(CASE WHEN Tipus_moviment = 'DATAFONO' THEN Import ELSE 0 END) AS Tarjeta,
+    SUM(CASE WHEN Tipus_moviment = 'DATAFONO_3G' THEN Import ELSE 0 END) AS Tarjeta_3G,
+    SUM(CASE WHEN Motiu = 'Entrega Diària' THEN Import ELSE 0 END) AS Entregas_Diarias,
+    SUM(CASE WHEN Tipus_moviment = 'J' THEN Import ELSE 0 END) AS Descuadre,
+    (SUM(CASE WHEN Tipus_moviment = 'Z' THEN Import ELSE 0 END) + SUM(CASE WHEN Motiu LIKE 'Deute client%' THEN Import ELSE 0 END) + SUM(CASE WHEN Tipus_moviment = 'DATAFONO' THEN Import ELSE 0 END) + SUM(CASE WHEN Tipus_moviment = 'DATAFONO_3G' THEN Import ELSE 0 END)) AS Calculado_Metalic,
+    CONVERT(Date, Data) as Data,
+	  (SELECT Nom FROM clients WHERE Codi = ${botiga}) as Nom
+    FROM [V_Moviments_${year}-${month}] 
+    WHERE DAY(data) = ${day} AND botiga = ${botiga} AND CONVERT(TIME, data) > '${formattedHora}'
+    GROUP BY CONVERT(Date, Data)`
+    let turno = 2
+    data = await this.sql.runSql(sqlQT2, database);
+    let x = data.recordset[0];
+    if (data.recordset.length > 0) {
+      let date = new Date(x.Data);
+
+      // Extraemos el día, el mes y el año
+      day = String(date.getDate()).padStart(2, '0');
+      month = String(date.getMonth() + 1).padStart(2, '0'); // getMonth() es 0-indexado, así que sumamos 1
+      year = String(date.getFullYear()).slice(2); // Obtenemos solo los últimos dos dígitos del año
+
+      // Formateamos la fecha en el formato ddmmyy
+      let formattedDate = `${day}-${month}-${year}`;
+      let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
+
+      let salesData2 = {
+        no: `${x.Nom}_${turno}_${formattedDate}`, // Nº factura
+        documentType: 'Invoice', // Tipo de documento
+        dueDate: `${formattedDate2}`, // Fecha vencimiento
+        externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}`, // Nº documento externo
+        locationCode: `${x.Nom}`, // Cód. almacén
+        orderDate: `${formattedDate2}`, // Fecha pedido
+        postingDate: `${formattedDate2}`, // Fecha registro
+        recapInvoice: false, // Factura recap //false
+        sellToCustomerNo: "430001314",
+        shift: `Shift_x0020_${turno}`, // Turno
+        shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
+        storeInvoice: true, // Factura tienda
+        vatRegistrationNo: `${x.Nif}`, // CIF/NIF
+        firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
+        lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
+        invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
+        invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
+        salesLinesBuffer: [] // Array vacío para las líneas de ventas
+      };
+
+      for (let i = 0; i < data.recordset.length; i++) {
+        x = data.recordset[i];
+        let salesLine = {
+          documentNo: `${salesData2.no}`,
+          type: `Item`,
+          no: `${x.Codi}`,
+          lineNo: i + 1,
+          description: `${x.Producte}`,
+          quantity: parseFloat(x.Quantitat),
+          lineTotalAmount: parseFloat(x.Import),
+          vatProdPostingGroup: `IVA${x.Iva}`
+        };
+        salesData2.salesLinesBuffer.push(salesLine);
+      }
+
+      //console.log(salesData2)
+      let url3 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=no eq '${salesData2.no}' and documentType eq '${salesData2.documentType}'`;
+      let resGet2 = await axios
+        .get(
+          url3,
+          {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          },
+        )
+        .catch((error) => {
+          console.log(`Url ERROR: ${url3}`)
+          throw new Error('Failed to obtain sale');
+        });
+
+      if (!resGet2.data) throw new Error('Failed to get factura line');
+      if (resGet2.data.value.length === 0) {
+        let url4 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$expand=salesLinesBuffer`;
+        try {
+          const response = await axios.post(
+            url4,
+            salesData2, // Envía salesData directamente
+            {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+          //console.log('Response:', response.data);
+          console.log('Factura subida con exito');
+        } catch (error) {
+          console.error('Error posting sales data:', error.response?.data || error.message);
+        }
+
+      }
+      else {
+        console.log("Ya existe la factura")
+      }
+    }
+    return true;
+  }
+
+
+  async syncSalesSilemaRecapitulativa(client, botiga, dayStart, dayEnd, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let importTotal: number = 0;
 
@@ -1084,7 +1321,7 @@ left join TipusIva i on i.Tipus=a.TipoIva
 left join ConstantsClient cc on @Cliente= cc.Codi and variable='CFINAL'
 left join Clients c on cc.codi=c.codi
 left join clients cb on v.botiga=cb.codi
-where v.otros like '%' + cc.valor + '%' and day(data) between @inicio and @fin and cb.nom='${tienda}'
+where v.otros like '%' + cc.valor + '%' and day(data) between @inicio and @fin and cb.codi='${botiga}'
 GROUP BY V.Num_tick,v.plu,a.nom,v.Quantitat, v.data,v.import,i.iva,cb.nom,c.nif
 order by v.data`;
     //console.log(sqlQT1);
@@ -1238,7 +1475,7 @@ LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
 LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' 
 LEFT JOIN Clients C ON CC.codi = C.codi
 LEFT JOIN clients CB ON V.botiga = CB.codi
-WHERE V.otros LIKE '%' + CC.valor + '%' AND DAY(data) BETWEEN @Inicio and @fin and cb.nom='${tienda}'
+WHERE V.otros LIKE '%' + CC.valor + '%' AND DAY(data) BETWEEN @Inicio and @fin and cb.codi='${botiga}'
 GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, C.NIF
 ORDER BY MIN(V.data);`;
     //console.log(sqlQT1);
@@ -1253,7 +1490,7 @@ ORDER BY MIN(V.data);`;
     formattedDateDayEnd = new Date(`${year}-${month}-${dayEnd}`).toISOString().substring(0, 10);
     importTotal = 0;
     salesData = {
-      no: `${x.TIENDA}_${formattedDate}_A${n}`, // Nº factura
+      no: `${x.TIENDA}_${formattedDate}_AR${n}`, // Nº factura
       documentType: 'Credit_x0020_Memo', // Tipo de documento
       dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
       externalDocumentNo: `${x.TIENDA}_${formattedDate}_A${n}`, // Nº documento externo
@@ -1336,6 +1573,95 @@ ORDER BY MIN(V.data);`;
       console.log(`Ya existe el abono recapitulativa ${salesData.no}`)
     }
 
+    return true;
+  }
+
+  async syncRecapMensual(periodoRecap, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let sqlQ = `;WITH ExtractedData AS (
+    SELECT 
+        SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3)) AS ExtractedValue,
+        v.import,
+        i.iva,
+        v.Botiga
+    FROM [v_venut_${year}-${month}] v
+    LEFT JOIN articles a ON v.plu = a.codi
+    LEFT JOIN TipusIva2012 i ON a.TipoIva = i.Tipus
+    WHERE num_tick IN (
+        SELECT 
+            SUBSTRING(motiu, CHARINDEX(':', motiu) + 2, LEN(motiu)) AS Numero
+        FROM [v_moviments_${year}-${month}]
+        WHERE  motiu LIKE 'Deute client%'
+    )
+    AND CHARINDEX('id:', v.otros) > 0
+    AND CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) > 0
+
+    ),
+    FilteredData AS (
+    SELECT 
+        d.ExtractedValue,
+        c.valor,
+        c.codi,
+        cl.nif,
+        cl2.Nif AS nifTienda,
+        cl2.Nom AS Nom,
+        CASE WHEN r.valor = 'Recapitulativa' THEN 1 ELSE 0 END AS RecapitulativaAutomatica,
+        COALESCE(NULLIF(p.valor, ''), 'Mensual') AS PeriodoFacturacion
+    FROM ExtractedData d
+    INNER JOIN constantsclient c ON c.valor = d.ExtractedValue AND c.variable = 'CFINAL'
+    INNER JOIN clients cl ON cl.codi = c.codi
+    INNER JOIN clients cl2 ON cl2.codi = d.botiga
+    LEFT JOIN constantsclient r ON r.codi = cl.codi AND r.variable = 'Recapitulativa'
+    LEFT JOIN constantsclient p ON p.codi = cl.codi AND p.variable = 'Per_Facturacio'
+    )
+    SELECT 
+      FilteredData.Nom AS Nom,
+      cl.Nom AS NomClient,
+      FilteredData.nifTienda AS NifTienda,
+      FilteredData.nif AS NIF,
+      FilteredData.codi AS CodigoCliente,
+      FilteredData.RecapitulativaAutomatica,
+      FilteredData.PeriodoFacturacion
+    FROM FilteredData
+    INNER JOIN clients cl ON cl.nif = FilteredData.nif
+    WHERE FilteredData.RecapitulativaAutomatica = 1
+    GROUP BY FilteredData.Nom, FilteredData.nif, cl.Nom, FilteredData.nifTienda, FilteredData.codi, FilteredData.RecapitulativaAutomatica, FilteredData.PeriodoFacturacion
+    ORDER BY FilteredData.nif;`;
+    //console.log(sqlQT1);
+    let dayStart = 0
+    let dayEnd = 0
+    const isFirstHalf = new Date().getDate() <= 15; // Determina si estamos en la primera quincena
+
+    let data = await this.sql.runSql(sqlQ, database);
+    switch (periodoRecap) {
+      case 'mensual':
+        dayStart = 1
+        dayEnd = 31
+        break;
+      case 'quincenal':
+        if (isFirstHalf) {
+          dayStart = 1;
+          dayEnd = 15;
+        } else {
+          dayStart = 16;
+          dayEnd = 31;
+        }
+        break;
+      case 'semanal':
+        // TODO: Implementar lógica para semana
+        dayStart = 1
+        dayEnd = 7
+        break;
+      default:
+        dayStart = 1
+        dayEnd = 31
+        break;
+    }
+
+    for (let i = 0; i < data.recordset.length; i++) {
+      if (data.recordset[i].PeriodoFacturacion.toLowerCase() === periodoRecap.toLowerCase()) {
+        this.syncSalesSilemaRecapitulativa(data.recordset[i].CodigoClientem, data.recordset[i].Codi, dayStart, dayEnd, month, year, companyID, database, client_id, client_secret, tenant, entorno);
+      }
+    }
     return true;
   }
 }
