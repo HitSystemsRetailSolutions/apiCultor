@@ -1305,7 +1305,7 @@ ORDER BY FilteredData.nif, FilteredData.iva;
   }
 
 
-  async syncSalesSilemaRecapitulativa(client, botiga, dayStart, dayEnd, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async syncSalesSilemaRecapitulativa(client, nCliente, botiga, dayStart, dayEnd, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let importTotal: number = 0;
 
@@ -1335,10 +1335,11 @@ order by v.data`;
     let formattedDateDayStart = new Date(`${year}-${month}-${dayStart}`).toISOString().substring(0, 10);
     let formattedDateDayEnd = new Date(`${year}-${month}-${dayEnd}`).toISOString().substring(0, 10);
 
+    /*
     // Calculamos `n` basado en las facturas recapitulativas existentes
     let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_R') and postingDate ge ${formattedDateDayStart} and postingDate le ${formattedDateDayEnd}`;
     let n = 1; // Valor por defecto si no hay facturas recapitulativas
-
+    console.log(`URL para obtener facturas recapitulativas: ${url}`);
     try {
       // Obtenemos las facturas filtradas desde Business Central
       let resGet = await axios.get(
@@ -1363,7 +1364,8 @@ order by v.data`;
       console.error(`Error al obtener las facturas recapitulativas:`, error);
       // Dejamos `n = 1` como valor por defecto
     }
-
+*/
+    let n = nCliente;
     let salesData = {
       no: `${x.TIENDA}_${formattedDate}_R${n}`, // Nº factura
       documentType: 'Invoice', // Tipo de documento
@@ -1452,7 +1454,7 @@ order by v.data`;
           }
         );
         //console.log('Response:', response.data);
-        console.log('Abono subido con exito');
+        console.log('Recap subido con exito');
       } catch (error) {
         console.error('Error posting sales recapitulativa data:', error.response?.data || error.message);
       }
@@ -1661,7 +1663,7 @@ ORDER BY MIN(V.data);`;
 
     for (let i = 0; i < data.recordset.length; i++) {
       if (data.recordset[i].PeriodoFacturacion.toLowerCase() === periodoRecap.toLowerCase()) {
-        await this.syncSalesSilemaRecapitulativa(data.recordset[i].CodigoCliente, data.recordset[i].Codi, dayStart, dayEnd, month, year, companyID, database, client_id, client_secret, tenant, entorno);
+        await this.syncSalesSilemaRecapitulativa(data.recordset[i].CodigoCliente, i, data.recordset[i].Codi, dayStart, dayEnd, month, year, companyID, database, client_id, client_secret, tenant, entorno);
       }
     }
     return true;
