@@ -1310,9 +1310,9 @@ ORDER BY FilteredData.nif, FilteredData.iva;
     let importTotal: number = 0;
 
     let sqlQ = `
-DECLARE @Cliente INT = ${client};
-DECLARE @Inicio INT = ${dayStart};
-DECLARE @Fin INT = ${dayEnd};
+DECLARE @Cliente INT = ${parseInt(client, 10)};
+DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
+DECLARE @Fin INT = ${parseInt(dayEnd, 10)};
 
 select v.num_tick as TICKET, V.PLU AS PLU,a.nom as ARTICULO, V.Quantitat AS CANTIDAD, v.data as FECHA, V.Import AS PRECIO, CONCAT('IVA',i.Iva) as IVA, cb.nom as TIENDA, C.NIF AS NIF, SUM(v.Import) OVER () AS TOTAL 
 from [v_venut_${year}-${month}] v
@@ -1464,9 +1464,9 @@ order by v.data`;
 
     //Abono recap
     sqlQ = `
-DECLARE @Cliente INT = ${client};
-DECLARE @Inicio INT = ${dayStart};
-DECLARE @Fin INT = ${dayEnd};
+DECLARE @Cliente INT = ${parseInt(client, 10)};
+DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
+DECLARE @Fin INT = ${parseInt(dayEnd, 10)};
                 
 SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, C.NIF AS NIF
 FROM [v_venut_${year}-${month}] V
@@ -1604,6 +1604,7 @@ ORDER BY MIN(V.data);`;
         cl.nif,
         cl2.Nif AS nifTienda,
         cl2.Nom AS Nom,
+		d.Botiga as CodiTienda,
         CASE WHEN r.valor = 'Recapitulativa' THEN 1 ELSE 0 END AS RecapitulativaAutomatica,
         COALESCE(NULLIF(p.valor, ''), 'Mensual') AS PeriodoFacturacion
     FROM ExtractedData d
@@ -1614,17 +1615,18 @@ ORDER BY MIN(V.data);`;
     LEFT JOIN constantsclient p ON p.codi = cl.codi AND p.variable = 'Per_Facturacio'
     )
     SELECT 
+        FilteredData.CodiTienda AS Codi,
       FilteredData.Nom AS Nom,
-      cl.Nom AS NomClient,
-      FilteredData.nifTienda AS NifTienda,
-      FilteredData.nif AS NIF,
-      FilteredData.codi AS CodigoCliente,
-      FilteredData.RecapitulativaAutomatica,
-      FilteredData.PeriodoFacturacion
+        cl.Nom AS NomClient,
+        FilteredData.nifTienda AS NifTienda,
+        FilteredData.nif AS NIF,
+        FilteredData.codi AS CodigoCliente,
+        FilteredData.RecapitulativaAutomatica,
+        FilteredData.PeriodoFacturacion
     FROM FilteredData
     INNER JOIN clients cl ON cl.nif = FilteredData.nif
-    WHERE FilteredData.RecapitulativaAutomatica = 1
-    GROUP BY FilteredData.Nom, FilteredData.nif, cl.Nom, FilteredData.nifTienda, FilteredData.codi, FilteredData.RecapitulativaAutomatica, FilteredData.PeriodoFacturacion
+    where FilteredData.RecapitulativaAutomatica = 1
+    GROUP BY FilteredData.CodiTienda, FilteredData.Nom, FilteredData.nif, cl.Nom, FilteredData.nifTienda, FilteredData.codi, FilteredData.RecapitulativaAutomatica, FilteredData.PeriodoFacturacion
     ORDER BY FilteredData.nif;`;
     //console.log(sqlQT1);
     let dayStart = 0
