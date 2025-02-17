@@ -175,15 +175,14 @@ export class contactsSilemaService {
               else {
                 console.log("El cliente ya existe en la base de datos");
                 let sqlUpdate = ` UPDATE clientsFinals SET 
-                    Nom = '${Nom}', 
-                    Telefon = '${Telefon}', 
-                    Adreca = '${Adreca}', 
-                    emili = '${emili}', 
-                    Nif = '${Nif}'
-                    WHERE Id = '${Id}'; `;
+                Nom = '${Nom}', 
+                Telefon = '${Telefon}', 
+                Adreca = '${Adreca}', 
+                emili = '${emili}', 
+                Nif = '${Nif}'
+                WHERE Id = '${Id}'; `;
                 try {
                   let queryInsert = await this.sql.runSql(sqlUpdate, database)
-                  let queryInsertSincro = await this.sql.runSql(sqlSincroIds, database);
                   const data = {
                     processedHIT: true
                   };
@@ -202,7 +201,7 @@ export class contactsSilemaService {
               }
             }
           } catch (error) {
-            throw new Error('Failed to put contact');
+            throw new Error(`Failed to put contact. COMPANY: ${companyID}`);
           }
           console.log("Contact procesado")
         }
