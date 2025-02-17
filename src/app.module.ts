@@ -42,14 +42,15 @@ import { vendorsSilemaController } from './silema/vendorsSilema.controller';
 import { vendorsSilemaService } from './silema/vendorsSilema.service';
 import { locationSilemaController } from './silema/locationSilema.controller';
 import { locationSilemaService } from './silema/locationSilema.service';
-
+import { locationsController } from './locations/locations.controller';
+import { locationsService } from './locations/locations.service';
 
 
 @Module({
   imports: [ConfigModule.forRoot()],
   controllers: [
-    employeesController, 
-    signingsController, 
+    employeesController,
+    signingsController,
     customersController,
     itemsController,
     itemCategoriesController,
@@ -61,13 +62,15 @@ import { locationSilemaService } from './silema/locationSilema.service';
     // archivosController,
     empresasController,
     // traspasosController,
-    initConfigController
+    initConfigController,
     salesSilemaController,
     itemsSilemaController,
     contactsSilemaController,
     customersSilemaController,
     vendorsSilemaController,
-    locationSilemaController
+    locationSilemaController,
+    initConfigController,
+    locationsController,
 
   ],
   providers: [
@@ -86,14 +89,15 @@ import { locationSilemaService } from './silema/locationSilema.service';
     // archivosService,
     empresasService,
     // traspasosService,
-    initConfigService
+    initConfigService,
     salesSilemaService,
     itemsSilemaService,
     contactsSilemaService,
     customersSilemaService,
     vendorsSilemaService,
-    locationSilemaService
-
+    locationSilemaService,
+    initConfigService,
+    locationsService,
   ],
 })
 export class AppModule {}
