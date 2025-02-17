@@ -20,14 +20,16 @@ import { companiesController } from './companies/companies.controller';
 import { companiesService } from './companies/companies.service';
 import { PdfController } from './pdf/pdf.controller';
 import { PdfService } from './pdf/pdf.service';
-import { IncidenciaController } from './incidencias/incidencia.controller';
-import { IncidenciaService } from './incidencias/incidencia.service';
-import { archivosController } from './archivos/archivos.controller';
-import { archivosService } from './archivos/archivos.service';
+// import { IncidenciaController } from './incidencias/incidencia.controller';
+// import { IncidenciaService } from './incidencias/incidencia.service';
+// import { archivosController } from './archivos/archivos.controller';
+// import { archivosService } from './archivos/archivos.service';
 import { empresasController } from './empresas/empresas.controller';
 import { empresasService } from './empresas/empresas.service';
-import { traspasosController } from './traspasos/traspasos.controller';
-import { traspasosService } from './traspasos/traspasos.service';
+// import { traspasosController } from './traspasos/traspasos.controller';
+// import { traspasosService } from './traspasos/traspasos.service';
+import { initConfigService } from './configuracionInicial/initConfig.service';
+import { initConfigController } from './configuracionInicial/initConfig.controller';
 import { salesSilemaController } from './silema/salesSilema.controller';
 import { salesSilemaService } from './silema/salesSilema.service';
 import { itemsSilemaController } from './silema/itemsSilema.controller';
@@ -55,10 +57,11 @@ import { locationSilemaService } from './silema/locationSilema.service';
     salesFacturasController,
     companiesController,
     PdfController,
-    IncidenciaController,
-    archivosController,
+    // IncidenciaController,
+    // archivosController,
     empresasController,
-    traspasosController,
+    // traspasosController,
+    initConfigController
     salesSilemaController,
     itemsSilemaController,
     contactsSilemaController,
@@ -79,16 +82,18 @@ import { locationSilemaService } from './silema/locationSilema.service';
     salesFacturasService,
     companiesService,
     PdfService,
-    IncidenciaService,
-    archivosService,
+    // IncidenciaService,
+    // archivosService,
     empresasService,
-    traspasosService,
+    // traspasosService,
+    initConfigService
     salesSilemaService,
     itemsSilemaService,
     contactsSilemaService,
     customersSilemaService,
     vendorsSilemaService,
     locationSilemaService
+
   ],
 })
 export class AppModule {}

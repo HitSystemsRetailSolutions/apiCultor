@@ -16,7 +16,7 @@ interface SubirPdfRequest {
 
 @Controller()
 export class PdfController {
-  constructor(private readonly pdfService: PdfService) { }
+  constructor(private readonly pdfService: PdfService) {}
 
   @Get('/pdf/:database/:id') //Get del pdf (http://54.77.231.164:3333/pdf/{database}/{id}). Ejemplo: http://54.77.231.164:3333/pdf/Fac_HitRs/743d8234-dbc4-ee11-9078-000d3adbf495
   async getPdf(@Param('database') database: string, @Param('id') id: string, @Res() res: Response) {
@@ -40,15 +40,15 @@ export class PdfController {
 
   @Post('/pdf/subirPDF') //Post del pdf para subr a la base de datos
   async subirPdf(@Body() body: SubirPdfRequest, @Res() res: Response) {
-    const { id, archivo, database, client, secret, tenant, entorno, companyId, empresaCodi} = body;
+    const { id, archivo, database, client, secret, tenant, entorno, companyId, empresaCodi } = body;
 
     //Diferentes errores para que avise del problema por si no se proporciona uno de los datos necesarios
     if (!archivo) {
-      return res.status(400).json({ msg: "No se proporcionó un archivo Base64" });
+      return res.status(400).json({ msg: 'No se proporcionó un archivo Base64' });
     } else if (!database) {
-      return res.status(400).json({ msg: "No se proporcionó una base de datos" });
+      return res.status(400).json({ msg: 'No se proporcionó una base de datos' });
     } else if (!id) {
-      return res.status(400).json({ msg: "No se proporcionó un ID" });
+      return res.status(400).json({ msg: 'No se proporcionó un ID' });
     }
 
     try {
@@ -56,24 +56,19 @@ export class PdfController {
       return res.status(200).json(result);
     } catch (error) {
       console.error('Error al subir el PDF:', error);
-      return res.status(500).json({ msg: "No se ha podido insertar" });
+      return res.status(500).json({ msg: 'No se ha podido insertar' });
     }
   }
 
   @Get('sendMail')
-  async sendMail(
-    @Query('database') database: string,
-    @Query('mailTo') mailTo: string,
-    @Query('idFactura') idFactura: string,
-  ) {
+  async sendMail(@Query('database') database: string, @Query('mailTo') mailTo: string, @Query('idFactura') idFactura: string) {
     let res = await this.pdfService.enviarCorreoSeleccionarPdf(database, mailTo, idFactura);
     if (!res) return 'Ha habido un error al intentar enviar el correo';
     return 'Se han sincronizado todas las incidencias correctamente';
   }
 
   @Get('espera')
-  async espera(
-  ) {
+  async espera() {
     let res = await this.pdfService.esperaYVeras();
     if (!res) return 'Ha habido un error al intentar enviar el correo';
     return 'Se han sincronizado todas las incidencias correctamente';

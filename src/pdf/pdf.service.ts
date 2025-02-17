@@ -10,7 +10,7 @@ export class PdfService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) { }
+  ) {}
 
   async enviarCorreoConPdf(pdfData, mailTo) {
     try {
@@ -19,8 +19,8 @@ export class PdfService {
         service: 'gmail', //El correo que pongas aqui tiene que tener activado una configuracion de la cuenta de Google que es: Seguridad -> Acceso de aplicaciones poco seguras
         auth: {
           user: process.env.EMAIL_USERNAME, // Reemplaza con tu dirección de correo de Gmail
-          pass: process.env.EMAIL_PASSWORD // Reemplaza con tu contraseña de Gmail
-        }
+          pass: process.env.EMAIL_PASSWORD, // Reemplaza con tu contraseña de Gmail
+        },
       });
       //console.log(transporter);
       //console.log("--------------------------------------------------");
@@ -34,9 +34,9 @@ export class PdfService {
           {
             filename: 'factura.pdf', //archivo es el nombre y siempre tiene que terminar con .pdf
             content: pdfData,
-            encoding: 'base64'
-          }
-        ]
+            encoding: 'base64',
+          },
+        ],
       };
 
       // Envío del correo electrónico
@@ -58,8 +58,8 @@ export class PdfService {
         secure: process.env.SLB_SMTPUSESSL,
         auth: {
           user: process.env.SLS_SMTPUSERNAME,
-          pass: process.env.SLS_SMTPPASSWORD
-        }
+          pass: process.env.SLS_SMTPPASSWORD,
+        },
       });
 
       const mailOptions = {
@@ -71,9 +71,9 @@ export class PdfService {
           {
             filename: 'factura.pdf',
             content: pdfData,
-            encoding: 'base64'
-          }
-        ]
+            encoding: 'base64',
+          },
+        ],
       };
 
       const info = await transporter.sendMail(mailOptions);
@@ -93,8 +93,8 @@ export class PdfService {
 
       // Verifica si el archivo existe
       if (!fragmentos || fragmentos.length === 0) {
-        console.log("Archivo solicitado no existe")
-        return { success: false, message: "El archivo solicitado no existe" };
+        console.log('Archivo solicitado no existe');
+        return { success: false, message: 'El archivo solicitado no existe' };
       }
 
       // Concatena todos los fragmentos para reconstruir el archivo original
@@ -103,8 +103,8 @@ export class PdfService {
       // Envía el PDF por correo electrónico
       await this.enviarCorreoConPdf(archivoCompleto, mailTo);
     } catch (error) {
-      console.error("Error al enviar el correo:", error);
-      return { success: false, message: "Error al enviar el correo" };
+      console.error('Error al enviar el correo:', error);
+      return { success: false, message: 'Error al enviar el correo' };
     }
   }
 
@@ -115,11 +115,11 @@ export class PdfService {
     `;
     let pdf;
     try {
-      pdf = await this.sql.runSql(sql, database,);
+      pdf = await this.sql.runSql(sql, database);
     } catch {
-      console.log("Error")
+      console.log('Error');
     }
-    return pdf.recordset.map(row => Buffer.from(row.BC_PDF, 'hex'));
+    return pdf.recordset.map((row) => Buffer.from(row.BC_PDF, 'hex'));
   }
 
   async getPdf(database: string, id: string) {
@@ -129,8 +129,8 @@ export class PdfService {
 
       // Verifica si el archivo existe
       if (!fragmentos || fragmentos.length === 0) {
-        console.log("Archivo solicitado no existe")
-        return { success: false, message: "El archivo solicitado no existe" };
+        console.log('Archivo solicitado no existe');
+        return { success: false, message: 'El archivo solicitado no existe' };
       }
 
       // Concatena todos los fragmentos para reconstruir el archivo original
@@ -142,15 +142,15 @@ export class PdfService {
       // Devuelve el PDF
       return { success: true, pdfData: archivoCompleto };
     } catch (error) {
-      console.error("Error al descargar el archivo:", error);
-      return { success: false, message: "Error al descargar el archivo" };
+      console.error('Error al descargar el archivo:', error);
+      return { success: false, message: 'Error al descargar el archivo' };
     }
   }
 
-  async esperaYVeras(){
+  async esperaYVeras() {
     // Función de sleep
-    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-    
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
     // Esperar 5 segundos
     await sleep(5000);
     return true;
@@ -174,37 +174,35 @@ export class PdfService {
         try {
           pdf = await this.sql.runSql(sql, database);
         } catch {
-          console.log("Error")
+          console.log('Error');
         }
       }
       let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`;
       let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})/salesInvoiceLines`;
-      let res1 = await axios.get(
-        url1,
-        {
+      let res1 = await axios
+        .get(url1, {
           headers: {
             Authorization: 'Bearer ' + token,
             'Content-Type': 'application/json',
           },
-        },
-      ).catch((error) => {
-        throw new Error(`Failed get salesInvoices(${id})`);
-      });
-      let res2 = await axios.get(
-        url2,
-        {
+        })
+        .catch((error) => {
+          throw new Error(`Failed get salesInvoices(${id})`);
+        });
+      let res2 = await axios
+        .get(url2, {
           headers: {
             Authorization: 'Bearer ' + token,
             'Content-Type': 'application/json',
           },
-        },
-      ).catch((error) => {
-        throw new Error(`Failed get salesInvoices(${id})/salesInvoiceLines`);
-      });
+        })
+        .catch((error) => {
+          throw new Error(`Failed get salesInvoices(${id})/salesInvoiceLines`);
+        });
       for (let i = 0; i < res2.data.value.length; i++) {
         let x = res1.data;
         let y = res2.data.value[i];
-        let año = x.invoiceDate.toString().split("-")[0];
+        let año = x.invoiceDate.toString().split('-')[0];
         let BC_Number = x.number;
         let BC_TaxCode = y.taxCode;
         let BC_TaxPercent = y.taxPercent;
@@ -216,10 +214,10 @@ export class PdfService {
         try {
           factura = await this.sql.runSql(sql2, database);
         } catch {
-          console.log("Error")
+          console.log('Error');
         }
       }
-      return { msg: "Se ha insertado correctamente" };
+      return { msg: 'Se ha insertado correctamente' };
     } catch (error) {
       console.error('Error al insertar el PDF en la base de datos:', error);
       throw error;
