@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { getTokenService } from '../conection/getToken.service';
+import { getTokenService } from '../../conection/getToken.service';
 import { runSqlService } from 'src/conection/sqlConection.service';
 import axios from 'axios';
 import { response } from 'express';
