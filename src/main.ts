@@ -227,6 +227,9 @@ client.on('message', async function (topic, message) {
         case 'silemaRecap':
           await syncSalesSilemaRecap(msgJson.periodoRecap, msgJson.month, msgJson.year, companyID, database, client_id, client_secret, tenant, entorno);
           break;
+        case 'silemaRecapManual':
+          await syncSalesSilemaRecapManual(msgJson.tickets, msgJson.client, msgJson.botiga, msgJson.month, msgJson.year, companyID, database, client_id, client_secret, tenant, entorno);
+          break;
         case 'silemaItems':
           await syncItemsSilema(companyID, database, client_id, client_secret, tenant, entorno);
           break;
@@ -436,6 +439,29 @@ async function syncSalesSilemaRecap(periodoRecap, month, year, companyID, databa
     await axios.get('http://localhost:3333/syncSalesSilemaRecap', {
       params: {
         periodoRecap: periodoRecap,
+        month: month,
+        year: year,
+        companyID: companyID,
+        database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+    });
+    console.log('Sales Silema Recap sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar Sales Silema Recap:', error);
+  }
+}
+
+async function syncSalesSilemaRecapManual(TicketsArray, client, botiga, month, year, companyID, database, client_id, client_secret, tenant, entorno) {
+  try {
+    await axios.get('http://localhost:3333/syncSalesSilemaRecapManual', {
+      params: {
+        TicketsArray: TicketsArray,
+        client: client,
+        botiga: botiga,
         month: month,
         year: year,
         companyID: companyID,
