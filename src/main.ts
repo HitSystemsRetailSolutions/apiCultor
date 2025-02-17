@@ -11,12 +11,6 @@ async function bootstrap() {
 bootstrap();
 
 const axios = require('axios');
-// horas = *(60*60*1000)
-// minutos = *(60*1000)
-// segundos = *(1000)
-const employeesTime = 5 * (60 * 60 * 1000); // hours
-const signingsTime = 5 * (60 * 1000); // minutes
-const customersTime = 5 * (60 * 60 * 1000); // hours
 
 var test = false; //test: call functions
 var debug = true; //debug: mqtt publish
@@ -39,7 +33,7 @@ client.on('connect', function () {
 
   // Suscribirse a un tema
   //let tema = '/Hit/Serveis/Apicultor';
-  let tema = '/Testing/Hit/Serveis/Apicultor';
+  let tema = '/Testinggg/Hit/Serveis/Apicultor';
   client.subscribe(tema, function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
@@ -59,26 +53,14 @@ client.on('connect', function () {
   */
 });
 
-let peticiones = 0
-
 // Manejar mensajes recibidos
 client.on('message', async function (topic, message) {
   if (debug) {
-    console.log(
-      'Mensaje recibido en el tema:',
-      topic,
-      '- Contenido:',
-      message.toString(),
-    );
+    console.log('Mensaje recibido en el tema:', topic, '- Contenido:', message.toString());
   }
   try {
     const msgJson = JSON.parse(message);
     console.log('Mensaje en modo JSON:', msgJson);
-
-
-    if (msgJson.hasOwnProperty('repeat'))
-      peticiones++;
-
 
     if (msgJson.hasOwnProperty('debug')) {
       if (msgJson.debug == 'true') {
@@ -105,9 +87,9 @@ client.on('message', async function (topic, message) {
       test = false;
     }
 
-    let companyID = "";
-    let companyNAME = "";
-    let database = "";
+    let companyID = '';
+    let companyNAME = '';
+    let database = '';
     if (msgJson.hasOwnProperty('companyID')) {
       companyID = msgJson.companyID;
       //console.log('El JSON recibido tiene el campo "companyID"');
@@ -115,51 +97,40 @@ client.on('message', async function (topic, message) {
         mqttPublish('Error: "companyID" no valido');
       }
     } else if (msgJson.hasOwnProperty('companyNAME') || msgJson.hasOwnProperty('companyName')) {
-      if (msgJson.hasOwnProperty('companyNAME'))
-        companyNAME = msgJson.companyNAME;
-      else if (msgJson.hasOwnProperty('companyName'))
-        companyNAME = msgJson.companyName;
+      if (msgJson.hasOwnProperty('companyNAME')) companyNAME = msgJson.companyNAME;
+      else if (msgJson.hasOwnProperty('companyName')) companyNAME = msgJson.companyName;
       //console.log('El JSON recibido tiene el campo "companyNAME"');
     } else if (msgJson.hasOwnProperty('companyID') && (msgJson.hasOwnProperty('companyNAME') || msgJson.hasOwnProperty('companyName'))) {
       companyID = msgJson.companyID;
-      if (msgJson.hasOwnProperty('companyNAME'))
-        companyNAME = msgJson.companyNAME;
-      else if (msgJson.hasOwnProperty('companyName'))
-        companyNAME = msgJson.companyName;
+      if (msgJson.hasOwnProperty('companyNAME')) companyNAME = msgJson.companyNAME;
+      else if (msgJson.hasOwnProperty('companyName')) companyNAME = msgJson.companyName;
       //console.log('El JSON recibido tiene el campo "companyNAME" y "companyNAME"');
     } else {
       mqttPublish('El JSON recibido no tiene el campo "companyID" o "companyNAME" ');
     }
 
     if (msgJson.hasOwnProperty('database') || msgJson.hasOwnProperty('dataBase')) {
-      if (msgJson.hasOwnProperty('database'))
-        database = msgJson.database;
-      else if (msgJson.hasOwnProperty('dataBase'))
-        database = msgJson.dataBase;
+      if (msgJson.hasOwnProperty('database')) database = msgJson.database;
+      else if (msgJson.hasOwnProperty('dataBase')) database = msgJson.dataBase;
       //console.log('El JSON recibido tiene el campo "database"');
     } else {
       mqttPublish('El JSON recibido no tiene el campo "database"');
     }
 
     let client_id = process.env.client_id;
-    if (msgJson.hasOwnProperty('client_id'))
-      client_id = msgJson.client_id;
+    if (msgJson.hasOwnProperty('client_id')) client_id = msgJson.client_id;
 
     let client_secret = process.env.client_secret;
-    if (msgJson.hasOwnProperty('client_secret'))
-      client_secret = msgJson.client_secret;
+    if (msgJson.hasOwnProperty('client_secret')) client_secret = msgJson.client_secret;
 
     let tenant = process.env.tenant;
-    if (msgJson.hasOwnProperty('tenant'))
-      tenant = msgJson.tenant;
+    if (msgJson.hasOwnProperty('tenant')) tenant = msgJson.tenant;
 
     let entorno = process.env.entorno;
-    if (msgJson.hasOwnProperty('entorno'))
-      entorno = msgJson.entorno;
+    if (msgJson.hasOwnProperty('entorno')) entorno = msgJson.entorno;
 
-    let nif = "";
-    if (msgJson.hasOwnProperty('nif'))
-      nif = msgJson.nif;
+    let nif = '';
+    if (msgJson.hasOwnProperty('nif')) nif = msgJson.nif;
 
     if (!test) {
       switch (msgJson.msg) {
@@ -186,7 +157,7 @@ client.on('message', async function (topic, message) {
           break;
         case 'SyncTickets':
         case 'tickets':
-          await tickets(companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno, peticiones);
+          await tickets(msgJson.day, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
           break;
         case 'factura':
           await facturas(companyID, database, msgJson.idFactura, msgJson.tabla, client_id, client_secret, tenant, entorno);
@@ -197,20 +168,14 @@ client.on('message', async function (topic, message) {
         case 'xml':
           await xml(companyID, msgJson.idFactura, client_id, client_secret, tenant, entorno);
           break;
-        case 'incidencias':
-          await incidencias(companyNAME, database, client_id, client_secret, tenant, entorno);
-          break;
         case 'mail':
           await mail(database, msgJson.mailTo, msgJson.idFactura);
           break;
         case 'empresa':
           await empresa(msgJson.name, msgJson.displayName, client_id, client_secret, tenant, entorno, database, msgJson.empresa_id, nif);
           break;
-        case 'archivos':
-          await archivo(companyNAME, database, client_id, client_secret, tenant, entorno);
-          break;
-        case 'downloadArchivo':
-          await downloadArchivo(companyNAME, client_id, client_secret, tenant, entorno, msgJson.idTrabajador);
+        case 'initConfig':
+          await initConfig(companyID, database, client_id, client_secret, tenant, entorno);
           break;
         case 'silemaRecords':
           await syncSalesSilemaRecords(companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
@@ -244,12 +209,6 @@ client.on('message', async function (topic, message) {
           break;
         case 'silemaLocations':
           await syncLocationsSilema(companyID, database, client_id, client_secret, tenant, entorno);
-          break;
-        case 'traspasos':
-          await traspasos(companyNAME, database, client_id, client_secret, tenant, entorno);
-          break;
-        case 'bucle':
-          await bucle(companyID, companyNAME, database, client_id, client_secret, tenant, entorno);
           break;
         case 'maestros':
           await syncContactsSilema(companyID, database, client_id, client_secret, tenant, entorno);
@@ -327,24 +286,6 @@ async function signings(companyNAME, database, client_id, client_secret, tenant,
   }
 }
 
-async function traspasos(companyNAME, database, client_id, client_secret, tenant, entorno) {
-  try {
-    await axios.get('http://localhost:3333/syncTraspasos', {
-      params: {
-        companyNAME: companyNAME,
-        database: database,
-        client_id: client_id,
-        client_secret: client_secret,
-        tenant: tenant,
-        entorno: entorno,
-      },
-      timeout: 30000,
-    });
-    console.log('Traspasos sync sent...');
-  } catch (error) {
-    console.error('Error al sincronizar traspasos:', error);
-  }
-}
 
 async function syncSalesSilemaRecords(companyID, database, botiga, client_id, client_secret, tenant, entorno) {
   try {
@@ -573,66 +514,6 @@ async function syncLocationsSilema(companyID, database, client_id, client_secret
   }
 }
 
-async function incidencias(companyNAME, database, client_id, client_secret, tenant, entorno) {
-  let res;
-  try {
-    res = await axios.get('http://localhost:3333/syncIncidencias', {
-      params: {
-        companyNAME: companyNAME,
-        database: database,
-        client_id: client_id,
-        client_secret: client_secret,
-        tenant: tenant,
-        entorno: entorno,
-      },
-      timeout: getTimeout(),
-    });
-    console.log('Incidencias sync sent...');
-  } catch (error) {
-    console.error('Error al sincronizar incidencias:', error);
-  }
-}
-
-async function archivo(companyNAME, database, client_id, client_secret, tenant, entorno) {
-  let res;
-  try {
-    console.log(`Intentado sincronizar los archivos`);
-    res = await axios.get('http://localhost:3333/syncArchivos', {
-      params: {
-        companyNAME: companyNAME,
-        database: database,
-        client_id: client_id,
-        client_secret: client_secret,
-        tenant: tenant,
-        entorno: entorno,
-      },
-    });
-    console.log('Archivo sync sent...');
-  } catch (error) {
-    console.error('Error al sincronizar archivos:', error);
-  }
-}
-
-async function downloadArchivo(companyNAME, client_id, client_secret, tenant, entorno, idTrabajador) {
-  let res;
-  try {
-    console.log(`Intentando descargar un archivo`);
-    res = await axios.get('http://localhost:3333/downloadArchivo', {
-      params: {
-        companyNAME: companyNAME,
-        client_id: client_id,
-        client_secret: client_secret,
-        tenant: tenant,
-        entorno: entorno,
-        idTrabajador: idTrabajador,
-      },
-    });
-    console.log('Archivo sync sent...');
-  } catch (error) {
-    console.error('Error al sincronizar archivos:', error);
-  }
-}
-
 async function customers(companyID, database, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/syncCustomers', {
@@ -690,31 +571,23 @@ async function itemCategories(companyID, database, client_id, client_secret, ten
   }
 }
 
-async function tickets(companyID, database, botiga, client_id, client_secret, tenant, entorno, peticiones) {
+async function tickets(day, month, year, companyID, database, botiga, client_id, client_secret, tenant, entorno) {
   try {
-    let maxPeticiones = 30
-    let ms = 5000;
-    new Promise(resolve => setTimeout(resolve, ms));
-    if (peticiones <= maxPeticiones) {
-      console.log(`Peticion numero: ${peticiones}`);
-      await axios.get('http://localhost:3333/syncSalesTickets', {
-        params: {
-          companyID: companyID,
-          database: database,
-          botiga: botiga,
-          client_id: client_id,
-          client_secret: client_secret,
-          tenant: tenant,
-          entorno: entorno,
-        },
-        timeout: 60000,
-      });
-      console.log('Tickets sync sent...');
-    } else {
-      console.log(`No se puede repetir esta funcion mas de ${maxPeticiones} veces`)
-      peticiones = 0
-    }
-
+    await axios.get('http://localhost:3333/syncSalesTickets', {
+      params: {
+        day: day,
+        month: month,
+        year: year,
+        companyID: companyID,
+        database: database,
+        botiga: botiga,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+    });
+    console.log('Tickets sync sent...');
   } catch (error) {
     console.error('Error al sincronizar tickets de ventas:', error);
   }
@@ -733,7 +606,6 @@ async function facturas(companyID, database, idFactura, tabla, client_id, client
         tenant: tenant,
         entorno: entorno,
       },
-      timeout: 30000,
     });
     console.log('Facturas sync sent...');
   } catch (error) {
@@ -744,8 +616,7 @@ async function facturas(companyID, database, idFactura, tabla, client_id, client
 async function setCompanies() {
   try {
     await axios.get('http://localhost:3333/getCompaniesId', {
-      params: {
-      },
+      params: {},
       timeout: 30000,
     });
     console.log('Companies sync sent...');
@@ -780,7 +651,7 @@ async function mail(database, mailTo, idFactura) {
       params: {
         database: database,
         mailTo: mailTo,
-        idFactura: idFactura
+        idFactura: idFactura,
       },
       timeout: 30000,
     });
@@ -812,18 +683,24 @@ async function empresa(name, displayName, client_id, client_secret, tenant, ento
   }
 }
 
-async function bucle(companyID, companyNAME, database, client_id, client_secret, tenant, entorno) {
-  await setInterval(() => {
-    employes(companyID, database, client_id, client_secret, tenant, entorno);
-  }, employeesTime);
-
-  await setInterval(() => {
-    signings(companyNAME, database, client_id, client_secret, tenant, entorno);
-  }, signingsTime);
-
-  await setInterval(() => {
-    customers(companyID, database, client_id, client_secret, tenant, entorno);
-  }, customersTime);
+async function initConfig(companyID, database, client_id, client_secret, tenant, entorno) {
+  let res;
+  console.log(`companyID: ${companyID}, database: ${database}, client_id: ${client_id}, client_secret: ${client_secret}, tenant: ${tenant}, entorno: ${entorno}`);
+  try {
+    console.log(`Intentado la configuración inicial de la empresa`);
+    res = await axios.get('http://localhost:3333/initConfig', {
+      params: {
+        companyID,
+        database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+    });
+  } catch (error) {
+    console.error('Error:', error);
+  }
 }
 
 function mqttPublish(msg) {
@@ -836,30 +713,4 @@ function mqttPublishRepeat(msg) {
   //console.log(msg);
 }
 
-function obtenerCantidadDeValores(): number {
-  // Implementa la lógica para obtener la cantidad de valores
-  // Por ejemplo, supongamos que aquí obtienes la cantidad de valores de algún lugar
-  // Si no puedes obtener la cantidad en este momento, puedes devolver un valor por defecto
-  return 0; // Retorna 0 por defecto en caso de que no puedas obtener la cantidad
-}
-
-function getTimeout(): number {
-  const cantidadDeValores = obtenerCantidadDeValores(); // Llama a la función para obtener la cantidad de valores
-  const timeout = cantidadDeValores * 1000; // Calcula el timeout en función de la cantidad de valores (1 segundo por cada valor)
-  if (timeout < 30000)
-    return 30000;
-  return timeout;
-}
-
-export {
-  mqttPublish,
-  mqttPublishRepeat
-}
-
-// bucle()
-//employes()
-//customers()
-//itemCategories()
-//items()
-//tickets()
-//signings()
+export { mqttPublish, mqttPublishRepeat };
