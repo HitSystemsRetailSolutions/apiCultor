@@ -190,7 +190,7 @@ export class salesFacturasService {
             quantity: line.Quantitat,
             unitPrice: line.UnitPrice,
             discountPercent: line.Descuento,
-            taxCode: itemAPI.data.value[0].VATProductPostingGroup,
+            taxCode: `IVA${line.Iva}`,
           };
           url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${BC_facturaId})/${endpointline}?$filter=lineObjectNumber eq '${line.Plu}' and quantity eq ${line.Quantitat}`;
         } else {

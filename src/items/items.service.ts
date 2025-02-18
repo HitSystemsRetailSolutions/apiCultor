@@ -125,7 +125,7 @@ export class itemsService {
     if (res.data.value.length > 0) {
       const existingItem = res.data.value[0];
       console.log('itemAPI existente', existingItem.displayName);
-      return { data: { value: [existingItem] } }; // Estandarizar el retorno
+      return { data: { value: [existingItem] } };
     }
 
     let item;
