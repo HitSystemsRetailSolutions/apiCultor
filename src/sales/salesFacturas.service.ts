@@ -99,7 +99,7 @@ export class salesFacturasService {
                 customerId: customerId,
               };
             }
-            console.log(invoiceData);
+
             const newFacturas = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}`, invoiceData, {
               headers: {
                 Authorization: 'Bearer ' + token,

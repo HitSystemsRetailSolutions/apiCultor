@@ -32,7 +32,6 @@ export class salesTicketsService {
         database,
       );
       console.log(`Rango de num_tick entre ${horaAnterior} y ${horaActual}`);
-      console.log(sqlRangoTicket.recordset);
 
       const sqlVentas = await this.sqlService.runSql(
         `;WITH PrecioUnitarioCalculado AS (
@@ -79,7 +78,6 @@ export class salesTicketsService {
 
       console.log(`-------------------SINCRONIZANDO VENTAS ${numFactura} -----------------------`);
       const customerId = await this.customers.getCustomerFromAPI(companyID, database, `22222222T`, client_id, client_secret, tenant, entorno);
-      console.log('customerId', customerId);
 
       let res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${numFactura}'`, {
         headers: {

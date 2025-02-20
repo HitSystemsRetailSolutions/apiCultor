@@ -142,7 +142,6 @@ export class itemsService {
     }
 
     const newItem = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-    console.log(`itemId nuevo : ${newItem}`);
     if (newItem) {
       itemId = String(newItem);
       return itemId;

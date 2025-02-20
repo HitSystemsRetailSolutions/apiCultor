@@ -18,8 +18,6 @@ export class locationsService {
   ) {}
 
   async syncLocations(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, codiHIT?: string) {
-    console.log('Sincronizando almacenes...');
-
     let locations;
     try {
       if (codiHIT) {
@@ -122,11 +120,9 @@ export class locationsService {
 
     if (res.data.value.length > 0) {
       locationCode = res.data.value[0].code;
-      console.log(`locationCode existente : ${locationCode}`);
       return true;
     }
     const newLocation = await this.syncLocations(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-    console.log(`locationCode nuevo : ${newLocation}`);
     return true;
   }
 
