@@ -64,8 +64,8 @@ export class contactsSilemaService {
         if (querySincro.recordset.length == 0) {
           // Insert clients
           let sqlInsert = `INSERT INTO clientsFinals 
-        (Id, Nom, Telefon, Adreca, emili, Nif, IdExterna) VALUES
-        ('${Id}', '${Nom}', '${Telefon}', '${Adreca}', '${emili}', '${Nif}', '${IdExterna}')`
+          (Id, Nom, Telefon, Adreca, emili, Nif, IdExterna) VALUES
+          ('${Id}', '${Nom}', '${Telefon}', '${Adreca}', '${emili}', '${Nif}', '${IdExterna}')`
           //console.log(sqlInsert)
 
           let TipoDato = "clientFinal"
@@ -74,15 +74,15 @@ export class contactsSilemaService {
           let IdEmpresaBc = companyID;
           let IdEmpresaHit = database;
           sqlSincroIds = `INSERT INTO BC_SincroIds 
-        (TmSt, TipoDato, IdBc, IdHit, IdEmpresaBc, IdEmpresaHit) VALUES
-        (GETDATE(), '${TipoDato}', '${IdBc}', '${IdHit}', '${IdEmpresaBc}', '${IdEmpresaHit}')`
+          (TmSt, TipoDato, IdBc, IdHit, IdEmpresaBc, IdEmpresaHit) VALUES
+          (GETDATE(), '${TipoDato}', '${IdBc}', '${IdHit}', '${IdEmpresaBc}', '${IdEmpresaHit}')`
 
 
           try {
             let sqlCheck = `SELECT * FROM clientsFinals WHERE emili = '${emili}'`
             let queryCheck = await this.sql.runSql(sqlCheck, database)
             let sqlInserted = false;
-            if (queryCheck.recordset.length == 0) {
+            if (queryCheck.recordset.length == 0 && !sqlInserted) {
               let queryInsert = await this.sql.runSql(sqlInsert, database);
               let queryInsertSincro = await this.sql.runSql(sqlSincroIds, database);
 
@@ -153,8 +153,7 @@ export class contactsSilemaService {
                   "If-Match": "*",
                 },
               });
-            }
-            else {
+            } else {
               sqlCheck = `SELECT * FROM clientsFinals WHERE Id = '${Id}'`;
               queryCheck = await this.sql.runSql(sqlCheck, database);
               if (queryCheck.recordset.length == 0 && !sqlInserted) {
@@ -171,19 +170,20 @@ export class contactsSilemaService {
                     "If-Match": "*",
                   },
                 });
-              }
-              else {
+              } else if(!sqlInserted) {
                 console.log("El cliente ya existe en la base de datos");
-                let sqlUpdate = ` UPDATE clientsFinals SET 
-                    Nom = '${Nom}', 
-                    Telefon = '${Telefon}', 
-                    Adreca = '${Adreca}', 
-                    emili = '${emili}', 
-                    Nif = '${Nif}'
-                    WHERE Id = '${Id}'; `;
+                let sqlUpdate = `UPDATE clientsFinals SET 
+                Nom = '${Nom}', 
+                Telefon = '${Telefon}', 
+                Adreca = '${Adreca}', 
+                emili = '${emili}', 
+                Nif = '${Nif}'
+                WHERE Id = '${Id}';`;
+                console.log(`SQL: ${sqlUpdate}`)
                 try {
                   let queryInsert = await this.sql.runSql(sqlUpdate, database)
                   let queryInsertSincro = await this.sql.runSql(sqlSincroIds, database);
+                  //console.log("Cliente en la base de datos actualizado")
                   const data = {
                     processedHIT: true
                   };
@@ -202,7 +202,7 @@ export class contactsSilemaService {
               }
             }
           } catch (error) {
-            throw new Error('Failed to put contact');
+            throw new Error(`Failed to put contact. COMPANY: ${companyID}`);
           }
           console.log("Contact procesado")
         }
