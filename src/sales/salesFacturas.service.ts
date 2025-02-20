@@ -29,7 +29,7 @@ export class salesFacturasService {
 
   async getSaleFromAPI(companyID, docNumber, endpoint, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
-      const token = await this.token.getToken();
+      const token = await this.token.getToken2(client_id, client_secret, tenant);
       const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=externalDocumentNumber eq '${docNumber}'`, {
         headers: {
           Authorization: 'Bearer ' + token,
@@ -44,7 +44,7 @@ export class salesFacturasService {
 
   async syncSalesFacturas(companyID: string, database: string, idFacturas: string[], tabla: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
-      const token = await this.token.getToken();
+      const token = await this.token.getToken2(client_id, client_secret, tenant);
       const tabFacturacioIVA = `[FACTURACIO_${tabla}_IVA]`;
       const tabFacturacioDATA = `[FACTURACIO_${tabla}_DATA]`;
       let i = 1;
@@ -113,24 +113,30 @@ export class salesFacturasService {
               if (x.Total < 0 && x.ClientNif != '22222222J') {
                 const sqlQ = `SELECT SUBSTRING(Comentari, CHARINDEX('[RECTIFICATIVA_DE:', Comentari) + 18, CHARINDEX(']', Comentari, CHARINDEX('[RECTIFICATIVA_DE:', Comentari)) - CHARINDEX('[RECTIFICATIVA_DE:', Comentari) - 18) AS rectificativa from FacturacioComentaris WHERE idFactura = '${idFactura}'`;
                 const facturaComentari = await this.sql.runSql(sqlQ, database);
-                console.log(facturaComentari.recordset[0].rectificativa);
-                const correctedInvoice = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${facturaComentari}' `, {
-                  headers: {
-                    Authorization: 'Bearer ' + token,
-                    'Content-Type': 'application/json',
+                const correctedInvoice = await axios.get(
+                  `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${facturaComentari.recordset[0].rectificativa}' `,
+                  {
+                    headers: {
+                      Authorization: 'Bearer ' + token,
+                      'Content-Type': 'application/json',
+                    },
                   },
-                });
+                );
                 const updateData = {
                   CorrectedInvoiceNo: correctedInvoice.data.value[0].number,
                 };
-
-                const updateCreditMemo = await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/salesHeader(${newFacturas.data.id})`, updateData, {
-                  headers: {
-                    Authorization: 'Bearer ' + token,
-                    'Content-Type': 'application/json',
-                    'If-Match': '*',
+                //Esto solo funciona si la factura a la que corrige ya está registrada en BC
+                const updateCreditMemo = await axios.patch(
+                  `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/salesHeader(${newFacturas.data.id})`,
+                  updateData,
+                  {
+                    headers: {
+                      Authorization: 'Bearer ' + token,
+                      'Content-Type': 'application/json',
+                      'If-Match': '*',
+                    },
                   },
-                });
+                );
               }
             } catch (error) {
               console.error('Error updating credit memo:', error.response?.data || error.message);
@@ -172,20 +178,31 @@ export class salesFacturasService {
     }
   }
 
-  async synchronizeSalesFacturasLines(companyID, database, endpoint, endpointline, tabFacturacioDATA, Hit_IdFactura, BC_facturaId, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async synchronizeSalesFacturasLines(
+    companyID,
+    database,
+    endpoint,
+    endpointline,
+    tabFacturacioDATA,
+    Hit_IdFactura,
+    BC_facturaId,
+    client_id: string,
+    client_secret: string,
+    tenant: string,
+    entorno: string,
+  ) {
     try {
-      const token = await this.token.getToken();
+      const token = await this.token.getToken2(client_id, client_secret, tenant);
       const sqlQ = `SELECT SUM(CASE WHEN f.Servit = 0 THEN f.Tornat * -1 ELSE f.Servit END) AS Quantitat, round(f.preu,3) AS UnitPrice, CAST(f.Producte AS VARCHAR) AS Plu , f.desconte as Descuento, f.iva as Iva, f.ProducteNom as Nombre FROM ${tabFacturacioDATA} f WHERE f.idFactura = '${Hit_IdFactura}' GROUP BY f.Producte,f.Desconte,f.Preu,f.Iva,f.ProducteNom;`;
       const facturasLines = await this.sql.runSql(sqlQ, database);
       for (const line of facturasLines.recordset) {
-        console.log(`Sincronizando línea de factura para el producto: ${line.Plu}`);
         const itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
         let lineData;
         let url;
-        if (itemAPI && itemAPI.data?.value?.length > 0) {
+        if (itemAPI) {
           lineData = {
             documentId: BC_facturaId,
-            itemId: itemAPI.data.value[0].id,
+            itemId: itemAPI,
             lineType: 'Item',
             quantity: line.Quantitat,
             unitPrice: line.UnitPrice,
@@ -194,6 +211,7 @@ export class salesFacturasService {
           };
           url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${BC_facturaId})/${endpointline}?$filter=lineObjectNumber eq '${line.Plu}' and quantity eq ${line.Quantitat}`;
         } else {
+          const sanitizedDescription = line.Nombre.replace(/'/g, "''");
           lineData = {
             documentId: BC_facturaId,
             lineObjectNumber: line.Quantitat > 0 ? '7000001' : '7090001',
@@ -204,7 +222,7 @@ export class salesFacturasService {
             discountPercent: line.Descuento,
             taxCode: `IVA${line.Iva}`,
           };
-          url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${BC_facturaId})/${endpointline}?$filter=description eq '${line.Nombre}' and quantity eq ${line.Quantitat}`;
+          url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${BC_facturaId})/${endpointline}?$filter=description eq '${sanitizedDescription}' and quantity eq ${line.Quantitat}`;
         }
         const res = await axios.get(url, {
           headers: {
@@ -216,7 +234,7 @@ export class salesFacturasService {
         if (!res.data) throw new Error('Failed to get factura line');
 
         if (res.data.value.length === 0) {
-          console.log('Línea de factura no encontrada, creando nueva línea...');
+          console.log('Línea de factura no encontrada, creando nueva línea para el producto ', line.Plu);
           await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${BC_facturaId})/${endpointline}`, lineData, {
             headers: {
               Authorization: 'Bearer ' + token,
@@ -224,7 +242,7 @@ export class salesFacturasService {
             },
           });
         } else {
-          console.log('Línea de factura encontrada, actualizando línea existente...');
+          console.log('Línea de factura encontrada, actualizando línea existente para el producto ', line.Plu);
           const etag = res.data.value[0]['@odata.etag'];
           await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${BC_facturaId})/${endpointline}(${res.data.value[0].id})`, lineData, {
             headers: {
@@ -240,7 +258,7 @@ export class salesFacturasService {
     }
   }
   async generateXML(companyID, idFactura, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    let token = await this.token.getToken();
+    const token = await this.token.getToken2(client_id, client_secret, tenant);
     // Ejemplo de uso:
     let res = await axios
       .get(

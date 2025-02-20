@@ -23,15 +23,15 @@ export class locationsService {
     let locations;
     try {
       if (codiHIT) {
-      locations = await this.sqlService.runSql(
-        `SELECT c.codi AS CODIGO, c.Nom AS NOMBRE, c.Adresa AS DIRECCION, c.Ciutat AS CIUDAD, c.Cp AS CP, c2_email.valor AS EMAIL, c2_tel.valor AS TELEFONO
+        locations = await this.sqlService.runSql(
+          `SELECT c.codi AS CODIGO, c.Nom AS NOMBRE, c.Adresa AS DIRECCION, c.Ciutat AS CIUDAD, c.Cp AS CP, c2_email.valor AS EMAIL, c2_tel.valor AS TELEFONO
         FROM clients c
         INNER JOIN ParamsHw ph ON ph.codi = c.codi
         LEFT JOIN ConstantsClient c2_email ON c2_email.codi = c.codi AND c2_email.variable = 'eMail'
         LEFT JOIN ConstantsClient c2_tel ON c2_tel.codi = c.codi AND c2_tel.variable = 'tel'
         WHERE c.codi = ${codiHIT};`,
-        database,
-      );
+          database,
+        );
       } else {
         locations = await this.sqlService.runSql(
           `SELECT c.codi AS CODIGO, c.Nom AS NOMBRE, c.Adresa AS DIRECCION, c.Ciutat AS CIUDAD, c.Cp AS CP, c2_email.valor AS EMAIL, c2_tel.valor AS TELEFONO
@@ -54,6 +54,7 @@ export class locationsService {
     }
 
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
+    let locationID = '';
     let i = 1;
     for (const location of locations.recordset) {
       try {
@@ -68,7 +69,7 @@ export class locationsService {
           email: `${location.EMAIL}`,
         };
 
-        const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyID}')/locationS?$filter=code eq '${location.CODIGO}'`, {
+        const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/locations?$filter=code eq '${location.CODIGO}'`, {
           headers: {
             Authorization: 'Bearer ' + token,
             'Content-Type': 'application/json',
@@ -76,21 +77,23 @@ export class locationsService {
         });
 
         if (res.data.value.length == 0) {
-          await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyID}')/locations`, locationData, {
+          const createLocation = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/locations`, locationData, {
             headers: {
               Authorization: 'Bearer ' + token,
               'Content-Type': 'application/json',
             },
           });
+          locationID = createLocation.data.id;
         } else {
           const etag = res.data.value[0]['@odata.etag'];
-          await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyID}')/locations(${res.data.value[0].id})`, locationData, {
+          await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/locations(${res.data.value[0].id})`, locationData, {
             headers: {
               Authorization: 'Bearer ' + token,
               'Content-Type': 'application/json',
               'If-Match': etag,
             },
           });
+          locationID = res.data.value[0].id;
         }
       } catch (error) {
         this.logError(`Error processing location ${location.Nombre}`, error);
@@ -99,13 +102,16 @@ export class locationsService {
       console.log(`Synchronizing location ${location.Nombre} ... -> ${i}/${locations.recordset.length} --- ${((i / locations.recordset.length) * 100).toFixed(2)}% `);
       i++;
     }
+    if (codiHIT) {
+      return locationID;
+    }
     return true;
   }
 
   async getLocationFromAPI(companyID, database, codiHIT, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let locationCode = '';
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
-    let res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/locations?$filter=code eq '${codiHIT}'`, {
+    let res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/locations?$filter=code eq '${codiHIT}'`, {
       headers: {
         Authorization: 'Bearer ' + token,
         'Content-Type': 'application/json',
@@ -117,11 +123,11 @@ export class locationsService {
     if (res.data.value.length > 0) {
       locationCode = res.data.value[0].code;
       console.log(`locationCode existente : ${locationCode}`);
-      return locationCode;
+      return true;
     }
     const newLocation = await this.syncLocations(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-    console.log(`locationCode nuevo : ${locationCode}`);
-    return locationCode;
+    console.log(`locationCode nuevo : ${newLocation}`);
+    return true;
   }
 
   private logError(message: string, error: any) {

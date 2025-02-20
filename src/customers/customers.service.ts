@@ -90,12 +90,15 @@ export class customersService {
       });
       if (!res.data) throw new Error(`Failed to get data from CustomerBankAccount`);
       if (res.data.value.length === 0) {
-        const lastNumber = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/CustomerBankAccount?$filter=IBAN eq '${IBAN}' and number eq '${client}'&$orderby=code desc&$top=1`, {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
+        const lastNumber = await axios.get(
+          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/CustomerBankAccount?$filter=IBAN eq '${IBAN}' and number eq '${client}'&$orderby=code desc&$top=1`,
+          {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
           },
-        });
+        );
 
         const newCode = lastNumber.data.value.length === 0 ? 1 : lastNumber.data.value[0].code + 1;
         const bankAccountData = {
@@ -125,12 +128,15 @@ export class customersService {
 
   async getPaymentDays(day: string, client: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
-    let res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${client}'&$expand=paymentDays($filter=day eq ${day})`, {
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
+    let res = await axios.get(
+      `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${client}'&$expand=paymentDays($filter=day eq ${day})`,
+      {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
       },
-    });
+    );
     if (!res.data.value[0].paymentDays) throw new Error(`Failed to get data from PaymentDays`);
     if (res.data.value[0].paymentDays.length === 0) {
       const paymentDaysData = {
@@ -138,7 +144,7 @@ export class customersService {
         day: `${day}`,
         table: 'Customer',
       };
-      const newPaymentDay = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/paymentDays`, paymentDaysData, {
+      await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/paymentDays`, paymentDaysData, {
         headers: {
           Authorization: 'Bearer ' + token,
           'Content-Type': 'application/json',
@@ -152,7 +158,6 @@ export class customersService {
     let customers;
     try {
       if (codiHIT) {
-        const cleanedCodiHIT = codiHIT.replace(/-Tienda$/, '').trim();
         customers = await this.sqlService.runSql(
           `;WITH ClienteMare AS (
             SELECT c1.codi AS CODIGO, 
@@ -163,7 +168,8 @@ export class customersService {
           )
           SELECT c1.codi AS CODIGO, c1.[Nom Llarg] AS NOMBREFISCAL, c1.[Nom] AS NOMBRE, c1.Nif AS NIF, c1.Adresa AS DIRECCION, c1.Ciutat AS CIUDAD, c1.Cp AS CP, c2_email.valor AS EMAIL, c2_tel.valor AS TELEFONO, c2_IBAN.valor AS IBAN,
                  CASE cc4.valor WHEN '1' THEN 'DOM.' WHEN '2' THEN 'CHEQUE' WHEN '3' THEN 'EFECTIVO' WHEN '4' THEN 'TRANSF.' ELSE 'UNDEFINED' END AS FORMAPAGO, c2_diaPago.Valor AS DIAPAGO,
-                 CASE c2_venciment.valor WHEN '' THEN 'CON' ELSE c2_venciment.valor + ' DÍAS' END as TERMINOPAGO, CASE WHEN COALESCE(NULLIF(ph.Valor1, ''), NULL) IS NULL THEN 'NO' ELSE 'SI' END AS esTienda
+                 CASE c2_venciment.valor WHEN '' THEN 'CON' ELSE c2_venciment.valor + ' DÍAS' END as TERMINOPAGO, CASE WHEN COALESCE(NULLIF(ph.Valor1, ''), NULL) IS NULL THEN 'NO' ELSE 'SI' END AS esTienda,
+                 CASE c1.[Tipus Iva] WHEN '2' THEN 'si' ELSE 'no' END as recargo
           FROM ClienteMare cm
           JOIN Clients c1 ON c1.codi = cm.CODIGO_MARE
           LEFT JOIN ConstantsClient c2_email ON c2_email.codi = c1.codi AND c2_email.variable = 'eMail'
@@ -173,8 +179,8 @@ export class customersService {
           LEFT JOIN ConstantsClient c2_diaPago ON c2_diaPago.codi = c1.codi AND c2_diaPago.variable = 'DiaPagament'
           LEFT JOIN ConstantsClient c2_venciment ON c2_venciment.codi = c1.codi AND c2_venciment.variable = 'Venciment'
           LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
-          WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' and c1.codi = '${cleanedCodiHIT}'
-          GROUP BY c1.codi, c1.[Nom Llarg], c1.Nif, c1.Adresa, c1.Ciutat, c1.Cp, c2_email.valor, c2_tel.valor, c2_IBAN.valor, cc4.valor, c1.nom,c2_diaPago.Valor,c2_venciment.valor,ph.Valor1
+          WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' and c1.codi = '${codiHIT}'
+          GROUP BY c1.codi, c1.[Nom Llarg], c1.Nif, c1.Adresa, c1.Ciutat, c1.Cp, c2_email.valor, c2_tel.valor, c2_IBAN.valor, cc4.valor, c1.nom,c2_diaPago.Valor,c2_venciment.valor,ph.Valor1,c1.[Tipus Iva]
           ORDER BY c1.codi;`,
           database,
         );
@@ -189,7 +195,8 @@ export class customersService {
         )
         SELECT c1.codi AS CODIGO, c1.[Nom Llarg] AS NOMBREFISCAL, c1.[Nom] AS NOMBRE, c1.Nif AS NIF, c1.Adresa AS DIRECCION, c1.Ciutat AS CIUDAD, c1.Cp AS CP, c2_email.valor AS EMAIL, c2_tel.valor AS TELEFONO, c2_IBAN.valor AS IBAN,
                CASE cc4.valor WHEN '1' THEN 'DOM.' WHEN '2' THEN 'CHEQUE' WHEN '3' THEN 'EFECTIVO' WHEN '4' THEN 'TRANSF.' ELSE 'UNDEFINED' END AS FORMAPAGO, c2_diaPago.Valor AS DIAPAGO,
-			         CASE c2_venciment.valor WHEN '' THEN 'CON' ELSE c2_venciment.valor + ' DÍAS' END as TERMINOPAGO, CASE WHEN COALESCE(NULLIF(ph.Valor1, ''), NULL) IS NULL THEN 'NO' ELSE 'SI' END AS esTienda
+			         CASE c2_venciment.valor WHEN '' THEN 'CON' ELSE c2_venciment.valor + ' DÍAS' END as TERMINOPAGO, CASE WHEN COALESCE(NULLIF(ph.Valor1, ''), NULL) IS NULL THEN 'NO' ELSE 'SI' END AS esTienda,
+               CASE c1.[Tipus Iva] WHEN '2' THEN 'si' ELSE 'no' END as recargo
         FROM ClienteMare cm
         JOIN Clients c1 ON c1.codi = cm.CODIGO_MARE
         LEFT JOIN ConstantsClient c2_email ON c2_email.codi = c1.codi AND c2_email.variable = 'eMail'
@@ -200,7 +207,7 @@ export class customersService {
         LEFT JOIN ConstantsClient c2_venciment ON c2_venciment.codi = c1.codi AND c2_venciment.variable = 'Venciment'
         LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
         WHERE c1.Nif IS NOT NULL AND c1.Nif <> ''
-        GROUP BY c1.codi, c1.[Nom Llarg], c1.Nif, c1.Adresa, c1.Ciutat, c1.Cp, c2_email.valor, c2_tel.valor, c2_IBAN.valor, cc4.valor, c1.nom,c2_diaPago.Valor,c2_venciment.valor,ph.Valor1
+        GROUP BY c1.codi, c1.[Nom Llarg], c1.Nif, c1.Adresa, c1.Ciutat, c1.Cp, c2_email.valor, c2_tel.valor, c2_IBAN.valor, cc4.valor, c1.nom,c2_diaPago.Valor,c2_venciment.valor,ph.Valor1,c1.[Tipus Iva]
         ORDER BY c1.codi;`,
           database,
         );
@@ -219,7 +226,6 @@ export class customersService {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
 
     let customerId = '';
-    let customerIdTienda = '';
     let i = 1;
     for (const customer of customers.recordset) {
       try {
@@ -229,7 +235,7 @@ export class customersService {
 
         const customerData1 = {
           number: `${customer.CODIGO}`,
-          displayName: `${customer.NOMBREFISCAL}`,
+          displayName: `${customer.NOMBREFISCAL}` || `${customer.NOMBRE}`,
           type: 'Company',
           addressLine1: `${customer.DIRECCION}`,
           city: `${customer.CIUDAD}`,
@@ -246,6 +252,7 @@ export class customersService {
           languageCode: 'ESP',
           customerPostingGroup: 'NAC',
           pricesIncludingVAT: 'false',
+          equivalenceCharge: customer.recargo === 'si' ? 'true' : 'false',
         };
         let res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${customer.CODIGO}'`, {
           headers: {
@@ -301,50 +308,11 @@ export class customersService {
           });
           customerId = res.data.value[0].id;
         }
-
-        if (customer.esTienda === 'SI') {
-          const customerDataTienda = {
-            ...customerData1,
-            number: `${customer.CODIGO}-Tienda`,
-            displayName: `${customer.NOMBREFISCAL} - Tienda`,
-            pricesIncludingVAT: 'true', // Ajuste específico para tiendas
-          };
-
-          const resTienda = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${customer.CODIGO}-Tienda'`, {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (resTienda.data.value.length === 0) {
-            const createTienda = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers`, customerDataTienda, {
-              headers: {
-                Authorization: 'Bearer ' + token,
-                'Content-Type': 'application/json',
-              },
-            });
-            customerIdTienda = createTienda.data.id;
-          } else {
-            const etag = resTienda.data.value[0]['@odata.etag'];
-            const updateTienda = await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers(${resTienda.data.value[0].id})`, customerDataTienda, {
-              headers: {
-                Authorization: 'Bearer ' + token,
-                'Content-Type': 'application/json',
-                'If-Match': etag,
-              },
-            });
-            customerIdTienda = resTienda.data.value[0].id;
-          }
-        }
       } catch (error) {
         this.logError(`Failed to sync customer ${customer.CODIGO}:`, error);
       }
       console.log(`Synchronizing customer ${customer.NOMBREFISCAL} ... -> ${i}/${customers.recordset.length} --- ${((i / customers.recordset.length) * 100).toFixed(2)}% `);
       i++;
-    }
-    if (codiHIT && codiHIT.includes('Tienda')) {
-      return customerIdTienda;
     }
     if (codiHIT) {
       return customerId;
@@ -361,13 +329,12 @@ export class customersService {
         'Content-Type': 'application/json',
       },
     });
-
     if (!res.data) throw new Error('Failed to obtain customer');
 
     if (res.data.value.length > 0) {
-      const existingCustomer = res.data.value[0].id;
-      console.log('customerAPI existente', existingCustomer);
-      return existingCustomer;
+      customerId = res.data.value[0].id;
+      console.log('customerAPI existente', customerId);
+      return customerId;
     }
 
     const newCustomer = await this.syncCustomers(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);

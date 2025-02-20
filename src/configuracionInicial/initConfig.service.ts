@@ -23,6 +23,7 @@ export class initConfigService {
       await this.paymentMethods(companyID, database, client_id, client_secret, tenant, entorno);
       await this.syncTaxGroups(companyID, database, client_id, client_secret, tenant, entorno);
       await this.syncVATPostingSetup(companyID, database, client_id, client_secret, tenant, entorno);
+      await this.createClientesContado(companyID, database, client_id, client_secret, tenant, entorno);
       return true;
     } catch (error) {
       this.logError('Error configuring:', error);
@@ -48,7 +49,7 @@ export class initConfigService {
           },
         });
         if (res.data.value.length === 0) {
-          const createPaymentMethod = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/paymentMethods`, paymentMethodData, {
+          await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/paymentMethods`, paymentMethodData, {
             headers: {
               Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json',
@@ -90,36 +91,39 @@ export class initConfigService {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let i = 1;
     for (const iva of ivas.recordset) {
-      try {
-        const ivaData = {
-          code: `IVA${iva.Iva}`,
-          displayName: `IVA ${iva.Iva}%`,
-        };
-        const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxGroups?$filter=code eq 'IVA${iva.Iva}'`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        if (res.data.value.length === 0) {
-          const createIva = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxGroups`, ivaData, {
+      for (const suffix of ['', 'RE']) {
+        try {
+          const ivaCode = `IVA${iva.Iva}${suffix}`;
+          const ivaData = {
+            code: ivaCode,
+            displayName: `IVA ${iva.Iva}%${suffix ? ' + RE' : ''}`,
+          };
+          const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxGroups?$filter=code eq '${ivaCode}'`, {
             headers: {
               Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
           });
-        } else {
-          const etag = res.data.value[0]['@odata.etag'];
-          await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxGroups(${res.data.value[0].id})`, ivaData, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-              'If-Match': etag,
-            },
-          });
+          if (res.data.value.length === 0) {
+            await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxGroups`, ivaData, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+          } else {
+            const etag = res.data.value[0]['@odata.etag'];
+            await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxGroups(${res.data.value[0].id})`, ivaData, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'If-Match': etag,
+              },
+            });
+          }
+        } catch (error) {
+          this.logError(`Error al crear el IVA ${iva.Iva}${suffix ? ' + RE' : ''}`, error);
         }
-      } catch (error) {
-        this.logError(`Error al crear el IVA ${iva.Iva}`, error);
       }
       console.log(`Synchronizing IVA ${iva.Iva} ... -> ${i}/${ivas.recordset.length} --- ${((i / ivas.recordset.length) * 100).toFixed(2)}% `);
       i++;
@@ -144,123 +148,102 @@ export class initConfigService {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let i = 1;
     for (const iva of ivas.recordset) {
-      try {
-        const ivaData = {
-          vatBusPostingGroup: 'NAC',
-          vatProdPostingGroup: `IVA${iva.Iva}`,
-          vatCalculationType: 'Normal_x0020_VAT',
-          adjustForPaymentDiscount: false,
-          salesVATAccount: '4770001',
-          purchaseVATAccount: '4720001',
-          vatIdentifier: `IVA${iva.Iva}`,
-          taxCategory: 'S',
-          description: `NAC / IVA${iva.Iva}`,
-          RE: 0,
-          vat: iva.Iva,
-        };
-        const resIva = await axios.get(
-          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VATPostingSetup?$filter=vatIdentifier eq 'IVA${iva.Iva}' and vatBusPostingGroup eq 'NAC' and vatProdPostingGroup eq 'IVA${iva.Iva}'`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
+      for (const suffix of ['', 'RE']) {
+        try {
+          const ivaCode = `IVA${iva.Iva}${suffix}`;
+          const ivaData = {
+            vatBusPostingGroup: 'NAC',
+            vatProdPostingGroup: ivaCode,
+            vatCalculationType: 'Normal_x0020_VAT',
+            adjustForPaymentDiscount: false,
+            salesVATAccount: '4770001',
+            purchaseVATAccount: '4720001',
+            vatIdentifier: ivaCode,
+            taxCategory: 'S',
+            description: `NAC / ${ivaCode}`,
+            RE: suffix ? iva.RE : 0,
+            vat: iva.Iva,
+          };
+          const resIva = await axios.get(
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VATPostingSetup?$filter=vatIdentifier eq '${ivaCode}' and vatBusPostingGroup eq 'NAC' and vatProdPostingGroup eq '${ivaCode}'`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
             },
-          },
-        );
+          );
 
-        if (resIva.data.value.length === 0) {
-          const createIva = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VATPostingSetup`, ivaData, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
-        } else {
-          const etag = resIva.data.value[0]['@odata.etag'];
-          //Si ya se han hecho movimientos con el IVA no se puede modificar y esta petición dará error
-          await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VATPostingSetup(${resIva.data.value[0].id})`, ivaData, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-              'If-Match': etag,
-            },
-          });
+          if (resIva.data.value.length === 0) {
+            await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VATPostingSetup`, ivaData, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+          } else {
+            const etag = resIva.data.value[0]['@odata.etag'];
+            //Si ya se han hecho movimientos con el IVA no se puede modificar y esta petición dará error
+            await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VATPostingSetup(${resIva.data.value[0].id})`, ivaData, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'If-Match': etag,
+              },
+            });
+          }
+        } catch (error) {
+          this.logError(`Error al crear el IVA ${iva.Iva}${suffix ? ' + RE' : ''}`, error);
         }
-      } catch (error) {
-        this.logError(`Error al crear el IVA ${iva.Iva}`, error);
       }
       console.log(`Synchronizing iva ${iva.Iva} en VAT Posting Setup  ... -> ${i}/${ivas.recordset.length} --- ${((i / ivas.recordset.length) * 100).toFixed(2)}% `);
       i++;
     }
   }
-  async syncVATPostingSetupRE(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    let ivas;
-    try {
-      ivas = await this.sqlService.runSql(`select Iva, Irpf as RE from TipusIva order by Iva`, database);
-    } catch (error) {
-      this.logError(`Database '${database}' does not exist`, error);
-      return false;
-    }
 
-    if (ivas.recordset.length == 0) {
-      this.client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
-      console.log('Ivas. No hay registros');
-      return false;
-    }
-
+  async createClientesContado(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
-    let i = 1;
-    for (const iva of ivas.recordset) {
-      try {
-        const ivaREData = {
-          vatBusPostingGroup: 'NAC',
-          vatProdPostingGroup: `IVA${iva.Iva}RE`,
-          vatCalculationType: 'Normal_x0020_VAT',
-          adjustForPaymentDiscount: false,
-          salesVATAccount: '4770001',
-          purchaseVATAccount: '4720001',
-          vatIdentifier: `IVA${iva.Iva}RE`,
-          taxCategory: 'S',
-          description: `NAC / IVA${iva.Iva}RE`,
-          RE: iva.RE,
-          vat: iva.Iva,
-        };
+    const customerData = {
+      number: `22222222T`,
+      displayName: `CLIENTES CONTADO TIENDAS`,
+      type: 'Company',
+      addressLine1: `.`,
+      city: `.`,
+      country: 'ES',
+      taxRegistrationNumber: `22222222T`,
+      currencyCode: 'EUR',
+      formatRegion: 'es-ES_tradnl',
+      languageCode: 'ESP',
+      customerPostingGroup: 'NAC',
+      pricesIncludingVAT: 'true',
+    };
 
-        const resIvaRE = await axios.get(
-          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VATPostingSetup?$filter=vatIdentifier eq 'IVA${iva.Iva}RE' and vatBusPostingGroup eq 'NAC' and vatProdPostingGroup eq 'IVA${iva.Iva}RE'`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          },
-        );
+    let res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '22222222T'`, {
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+    });
 
-        if (resIvaRE.data.value.length === 0) {
-          const createIva = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VATPostingSetup`, ivaREData, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
-        } else {
-          const etag = resIvaRE.data.value[0]['@odata.etag'];
-          await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VATPostingSetup(${resIvaRE.data.value[0].id})`, ivaREData, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-              'If-Match': etag,
-            },
-          });
-        }
-      } catch (error) {
-        this.logError(`Error al crear el IVA con RE ${iva.Iva}`, error);
-      }
-      console.log(`Synchronizing iva ${iva} en VAT Posting Setup RE ... -> ${i}/${ivas.recordset.length} --- ${((i / ivas.recordset.length) * 100).toFixed(2)}% `);
-      i++;
+    if (res.data.value.length == 0) {
+      await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers`, customerData, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+    } else {
+      const etag = res.data.value[0]['@odata.etag'];
+      await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`, customerData, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+          'If-Match': etag,
+        },
+      });
     }
+    console.log('Cliente contado creado');
   }
-
   private logError(message: string, error: any) {
     this.client.publish('/Hit/Serveis/Apicultor/Log', message);
     console.error(message, error);

@@ -169,7 +169,14 @@ export class PdfService {
 
     try {
       for (let i = 0; i < chunks.length; i++) {
-        const sql = `UPDATE BC_SyncSales_2024 SET BC_PDF=0x${chunks[i]} WHERE BC_IdSale='${id}'`;
+        const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        });
+        const year = res.data.value[0].postingDate.split('-')[0];
+        const sql = `UPDATE BC_SyncSales_2024 SET BC_PDF=0x${chunks[i]}, BC_Number=${res.data.value[0].Number} WHERE BC_IdSale='${id}'`;
         let pdf;
         try {
           pdf = await this.sql.runSql(sql, database);
@@ -177,47 +184,47 @@ export class PdfService {
           console.log('Error');
         }
       }
-      let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`;
-      let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})/salesInvoiceLines`;
-      let res1 = await axios
-        .get(url1, {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        })
-        .catch((error) => {
-          throw new Error(`Failed get salesInvoices(${id})`);
-        });
-      let res2 = await axios
-        .get(url2, {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        })
-        .catch((error) => {
-          throw new Error(`Failed get salesInvoices(${id})/salesInvoiceLines`);
-        });
-      for (let i = 0; i < res2.data.value.length; i++) {
-        let x = res1.data;
-        let y = res2.data.value[i];
-        let año = x.invoiceDate.toString().split('-')[0];
-        let BC_Number = x.number;
-        let BC_TaxCode = y.taxCode;
-        let BC_TaxPercent = y.taxPercent;
-        let BC_AmountExcludingTax = y.amountExcludingTax;
-        let BC_TotalTaxAmount = y.totalTaxAmount;
-        let sql2 = `INSERT INTO [BC_SyncSalesTaxes_${año}] (ID, BC_Number, BC_TaxCode, BC_TaxPercent, BC_AmountExcludingTax, BC_TotalTaxAmount) VALUES 
-        (NEWID(), ${BC_Number}, '${BC_TaxCode}', ${BC_TaxPercent}, ${BC_AmountExcludingTax}, ${BC_TotalTaxAmount})`;
-        let factura;
-        try {
-          factura = await this.sql.runSql(sql2, database);
-        } catch {
-          console.log('Error');
-        }
-      }
-      return { msg: 'Se ha insertado correctamente' };
+      // let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`;
+      // let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})/salesInvoiceLines`;
+      // let res1 = await axios
+      //   .get(url1, {
+      //     headers: {
+      //       Authorization: 'Bearer ' + token,
+      //       'Content-Type': 'application/json',
+      //     },
+      //   })
+      //   .catch((error) => {
+      //     throw new Error(`Failed get salesInvoices(${id})`);
+      //   });
+      // let res2 = await axios
+      //   .get(url2, {
+      //     headers: {
+      //       Authorization: 'Bearer ' + token,
+      //       'Content-Type': 'application/json',
+      //     },
+      //   })
+      //   .catch((error) => {
+      //     throw new Error(`Failed get salesInvoices(${id})/salesInvoiceLines`);
+      //   });
+      // for (let i = 0; i < res2.data.value.length; i++) {
+      //   let x = res1.data;
+      //   let y = res2.data.value[i];
+      //   let año = x.invoiceDate.toString().split('-')[0];
+      //   let BC_Number = x.number;
+      //   let BC_TaxCode = y.taxCode;
+      //   let BC_TaxPercent = y.taxPercent;
+      //   let BC_AmountExcludingTax = y.amountExcludingTax;
+      //   let BC_TotalTaxAmount = y.totalTaxAmount;
+      //   let sql2 = `INSERT INTO [BC_SyncSalesTaxes_${año}] (ID, BC_Number, BC_TaxCode, BC_TaxPercent, BC_AmountExcludingTax, BC_TotalTaxAmount) VALUES
+      //   (NEWID(), ${BC_Number}, '${BC_TaxCode}', ${BC_TaxPercent}, ${BC_AmountExcludingTax}, ${BC_TotalTaxAmount})`;
+      //   let factura;
+      //   try {
+      //     factura = await this.sql.runSql(sql2, database);
+      //   } catch {
+      //     console.log('Error');
+      //   }
+      // }
+      // return { msg: 'Se ha insertado correctamente' };
     } catch (error) {
       console.error('Error al insertar el PDF en la base de datos:', error);
       throw error;

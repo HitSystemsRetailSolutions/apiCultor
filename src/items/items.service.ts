@@ -17,15 +17,24 @@ export class itemsService {
     private sqlService: runSqlService,
   ) {}
 
-  async syncItems(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async syncItems(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, codiHIT?: string) {
     let items;
     try {
-      items = await this.sqlService.runSql(
-        `SELECT a.Codi, a.Nom, a.Preu/(1+(t.Iva/100)) PreuSinIva, a.Preu, LEFT(a.Familia, 20) Familia, a.EsSumable, t.Iva 
+      if (codiHIT) {
+        items = await this.sqlService.runSql(
+          `SELECT a.Codi, a.Nom, a.Preu/(1+(t.Iva/100)) PreuSinIva, a.Preu, LEFT(a.Familia, 20) Familia, a.EsSumable, t.Iva 
+           FROM (SELECT codi, nom, preu, familia, esSumable, tipoIva FROM Articles UNION ALL SELECT codi, nom, preu, familia, esSumable, tipoIva FROM articles_Zombis) a 
+           LEFT JOIN tipusIva2012 t ON a.Tipoiva=t.Tipus WHERE a.codi= ${codiHIT}`,
+          database,
+        );
+      } else {
+        items = await this.sqlService.runSql(
+          `SELECT a.Codi, a.Nom, a.Preu/(1+(t.Iva/100)) PreuSinIva, a.Preu, LEFT(a.Familia, 20) Familia, a.EsSumable, t.Iva 
          FROM (SELECT codi, nom, preu, familia, esSumable, tipoIva FROM Articles UNION ALL SELECT codi, nom, preu, familia, esSumable, tipoIva FROM articles_Zombis) a 
          LEFT JOIN tipusIva2012 t ON a.Tipoiva=t.Tipus ORDER BY a.codi`,
-        database,
-      );
+          database,
+        );
+      }
     } catch (error) {
       this.logError(`Database '${database}' does not exist`, error);
       return false;
@@ -38,6 +47,7 @@ export class itemsService {
     }
 
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
+    let itemId = '';
     let i = 1;
     for (const item of items.recordset) {
       try {
@@ -76,10 +86,10 @@ export class itemsService {
             },
           });
 
-          const createdItemId = createItem.data.id;
+          itemId = createItem.data.id;
           const createdItemEtag = createItem.data['@odata.etag'];
 
-          await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${createdItemId})`, itemData2, {
+          await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${itemId})`, itemData2, {
             headers: {
               Authorization: 'Bearer ' + token,
               'Content-Type': 'application/json',
@@ -95,12 +105,16 @@ export class itemsService {
               'If-Match': etag,
             },
           });
+          itemId = res.data.value[0].id;
         }
       } catch (error) {
         this.logError(`Error processing item ${item.Nom}`, error);
       }
       console.log(`Synchronizing item ${item.Nom} ... -> ${i}/${items.recordset.length} --- ${((i / items.recordset.length) * 100).toFixed(2)}% `);
       i++;
+    }
+    if (codiHIT) {
+      return itemId;
     }
     return true;
   }
@@ -111,7 +125,7 @@ export class itemsService {
   }
 
   async getItemFromAPI(companyID, database, codiHIT, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    let itemAPI = '';
+    let itemId = '';
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq '${codiHIT}'`, {
       headers: {
@@ -123,65 +137,18 @@ export class itemsService {
     if (!res.data) throw new Error('Failed to obtain item');
 
     if (res.data.value.length > 0) {
-      const existingItem = res.data.value[0];
-      console.log('itemAPI existente', existingItem.displayName);
-      return { data: { value: [existingItem] } };
+      itemId = res.data.value[0].id;
+      return itemId;
     }
 
-    let item;
-    try {
-      item = await this.sqlService.runSql(
-        `SELECT a.Codi, a.Nom, a.Preu/(1+(t.Iva/100)) PreuSinIva, a.Preu, LEFT(a.Familia, 20) Familia, a.EsSumable, t.Iva 
-         FROM (SELECT codi, nom, preu, familia, esSumable, tipoIva FROM Articles UNION ALL SELECT codi, nom, preu, familia, esSumable, tipoIva FROM articles_Zombis) a 
-         LEFT JOIN tipusIva2012 t ON a.Tipoiva=t.Tipus WHERE a.codi= ${codiHIT}`,
-        database,
-      );
-    } catch (error) {
-      this.logError(`Database '${database}' does not exist`, error);
+    const newItem = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+    console.log(`itemId nuevo : ${newItem}`);
+    if (newItem) {
+      itemId = String(newItem);
+      return itemId;
+    }else{
       return false;
     }
-
-    if (item.recordset.length == 0) {
-      this.client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
-      console.log('Items. No hay registros');
-      return null;
-    }
-    const itemRes = item.recordset[0];
-    const baseUnitOfMeasure = this.getBaseUnitOfMeasure(itemRes.EsSumable);
-
-    const itemData1 = {
-      number: `${itemRes.Codi}`,
-      displayName: `${itemRes.Nom}`,
-      type: 'Non_x002D_Inventory',
-      baseUnitOfMeasureCode: `${baseUnitOfMeasure}`,
-      unitPrice: itemRes.Preu,
-      generalProductPostingGroupCode: 'MERCADERÍA',
-      VATProductPostingGroup: 'IVA' + (itemRes.Iva ?? 0),
-    };
-    const itemData2 = {
-      priceIncludesTax: true,
-    };
-
-    const createItem = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items`, itemData1, {
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const createdItemId = createItem.data.id;
-    const createdItemEtag = createItem.data['@odata.etag'];
-
-    await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${createdItemId})`, itemData2, {
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
-        'If-Match': createdItemEtag,
-      },
-    });
-    console.log('itemAPI nuevo', createItem.data.displayName);
-
-    return { data: { value: [createItem.data] } };
   }
 
   private logError(message: string, error: any) {
