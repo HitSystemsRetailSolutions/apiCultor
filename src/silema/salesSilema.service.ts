@@ -94,7 +94,7 @@ export class salesSilemaService {
   //Sincroniza tickets HIT-BC, Ventas
   async syncSalesSilema(day, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
-    let sqlQFranquicia = `SELECT * FROM constantsClients WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
     let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
     if (queryFranquicia.recordset.length >= 1) return;
     let sqlQHora = `select CONVERT(Time, Data) as hora, Import from [V_Moviments_${year}-${month}] where botiga = ${botiga} and Tipus_moviment = 'Z' and day(data)=${day} group by Data, Import order by Data`
@@ -334,7 +334,7 @@ export class salesSilemaService {
   //Abono
   async syncSalesSilemaAbono(day, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
-    let sqlQFranquicia = `SELECT * FROM constantsClients WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
     let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
     if (queryFranquicia.recordset.length >= 1) return;
     let sqlQHora = `select CONVERT(Time, Data) as hora, CONVERT(Date, Data) as data, Import from [V_Moviments_${year}-${month}] where botiga = ${botiga} and Tipus_moviment = 'Z' and day(data)=${day} group by Data, Import order by Data`
@@ -1062,7 +1062,7 @@ export class salesSilemaService {
   //Sincroniza tickets HIT-BC, Ventas
   async syncSalesSilemaCierre(day, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
-    let sqlQFranquicia = `SELECT * FROM constantsClients WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
     let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
     if (queryFranquicia.recordset.length >= 1) return;
     let sqlQHora = `select CONVERT(Time, Data) as hora, Import from [V_Moviments_${year}-${month}] where botiga = ${botiga} and Tipus_moviment = 'Z' and day(data)=${day} group by Data, Import order by Data`
@@ -1304,7 +1304,7 @@ export class salesSilemaService {
   async syncSalesSilemaRecapitulativa(client, botiga, dayStart, dayEnd, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let importTotal: number = 0;
-    let sqlQFranquicia = `SELECT * FROM constantsClients WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
     let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
     if (queryFranquicia.recordset.length >= 1) return;
     let sqlQ = `
@@ -1669,7 +1669,7 @@ export class salesSilemaService {
   async syncSalesSilemaRecapitulativaManual(TicketsArray: Array<String>, client, botiga, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let importTotal: number = 0;
-    let sqlQFranquicia = `SELECT * FROM constantsClients WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
     let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
     if (queryFranquicia.recordset.length >= 1) return;
     const TicketsString = TicketsArray.join(",");
