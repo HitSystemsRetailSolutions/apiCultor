@@ -94,14 +94,17 @@ export class salesSilemaService {
   //Sincroniza tickets HIT-BC, Ventas
   async syncSalesSilema(day, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
+    let sqlQFranquicia = `SELECT * FROM constantsClients WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
+    if (queryFranquicia.recordset.length >= 1) return;
     let sqlQHora = `select CONVERT(Time, Data) as hora, Import from [V_Moviments_${year}-${month}] where botiga = ${botiga} and Tipus_moviment = 'Z' and day(data)=${day} group by Data, Import order by Data`
     //console.log(sqlQHora);
     let queryHora = await this.sql.runSql(sqlQHora, database);
-    if(queryHora.recordset.length == 0) return;
+    if (queryHora.recordset.length == 0) return;
     let hora = queryHora.recordset[0].hora;
     let importTurno1 = queryHora.recordset[0].Import
     let importTurno2;
-    if(queryHora.recordset.length > 1)
+    if (queryHora.recordset.length > 1)
       importTurno2 = queryHora.recordset[1].Import
 
     // Extraer la hora, minutos y segundos
@@ -154,7 +157,7 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.Nif}`, // CIF/NIF
+        vatRegistrationNo: `${x.Nif.trim()}`, // CIF/NIF
         firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
         lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
@@ -260,7 +263,7 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.Nif}`, // CIF/NIF
+        vatRegistrationNo: `${x.Nif.trim()}`, // CIF/NIF
         firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
         lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
@@ -331,11 +334,14 @@ export class salesSilemaService {
   //Abono
   async syncSalesSilemaAbono(day, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
+    let sqlQFranquicia = `SELECT * FROM constantsClients WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
+    if (queryFranquicia.recordset.length >= 1) return;
     let sqlQHora = `select CONVERT(Time, Data) as hora, CONVERT(Date, Data) as data, Import from [V_Moviments_${year}-${month}] where botiga = ${botiga} and Tipus_moviment = 'Z' and day(data)=${day} group by Data, Import order by Data`
     //console.log(sqlQHora);
 
     let queryHora = await this.sql.runSql(sqlQHora, database);
-    if(queryHora.recordset.length == 0) return;
+    if (queryHora.recordset.length == 0) return;
     let hora = queryHora.recordset[0].hora;
     let importTotal: number = 0;
 
@@ -430,7 +436,7 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.NifTienda}`, // CIF/NIF
+        vatRegistrationNo: `${x.NifTienda.trim()}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
         salesLinesBuffer: [] // Array vacío para las líneas de ventas
@@ -578,13 +584,13 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.NIF}`, // CIF/NIF
+        vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
         salesLinesBuffer: [] // Array vacío para las líneas de ventas
       };
 
-      let NifAnterior = x.NIF;
+      let NifAnterior = x.NIF.trim();
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
         if (x.NIF != NifAnterior) {
@@ -653,7 +659,7 @@ export class salesSilemaService {
         };
         salesData.salesLinesBuffer.push(salesLine);
         salesData.remainingAmount += parseFloat(x.Importe);
-        NifAnterior = x.NIF
+        NifAnterior = x.NIF.trim()
       }
       // ºconsole.log(`salesData Number: ${salesData.no}`)
       url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=no eq '${salesData.no}'`;
@@ -781,7 +787,7 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.NifTienda}`, // CIF/NIF
+        vatRegistrationNo: `${x.NifTienda.trim()}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
         salesLinesBuffer: [] // Array vacío para las líneas de ventas
@@ -930,13 +936,13 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.NIF}`, // CIF/NIF
+        vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
         salesLinesBuffer: [] // Array vacío para las líneas de ventas
       };
 
-      let NifAnterior = x.NIF;
+      let NifAnterior = x.NIF.trim();
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
         if (x.NIF != NifAnterior) {
@@ -1005,7 +1011,7 @@ export class salesSilemaService {
         };
         salesData.salesLinesBuffer.push(salesLine);
         salesData.remainingAmount += parseFloat(x.Importe);
-        NifAnterior = x.NIF
+        NifAnterior = x.NIF.trim()
       }
       // console.log(`salesData Number: ${salesData.no}`)
       url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=no eq '${salesData.no}'`;
@@ -1056,6 +1062,9 @@ export class salesSilemaService {
   //Sincroniza tickets HIT-BC, Ventas
   async syncSalesSilemaCierre(day, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
+    let sqlQFranquicia = `SELECT * FROM constantsClients WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
+    if (queryFranquicia.recordset.length >= 1) return;
     let sqlQHora = `select CONVERT(Time, Data) as hora, Import from [V_Moviments_${year}-${month}] where botiga = ${botiga} and Tipus_moviment = 'Z' and day(data)=${day} group by Data, Import order by Data`
     //console.log(sqlQHora);
 
@@ -1115,7 +1124,7 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.Nif}`, // CIF/NIF
+        vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
         firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
         lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
@@ -1223,7 +1232,7 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.Nif}`, // CIF/NIF
+        vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
         firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
         lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
@@ -1295,7 +1304,9 @@ export class salesSilemaService {
   async syncSalesSilemaRecapitulativa(client, botiga, dayStart, dayEnd, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let importTotal: number = 0;
-
+    let sqlQFranquicia = `SELECT * FROM constantsClients WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
+    if (queryFranquicia.recordset.length >= 1) return;
     let sqlQ = `
     DECLARE @Cliente INT = ${parseInt(client, 10)};
     DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
@@ -1356,7 +1367,7 @@ export class salesSilemaService {
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: true, // Factura tienda
-      vatRegistrationNo: `${x.NIF}`, // CIF/NIF
+      vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
       salesLinesBuffer: [] // Array vacío para las líneas de ventas
@@ -1480,7 +1491,7 @@ export class salesSilemaService {
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: true, // Factura tienda
-      vatRegistrationNo: `${x.NIF}`, // CIF/NIF
+      vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
       salesLinesBuffer: [] // Array vacío para las líneas de ventas
@@ -1658,22 +1669,9 @@ export class salesSilemaService {
   async syncSalesSilemaRecapitulativaManual(TicketsArray: Array<String>, client, botiga, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let importTotal: number = 0;
-
-    /*
-    DECLARE @Cliente INT = 6935;
-
-select v.num_tick as TICKET, V.PLU AS PLU,a.nom as ARTICULO, V.Quantitat AS CANTIDAD, v.data as FECHA, V.Import AS PRECIO, CONCAT('IVA',i.Iva) as IVA, cb.nom as TIENDA, C.NIF AS NIF, SUM(v.Import) OVER () AS TOTAL 
-from [v_venut_2025-02] v
-left join articles a on a.codi=v.plu
-left join TipusIva i on i.Tipus=a.TipoIva
-left join ConstantsClient cc on @Cliente= cc.Codi and variable='CFINAL'
-left join Clients c on cc.codi=c.codi
-left join clients cb on v.botiga=cb.codi
-where v.otros like '%' + cc.valor + '%' and cb.codi=842 and num_tick in ('9040845','9040846')
-GROUP BY V.Num_tick,v.plu,a.nom,v.Quantitat, v.data,v.import,i.iva,cb.nom,c.nif
-order by v.data
-    */
-
+    let sqlQFranquicia = `SELECT * FROM constantsClients WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
+    if (queryFranquicia.recordset.length >= 1) return;
     const TicketsString = TicketsArray.join(",");
 
     let sqlQ = `
@@ -1747,7 +1745,7 @@ order by v.data
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: true, // Factura tienda
-      vatRegistrationNo: `${x.NIF}`, // CIF/NIF
+      vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
       salesLinesBuffer: [] // Array vacío para las líneas de ventas
@@ -1887,7 +1885,7 @@ order by v.data
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: true, // Factura tienda
-      vatRegistrationNo: `${x.NIF}`, // CIF/NIF
+      vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
       salesLinesBuffer: [] // Array vacío para las líneas de ventas
