@@ -10,30 +10,7 @@ export class customersSilemaService {
     private token: getTokenService,
     private sql: runSqlService,
   ) { }
-
-  async getSaleFromAPI(companyID, docNumber, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    // Get the authentication token
-    let token = await this.token.getToken();
-
-    let res = await axios
-      .get(
-        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        },
-      )
-      .catch((error) => {
-        throw new Error('Failed to obtain ticket');
-      });
-
-    if (!res.data) throw new Error('Failed to obtain ticket');
-
-    return res;
-  }
-
+  
   // Hay que sincronizar primero los clientes finales (contacts) antes que los clientes (customers)
   async syncCustomersSilema(companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
