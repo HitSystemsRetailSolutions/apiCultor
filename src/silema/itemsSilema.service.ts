@@ -10,29 +10,6 @@ export class itemsSilemaService {
     private sql: runSqlService,
   ) { }
 
-  async getSaleFromAPI(companyID, docNumber, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    // Get the authentication token
-    let token = await this.token.getToken();
-
-    let res = await axios
-      .get(
-        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        },
-      )
-      .catch((error) => {
-        throw new Error('Failed to obtain ticket');
-      });
-
-    if (!res.data) throw new Error('Failed to obtain ticket');
-
-    return res;
-  }
-
   async syncItemsSilema(companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/items?$filter=processHit eq true`;
