@@ -117,15 +117,22 @@ export class salesSilemaService {
     //console.log(formattedHora); // Debería mostrar "14:31:43"
 
     //Turno 1
-    let sqlQT1 = `SELECT c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) AS Data, COALESCE(a.Codi, az.Codi) AS Codi, COALESCE(a.NOM, az.NOM) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, 
-    (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MinNumTick, 
-    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MaxNumTick 
+    let sqlQT1 = `
+    DECLARE @Botiga INT = ${botiga};
+    DECLARE @Dia INT = ${day};
+    DECLARE @Hora TIME = '${formattedHora}';
+    
+    SELECT c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) AS Data, COALESCE(a.Codi, az.Codi) AS Codi, COALESCE(a.NOM, az.NOM) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, 
+    (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MinNumTick, 
+    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MaxNumTick 
     FROM [v_venut_${year}-${month}] v 
     LEFT JOIN articles a ON v.plu = a.codi 
     LEFT JOIN articles_zombis az ON v.plu = az.codi AND a.codi IS NULL 
-    LEFT JOIN clients c ON v.botiga = c.codi LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
+    LEFT JOIN clients c ON v.botiga = c.codi 
+    LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
     LEFT JOIN TipusIva2012 tz ON az.TipoIva = tz.Tipus AND t.Tipus IS NULL 
-    WHERE v.botiga = ${botiga} AND DAY(v.data) = ${day} AND CONVERT(TIME, v.data) < '${formattedHora}' GROUP BY COALESCE(a.NOM, az.NOM), COALESCE(a.Codi, az.Codi), COALESCE(a.PREU, az.PREU), c.nom, c.Nif, COALESCE(t.Iva, tz.Iva);`
+    WHERE v.botiga = @Botiga AND DAY(v.data) = @Dia AND CONVERT(TIME, v.data) < @Hora GROUP BY COALESCE(a.NOM, az.NOM), COALESCE(a.Codi, az.Codi), COALESCE(a.PREU, az.PREU), c.nom, c.Nif, COALESCE(t.Iva, tz.Iva);`
+
     //console.log(sqlQT1);
 
     let data = await this.sql.runSql(sqlQT1, database);
@@ -153,7 +160,6 @@ export class salesSilemaService {
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
         remainingAmount: parseFloat(importTurno1), //Precio total incluyendo IVA por factura
-        sellToCustomerNo: "430001314",
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
@@ -225,15 +231,21 @@ export class salesSilemaService {
 
 
     //Turno 2
-    let sqlQT2 = `SELECT c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) AS Data, COALESCE(a.Codi, az.Codi) AS Codi, COALESCE(a.NOM, az.NOM) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, 
-    (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MinNumTick, 
-    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MaxNumTick 
+    let sqlQT2 = `
+    DECLARE @Botiga INT = ${botiga};
+    DECLARE @Dia INT = ${day};
+    DECLARE @Hora TIME = '${formattedHora}';
+    
+    SELECT c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) AS Data, COALESCE(a.Codi, az.Codi) AS Codi, COALESCE(a.NOM, az.NOM) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, 
+    (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MinNumTick, 
+    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MaxNumTick 
     FROM [v_venut_${year}-${month}] v 
     LEFT JOIN articles a ON v.plu = a.codi 
     LEFT JOIN articles_zombis az ON v.plu = az.codi AND a.codi IS NULL 
-    LEFT JOIN clients c ON v.botiga = c.codi LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
+    LEFT JOIN clients c ON v.botiga = c.codi 
+    LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
     LEFT JOIN TipusIva2012 tz ON az.TipoIva = tz.Tipus AND t.Tipus IS NULL 
-    WHERE v.botiga = ${botiga} AND DAY(v.data) = ${day} AND CONVERT(TIME, v.data) > '${formattedHora}' GROUP BY COALESCE(a.NOM, az.NOM), COALESCE(a.Codi, az.Codi), COALESCE(a.PREU, az.PREU), c.nom, c.Nif, COALESCE(t.Iva, tz.Iva);`
+    WHERE v.botiga = @Botiga AND DAY(v.data) = @Dia AND CONVERT(TIME, v.data) > @Hora GROUP BY COALESCE(a.NOM, az.NOM), COALESCE(a.Codi, az.Codi), COALESCE(a.PREU, az.PREU), c.nom, c.Nif, COALESCE(t.Iva, tz.Iva);`
     let turno = 2
     data = await this.sql.runSql(sqlQT2, database);
     let x = data.recordset[0];
@@ -259,7 +271,6 @@ export class salesSilemaService {
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
         remainingAmount: parseFloat(importTurno2), // Precio total incluyendo IVA por factura
-        sellToCustomerNo: "430001314",
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
@@ -385,18 +396,18 @@ export class salesSilemaService {
         CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
     ),
     FilteredData AS (
-        SELECT 
-            d.ExtractedValue,
-            c.valor,
-            c.codi,
-            cl.nif,
-            d.import,
-            d.iva,
-        cl2.Nif as nifTienda,
-        cl2.Nom as Nom
-        FROM ExtractedData d
-        INNER JOIN constantsclient c ON c.valor = d.ExtractedValue 
-        INNER JOIN clients cl ON cl.codi = c.codi
+      SELECT 
+          d.ExtractedValue,
+          c.valor,
+          c.codi,
+          cl.nif,
+          d.import,
+          d.iva,
+          cl2.Nif as nifTienda,
+          cl2.Nom as Nom
+      FROM ExtractedData d
+      INNER JOIN constantsclient c ON c.valor = d.ExtractedValue 
+      INNER JOIN clients cl ON cl.codi = c.codi
       INNER JOIN clients cl2 ON cl2.codi = d.botiga
     )
     SELECT 
@@ -406,8 +417,7 @@ export class salesSilemaService {
       SUM(FilteredData.import) AS Importe
     FROM FilteredData
     GROUP BY FilteredData.Nom, FilteredData.nifTienda, FilteredData.iva
-    ORDER BY FilteredData.iva, FilteredData.nifTienda;
-    `;
+    ORDER BY FilteredData.iva, FilteredData.nifTienda;`;
     //console.log(sqlQT1);
 
     let data = await this.sql.runSql(sqlQ, database);
@@ -421,6 +431,10 @@ export class salesSilemaService {
       let formattedDate = `${formattedDay}-${formattedMonth}-${shortYear}`;
       let formattedDate2 = new Date(queryHora.recordset[0].data).toISOString().substring(0, 10);
       let turno = 1
+      let sellToCustomerNo = '';
+      if (x.NifTienda.trim() == 'B61957189') {
+        sellToCustomerNo = '430001314';
+      }
 
       let salesData = {
         no: `${x.Nom}_${turno}_${formattedDate}`, // Nº factura
@@ -433,6 +447,7 @@ export class salesSilemaService {
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
         remainingAmount: importTotal, // Precio total incluyendo IVA por factura
+        sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
@@ -504,7 +519,6 @@ export class salesSilemaService {
       }
 
       //Facturas Turno 1
-
       sqlQ = `
       DECLARE @Botiga INT = ${botiga};
       DECLARE @Dia INT = ${day};
@@ -567,6 +581,7 @@ export class salesSilemaService {
       data = await this.sql.runSql(sqlQ, database);
       x = data.recordset[0];
       importTotal = 0;
+      sellToCustomerNo = '';
 
       let nCliente = 1;
       let cliente = `C${nCliente}`
@@ -581,6 +596,7 @@ export class salesSilemaService {
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
         remainingAmount: importTotal, // Precio total incluyendo IVA por factura
+        sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
@@ -756,15 +772,17 @@ export class salesSilemaService {
       SUM(FilteredData.import) AS Importe
     FROM FilteredData
     GROUP BY FilteredData.Nom, FilteredData.nifTienda, FilteredData.iva
-    ORDER BY FilteredData.iva, FilteredData.nifTienda;
-    `;
+    ORDER BY FilteredData.iva, FilteredData.nifTienda;`;
     //console.log(sqlQT1);
 
     data = await this.sql.runSql(sqlQ, database);
     if (data.recordset.length > 0) {
       let x = data.recordset[0];
       let shortYear = year.slice(-2);
-
+      let sellToCustomerNo = '';
+      if (x.NifTienda.trim() == 'B61957189') {
+        sellToCustomerNo = '430001314';
+      }
       let formattedDay = day.padStart(2, '0');
       let formattedMonth = month.padStart(2, '0');
       // Formateamos la fecha en el formato ddmmyy
@@ -783,7 +801,7 @@ export class salesSilemaService {
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
         remainingAmount: importTotal, // Precio total incluyendo IVA por factura
-        sellToCustomerNo: "430001314",
+        sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
@@ -855,7 +873,6 @@ export class salesSilemaService {
       }
 
       //Facturas Turno 2
-
       sqlQ = `
       DECLARE @Botiga INT = ${botiga};
       DECLARE @Dia INT = ${day};
@@ -911,8 +928,7 @@ export class salesSilemaService {
       FROM FilteredData
       INNER JOIN clients cl ON cl.nif = FilteredData.nif
       GROUP BY FilteredData.Nom, FilteredData.nif, FilteredData.iva, cl.Nom, FilteredData.nifTienda, FilteredData.codi
-      ORDER BY FilteredData.nif, FilteredData.iva;
-      `;
+      ORDER BY FilteredData.nif, FilteredData.iva;`;
       //console.log(sqlQT1);
 
       data = await this.sql.runSql(sqlQ, database);
@@ -932,7 +948,7 @@ export class salesSilemaService {
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
         remainingAmount: importTotal, // Precio total incluyendo IVA por factura
-        sellToCustomerNo: `43000${String(x.CodigoCliente)}`,
+        sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
