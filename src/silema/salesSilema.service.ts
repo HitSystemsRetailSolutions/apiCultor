@@ -655,7 +655,7 @@ export class salesSilemaService {
           //Si el NifActual es diferente al Nif anterior tengo que primero. subo la factura actual, segundo. vacio el array de mi diccionario y cambio el "vatRegistrationNo" por el nuevo nif. Y repetir el proceso
 
           salesData.salesLinesBuffer = [];
-          salesData.vatRegistrationNo = x.NIF;
+          salesData.vatRegistrationNo = x.NIF.trim();
           //salesData.sellToCustomerNo = `43000${String(x.CodigoCliente)}`;
           nCliente++;
           cliente = `C${nCliente}`
@@ -1007,7 +1007,7 @@ export class salesSilemaService {
           //Si el NifActual es diferente al Nif anterior tengo que primero. subo la factura actual, segundo. vacio el array de mi diccionario y cambio el "vatRegistrationNo" por el nuevo nif. Y repetir el proceso
 
           salesData.salesLinesBuffer = [];
-          salesData.vatRegistrationNo = x.NIF;
+          salesData.vatRegistrationNo = x.NIF.trim();
           salesData.sellToCustomerNo = `43000${String(x.CodigoCliente)}`;
           nCliente++;
           cliente = `C${nCliente}`
