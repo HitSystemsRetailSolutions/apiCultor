@@ -151,7 +151,7 @@ export class salesSilemaService {
       let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
       let turno = 1
       let sellToCustomerNo = '';
-      if (x.NifTienda.trim() == 'B61957189') {
+      if (x.Nif.trim() == 'B61957189') {
         sellToCustomerNo = '430001314';
       }
       let salesData = {
@@ -267,7 +267,7 @@ export class salesSilemaService {
       let formattedDate = `${day}-${month}-${year}`;
       let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
       let sellToCustomerNo = '';
-      if (x.NifTienda.trim() == 'B61957189') {
+      if (x.Nif.trim() == 'B61957189') {
         sellToCustomerNo = '430001314';
       }
       let salesData2 = {
