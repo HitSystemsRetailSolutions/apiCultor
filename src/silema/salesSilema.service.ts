@@ -149,7 +149,10 @@ export class salesSilemaService {
       let formattedDate = `${day}-${month}-${formattedYear}`;
       let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
       let turno = 1
-
+      let sellToCustomerNo = '';
+      if (x.NifTienda.trim() == 'B61957189') {
+        sellToCustomerNo = '430001314';
+      }
       let salesData = {
         no: `${x.Nom}_${turno}_${formattedDate}`, // Nº factura
         documentType: 'Invoice', // Tipo de documento
@@ -161,6 +164,7 @@ export class salesSilemaService {
         recapInvoice: false, // Factura recap //false
         remainingAmount: parseFloat(importTurno1), //Precio total incluyendo IVA por factura
         shift: `Shift_x0020_${turno}`, // Turno
+        sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
         vatRegistrationNo: `${x.Nif.trim()}`, // CIF/NIF
@@ -260,7 +264,10 @@ export class salesSilemaService {
       // Formateamos la fecha en el formato ddmmyy
       let formattedDate = `${day}-${month}-${year}`;
       let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
-
+      let sellToCustomerNo = '';
+      if (x.NifTienda.trim() == 'B61957189') {
+        sellToCustomerNo = '430001314';
+      }
       let salesData2 = {
         no: `${x.Nom}_${turno}_${formattedDate}`, // Nº factura
         documentType: 'Invoice', // Tipo de documento
@@ -272,6 +279,7 @@ export class salesSilemaService {
         recapInvoice: false, // Factura recap //false
         remainingAmount: parseFloat(importTurno2), // Precio total incluyendo IVA por factura
         shift: `Shift_x0020_${turno}`, // Turno
+        sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
         vatRegistrationNo: `${x.Nif.trim()}`, // CIF/NIF
@@ -412,12 +420,12 @@ export class salesSilemaService {
     )
     SELECT 
       FilteredData.Nom AS Nom,
-      FilteredData.nifTienda AS NifTienda,
+      LTRIM(RTRIM(FilteredData.nifTienda)) AS NifTienda,
       FilteredData.iva AS IVA,
       SUM(FilteredData.import) AS Importe
     FROM FilteredData
-    GROUP BY FilteredData.Nom, FilteredData.nifTienda, FilteredData.iva
-    ORDER BY FilteredData.iva, FilteredData.nifTienda;`;
+    GROUP BY FilteredData.Nom, LTRIM(RTRIM(FilteredData.nifTienda)), FilteredData.iva
+    ORDER BY FilteredData.iva, LTRIM(RTRIM(FilteredData.nifTienda));`;
     //console.log(sqlQT1);
 
     let data = await this.sql.runSql(sqlQ, database);
@@ -564,18 +572,17 @@ export class salesSilemaService {
           INNER JOIN clients cl2 ON cl2.codi = d.botiga
       )
       SELECT 
-          FilteredData.Nom AS Nom,
-          cl.Nom AS NomClient,
-          FilteredData.nifTienda AS NifTienda,
-          FilteredData.nif AS NIF,
-          FilteredData.codi AS CodigoCliente, -- Código del cliente desde ConstantsClient
-          SUM(FilteredData.import) AS Importe,
-          FilteredData.iva AS IVA
+        FilteredData.Nom AS Nom,
+        LTRIM(RTRIM(cl.Nom)) AS NomClient,
+        LTRIM(RTRIM(FilteredData.nifTienda)) AS NifTienda,
+        LTRIM(RTRIM(FilteredData.nif)) AS NIF,
+        FilteredData.codi AS CodigoCliente, -- Código del cliente desde ConstantsClient
+        SUM(FilteredData.import) AS Importe,
+        FilteredData.iva AS IVA
       FROM FilteredData
-      INNER JOIN clients cl ON cl.nif = FilteredData.nif
-      GROUP BY FilteredData.Nom, FilteredData.nif, FilteredData.iva, cl.Nom, FilteredData.nifTienda, FilteredData.codi
-      ORDER BY FilteredData.nif, FilteredData.iva;
-      `;
+      INNER JOIN clients cl ON LTRIM(RTRIM(cl.nif)) = LTRIM(RTRIM(FilteredData.nif))
+      GROUP BY FilteredData.Nom, LTRIM(RTRIM(FilteredData.nif)), FilteredData.iva, LTRIM(RTRIM(cl.Nom)), LTRIM(RTRIM(FilteredData.nifTienda)), FilteredData.codi
+      ORDER BY LTRIM(RTRIM(FilteredData.nif)), FilteredData.iva;`;
       //console.log(sqlQT1);
 
       data = await this.sql.runSql(sqlQ, database);
@@ -609,7 +616,7 @@ export class salesSilemaService {
       let NifAnterior = x.NIF.trim();
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
-        if (x.NIF != NifAnterior) {
+        if (x.NIF.trim() != NifAnterior) {
           //console.log("NIF DIFENRETE\nSubiendo factura")
           // console.log(`salesData Number: ${salesData.no}`)
           url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=no eq '${salesData.no}'`;
@@ -767,12 +774,12 @@ export class salesSilemaService {
     )
     SELECT 
       FilteredData.Nom AS Nom,
-      FilteredData.nifTienda AS NifTienda,
+      LTRIM(RTRIM(FilteredData.nifTienda)) AS NifTienda,
       FilteredData.iva AS IVA,
       SUM(FilteredData.import) AS Importe
     FROM FilteredData
-    GROUP BY FilteredData.Nom, FilteredData.nifTienda, FilteredData.iva
-    ORDER BY FilteredData.iva, FilteredData.nifTienda;`;
+    GROUP BY FilteredData.Nom, LTRIM(RTRIM(FilteredData.nifTienda)), FilteredData.iva
+    ORDER BY FilteredData.iva, LTRIM(RTRIM(FilteredData.nifTienda));`;
     //console.log(sqlQT1);
 
     data = await this.sql.runSql(sqlQ, database);
@@ -919,16 +926,16 @@ export class salesSilemaService {
       )
       SELECT 
         FilteredData.Nom AS Nom,
-        cl.Nom AS NomClient,
-        FilteredData.nifTienda AS NifTienda,
-        FilteredData.nif AS NIF,
+        LTRIM(RTRIM(cl.Nom)) AS NomClient,
+        LTRIM(RTRIM(FilteredData.nifTienda)) AS NifTienda,
+        LTRIM(RTRIM(FilteredData.nif)) AS NIF,
         FilteredData.codi AS CodigoCliente, -- Código del cliente desde ConstantsClient
         SUM(FilteredData.import) AS Importe,
         FilteredData.iva AS IVA
       FROM FilteredData
-      INNER JOIN clients cl ON cl.nif = FilteredData.nif
-      GROUP BY FilteredData.Nom, FilteredData.nif, FilteredData.iva, cl.Nom, FilteredData.nifTienda, FilteredData.codi
-      ORDER BY FilteredData.nif, FilteredData.iva;`;
+      INNER JOIN clients cl ON LTRIM(RTRIM(cl.nif)) = LTRIM(RTRIM(FilteredData.nif))
+      GROUP BY FilteredData.Nom, LTRIM(RTRIM(FilteredData.nif)), FilteredData.iva, LTRIM(RTRIM(cl.Nom)), LTRIM(RTRIM(FilteredData.nifTienda)), FilteredData.codi
+      ORDER BY LTRIM(RTRIM(FilteredData.nif)), FilteredData.iva;`;
       //console.log(sqlQT1);
 
       data = await this.sql.runSql(sqlQ, database);
