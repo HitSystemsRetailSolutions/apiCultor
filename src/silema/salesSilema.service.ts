@@ -122,16 +122,17 @@ export class salesSilemaService {
     DECLARE @Dia INT = ${day};
     DECLARE @Hora TIME = '${formattedHora}';
     
-    SELECT c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) AS Data, COALESCE(a.Codi, az.Codi) AS Codi, COALESCE(a.NOM, az.NOM) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, 
+    SELECT LTRIM(RTRIM(c.Nom)) AS Nom, LTRIM(RTRIM(c.Nif)) AS Nif, MIN(CONVERT(DATE, v.data)) AS Data, LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))) AS Codi, LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, 
     (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MinNumTick, 
-    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MaxNumTick 
+    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MaxNumTick
     FROM [v_venut_${year}-${month}] v 
     LEFT JOIN articles a ON v.plu = a.codi 
     LEFT JOIN articles_zombis az ON v.plu = az.codi AND a.codi IS NULL 
     LEFT JOIN clients c ON v.botiga = c.codi 
     LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
     LEFT JOIN TipusIva2012 tz ON az.TipoIva = tz.Tipus AND t.Tipus IS NULL 
-    WHERE v.botiga = @Botiga AND DAY(v.data) = @Dia AND CONVERT(TIME, v.data) < @Hora GROUP BY COALESCE(a.NOM, az.NOM), COALESCE(a.Codi, az.Codi), COALESCE(a.PREU, az.PREU), c.nom, c.Nif, COALESCE(t.Iva, tz.Iva);`
+    WHERE v.botiga = @Botiga AND DAY(v.data) = @Dia AND CONVERT(TIME, v.data) < @Hora 
+    GROUP BY LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))), LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))), COALESCE(a.PREU, az.PREU), LTRIM(RTRIM(c.nom)), LTRIM(RTRIM(c.Nif)), COALESCE(t.Iva, tz.Iva);`
 
     //console.log(sqlQT1);
 
@@ -240,16 +241,17 @@ export class salesSilemaService {
     DECLARE @Dia INT = ${day};
     DECLARE @Hora TIME = '${formattedHora}';
     
-    SELECT c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) AS Data, COALESCE(a.Codi, az.Codi) AS Codi, COALESCE(a.NOM, az.NOM) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, 
+    SELECT LTRIM(RTRIM(c.Nom)) AS Nom, LTRIM(RTRIM(c.Nif)) AS Nif, MIN(CONVERT(DATE, v.data)) AS Data, LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))) AS Codi, LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, 
     (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MinNumTick, 
-    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MaxNumTick 
+    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MaxNumTick
     FROM [v_venut_${year}-${month}] v 
     LEFT JOIN articles a ON v.plu = a.codi 
     LEFT JOIN articles_zombis az ON v.plu = az.codi AND a.codi IS NULL 
     LEFT JOIN clients c ON v.botiga = c.codi 
     LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
     LEFT JOIN TipusIva2012 tz ON az.TipoIva = tz.Tipus AND t.Tipus IS NULL 
-    WHERE v.botiga = @Botiga AND DAY(v.data) = @Dia AND CONVERT(TIME, v.data) > @Hora GROUP BY COALESCE(a.NOM, az.NOM), COALESCE(a.Codi, az.Codi), COALESCE(a.PREU, az.PREU), c.nom, c.Nif, COALESCE(t.Iva, tz.Iva);`
+    WHERE v.botiga = @Botiga AND DAY(v.data) = @Dia AND CONVERT(TIME, v.data) > @Hora 
+    GROUP BY LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))), LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))), COALESCE(a.PREU, az.PREU), LTRIM(RTRIM(c.nom)), LTRIM(RTRIM(c.Nif)), COALESCE(t.Iva, tz.Iva);`
     let turno = 2
     data = await this.sql.runSql(sqlQT2, database);
     let x = data.recordset[0];
