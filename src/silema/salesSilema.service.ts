@@ -270,7 +270,7 @@ export class salesSilemaService {
     WHERE v.botiga = @Botiga AND DAY(v.data) = @Dia AND CONVERT(TIME, v.data) > @Hora 
     GROUP BY LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))), LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))), COALESCE(a.PREU, az.PREU), LTRIM(RTRIM(c.nom)), LTRIM(RTRIM(c.Nif)), COALESCE(t.Iva, tz.Iva), round(v.Import / NULLIF(v.Quantitat, 0),5)
     HAVING SUM(quantitat) > 0;`
-    let turno = 2
+    
     data = await this.sql.runSql(sqlQT2, database);
     let x = data.recordset[0];
     if (data.recordset.length > 0) {
@@ -285,9 +285,10 @@ export class salesSilemaService {
       let formattedDate = `${day}-${month}-${year}`;
       let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
       let sellToCustomerNo = '';
-      if (x.NifTienda == 'B61957189') {
+      if (x.Nif == 'B61957189') {
         sellToCustomerNo = '430001314';
       }
+      let turno = 2
       let salesData2 = {
         no: `${x.Nom}_${turno}_${formattedDate}`, // Nº factura
         documentType: 'Invoice', // Tipo de documento
@@ -297,7 +298,7 @@ export class salesSilemaService {
         orderDate: `${formattedDate2}`, // Fecha pedido
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
-        remainingAmount: parseFloat(importTurno2), // Precio total incluyendo IVA por factura
+        remainingAmount: parseFloat(importTurno1), //Precio total incluyendo IVA por factura
         shift: `Shift_x0020_${turno}`, // Turno
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
