@@ -164,7 +164,7 @@ export class salesSilemaService {
       let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
       let turno = 1
       let sellToCustomerNo = '';
-      if (x.Nif.trim() == 'B61957189') {
+      if (x.Nif == 'B61957189') {
         sellToCustomerNo = '430001314';
       }
       let salesData = {
@@ -181,7 +181,7 @@ export class salesSilemaService {
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.Nif.trim()}`, // CIF/NIF
+        vatRegistrationNo: `${x.Nif}`, // CIF/NIF
         firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
         lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
@@ -285,7 +285,7 @@ export class salesSilemaService {
       let formattedDate = `${day}-${month}-${year}`;
       let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
       let sellToCustomerNo = '';
-      if (x.NifTienda.trim() == 'B61957189') {
+      if (x.NifTienda == 'B61957189') {
         sellToCustomerNo = '430001314';
       }
       let salesData2 = {
@@ -302,7 +302,7 @@ export class salesSilemaService {
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.Nif.trim()}`, // CIF/NIF
+        vatRegistrationNo: `${x.Nif}`, // CIF/NIF
         firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
         lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
@@ -464,7 +464,7 @@ export class salesSilemaService {
       let formattedDate2 = new Date(queryHora.recordset[0].data).toISOString().substring(0, 10);
       let turno = 1
       let sellToCustomerNo = '';
-      if (x.NifTienda.trim() == 'B61957189') {
+      if (x.NifTienda == 'B61957189') {
         sellToCustomerNo = '430001314';
       }
 
@@ -483,7 +483,7 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.NifTienda.trim()}`, // CIF/NIF
+        vatRegistrationNo: `${x.NifTienda}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
         salesLinesBuffer: [] // Array vacío para las líneas de ventas
@@ -631,16 +631,16 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
+        vatRegistrationNo: `${x.NIF}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
         salesLinesBuffer: [] // Array vacío para las líneas de ventas
       };
 
-      let NifAnterior = x.NIF.trim();
+      let NifAnterior = x.NIF;
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
-        if (x.NIF.trim() != NifAnterior) {
+        if (x.NIF != NifAnterior) {
           //console.log("NIF DIFENRETE\nSubiendo factura")
           // console.log(`salesData Number: ${salesData.no}`)
           url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=no eq '${salesData.no}'`;
@@ -686,7 +686,7 @@ export class salesSilemaService {
           //Si el NifActual es diferente al Nif anterior tengo que primero. subo la factura actual, segundo. vacio el array de mi diccionario y cambio el "vatRegistrationNo" por el nuevo nif. Y repetir el proceso
 
           salesData.salesLinesBuffer = [];
-          salesData.vatRegistrationNo = x.NIF.trim();
+          salesData.vatRegistrationNo = x.NIF;
           //salesData.sellToCustomerNo = `43000${String(x.CodigoCliente)}`;
           nCliente++;
           cliente = `C${nCliente}`
@@ -706,7 +706,7 @@ export class salesSilemaService {
         };
         salesData.salesLinesBuffer.push(salesLine);
         salesData.remainingAmount += parseFloat(x.Importe);
-        NifAnterior = x.NIF.trim()
+        NifAnterior = x.NIF
       }
       // ºconsole.log(`salesData Number: ${salesData.no}`)
       url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=no eq '${salesData.no}'`;
@@ -811,7 +811,7 @@ export class salesSilemaService {
       let x = data.recordset[0];
       let shortYear = year.slice(-2);
       let sellToCustomerNo = '';
-      if (x.NifTienda.trim() == 'B61957189') {
+      if (x.NifTienda == 'B61957189') {
         sellToCustomerNo = '430001314';
       }
       let formattedDay = day.padStart(2, '0');
@@ -836,7 +836,7 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.NifTienda.trim()}`, // CIF/NIF
+        vatRegistrationNo: `${x.NifTienda}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
         salesLinesBuffer: [] // Array vacío para las líneas de ventas
@@ -983,13 +983,13 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
+        vatRegistrationNo: `${x.NIF}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
         salesLinesBuffer: [] // Array vacío para las líneas de ventas
       };
 
-      let NifAnterior = x.NIF.trim();
+      let NifAnterior = x.NIF;
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
         if (x.NIF != NifAnterior) {
@@ -1038,7 +1038,7 @@ export class salesSilemaService {
           //Si el NifActual es diferente al Nif anterior tengo que primero. subo la factura actual, segundo. vacio el array de mi diccionario y cambio el "vatRegistrationNo" por el nuevo nif. Y repetir el proceso
 
           salesData.salesLinesBuffer = [];
-          salesData.vatRegistrationNo = x.NIF.trim();
+          salesData.vatRegistrationNo = x.NIF;
           salesData.sellToCustomerNo = `43000${String(x.CodigoCliente)}`;
           nCliente++;
           cliente = `C${nCliente}`
@@ -1058,7 +1058,7 @@ export class salesSilemaService {
         };
         salesData.salesLinesBuffer.push(salesLine);
         salesData.remainingAmount += parseFloat(x.Importe);
-        NifAnterior = x.NIF.trim()
+        NifAnterior = x.NIF
       }
       // console.log(`salesData Number: ${salesData.no}`)
       url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=no eq '${salesData.no}'`;
@@ -1171,7 +1171,7 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
+        vatRegistrationNo: `${x.NIF}`, // CIF/NIF
         firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
         lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
@@ -1279,7 +1279,7 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
+        vatRegistrationNo: `${x.NIF}`, // CIF/NIF
         firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
         lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
@@ -1414,7 +1414,7 @@ export class salesSilemaService {
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: true, // Factura tienda
-      vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
+      vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
       salesLinesBuffer: [] // Array vacío para las líneas de ventas
@@ -1538,7 +1538,7 @@ export class salesSilemaService {
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: true, // Factura tienda
-      vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
+      vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
       salesLinesBuffer: [] // Array vacío para las líneas de ventas
@@ -1792,7 +1792,7 @@ export class salesSilemaService {
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: true, // Factura tienda
-      vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
+      vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
       salesLinesBuffer: [] // Array vacío para las líneas de ventas
@@ -1932,7 +1932,7 @@ export class salesSilemaService {
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: true, // Factura tienda
-      vatRegistrationNo: `${x.NIF.trim()}`, // CIF/NIF
+      vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
       salesLinesBuffer: [] // Array vacío para las líneas de ventas
