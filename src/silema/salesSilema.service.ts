@@ -118,11 +118,11 @@ export class salesSilemaService {
 
     //Turno 1
     let sqlQT1 = `
-    DECLARE @Botiga INT = ${botiga};
+    DECLARE @Botiga INT =${botiga};
     DECLARE @Dia INT = ${day};
     DECLARE @Hora TIME = '${formattedHora}';
-    
-    SELECT LTRIM(RTRIM(c.Nom)) AS Nom, LTRIM(RTRIM(c.Nif)) AS Nif, MIN(CONVERT(DATE, v.data)) AS Data, LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))) AS Codi, LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, 
+
+    SELECT LTRIM(RTRIM(c.Nom)) AS Nom, LTRIM(RTRIM(c.Nif)) AS Nif, MIN(CONVERT(DATE, v.data)) AS Data, LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))) AS Codi, LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, round(v.Import / NULLIF(v.Quantitat, 0),5) AS precioUnitario,
     (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MinNumTick, 
     (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MaxNumTick
     FROM [v_venut_${year}-${month}] v 
@@ -132,7 +132,8 @@ export class salesSilemaService {
     LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
     LEFT JOIN TipusIva2012 tz ON az.TipoIva = tz.Tipus AND t.Tipus IS NULL 
     WHERE v.botiga = @Botiga AND DAY(v.data) = @Dia AND CONVERT(TIME, v.data) < @Hora 
-    GROUP BY LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))), LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))), COALESCE(a.PREU, az.PREU), LTRIM(RTRIM(c.nom)), LTRIM(RTRIM(c.Nif)), COALESCE(t.Iva, tz.Iva);`
+    GROUP BY LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))), LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))), COALESCE(a.PREU, az.PREU), LTRIM(RTRIM(c.nom)), LTRIM(RTRIM(c.Nif)), COALESCE(t.Iva, tz.Iva), round(v.Import / NULLIF(v.Quantitat, 0),5)
+    HAVING SUM(quantitat) > 0;`
 
     //console.log(sqlQT1);
 
@@ -178,6 +179,8 @@ export class salesSilemaService {
 
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
+        let date = new Date(x.Data);
+        let isoDate = date.toISOString().substring(0, 10);
         let salesLine = {
           documentNo: `${salesData.no}`,
           type: `Item`,
@@ -185,6 +188,7 @@ export class salesSilemaService {
           lineNo: i + 1,
           description: `${x.Producte}`,
           quantity: parseFloat(x.Quantitat),
+          shipmentDate: `${isoDate}`,
           lineTotalAmount: parseFloat(x.Import),
           vatProdPostingGroup: `${x.Iva}`
         };
@@ -237,11 +241,11 @@ export class salesSilemaService {
 
     //Turno 2
     let sqlQT2 = `
-    DECLARE @Botiga INT = ${botiga};
+    DECLARE @Botiga INT =${botiga};
     DECLARE @Dia INT = ${day};
     DECLARE @Hora TIME = '${formattedHora}';
-    
-    SELECT LTRIM(RTRIM(c.Nom)) AS Nom, LTRIM(RTRIM(c.Nif)) AS Nif, MIN(CONVERT(DATE, v.data)) AS Data, LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))) AS Codi, LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, 
+
+    SELECT LTRIM(RTRIM(c.Nom)) AS Nom, LTRIM(RTRIM(c.Nif)) AS Nif, MIN(CONVERT(DATE, v.data)) AS Data, LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))) AS Codi, LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, round(v.Import / NULLIF(v.Quantitat, 0),5) AS precioUnitario,
     (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MinNumTick, 
     (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MaxNumTick
     FROM [v_venut_${year}-${month}] v 
@@ -251,7 +255,8 @@ export class salesSilemaService {
     LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
     LEFT JOIN TipusIva2012 tz ON az.TipoIva = tz.Tipus AND t.Tipus IS NULL 
     WHERE v.botiga = @Botiga AND DAY(v.data) = @Dia AND CONVERT(TIME, v.data) > @Hora 
-    GROUP BY LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))), LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))), COALESCE(a.PREU, az.PREU), LTRIM(RTRIM(c.nom)), LTRIM(RTRIM(c.Nif)), COALESCE(t.Iva, tz.Iva);`
+    GROUP BY LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))), LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))), COALESCE(a.PREU, az.PREU), LTRIM(RTRIM(c.nom)), LTRIM(RTRIM(c.Nif)), COALESCE(t.Iva, tz.Iva), round(v.Import / NULLIF(v.Quantitat, 0),5)
+    HAVING SUM(quantitat) > 0;`
     let turno = 2
     data = await this.sql.runSql(sqlQT2, database);
     let x = data.recordset[0];
@@ -267,7 +272,7 @@ export class salesSilemaService {
       let formattedDate = `${day}-${month}-${year}`;
       let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
       let sellToCustomerNo = '';
-      if (x.Nif.trim() == 'B61957189') {
+      if (x.NifTienda.trim() == 'B61957189') {
         sellToCustomerNo = '430001314';
       }
       let salesData2 = {
@@ -294,6 +299,8 @@ export class salesSilemaService {
 
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
+        let date = new Date(x.Data);
+        let isoDate = date.toISOString().substring(0, 10);
         let salesLine = {
           documentNo: `${salesData2.no}`,
           type: `Item`,
@@ -301,8 +308,10 @@ export class salesSilemaService {
           lineNo: i + 1,
           description: `${x.Producte}`,
           quantity: parseFloat(x.Quantitat),
+          shipmentDate: `${isoDate}`,
           lineTotalAmount: parseFloat(x.Import),
-          vatProdPostingGroup: `IVA${x.Iva}`
+          vatProdPostingGroup: `IVA${x.Iva}`,
+          unitPrice: parseFloat(x.precioUnitario)
         };
         salesData2.salesLinesBuffer.push(salesLine);
       }
@@ -598,7 +607,7 @@ export class salesSilemaService {
         no: `${x.Nom}_${turno}_${formattedDate}_${cliente}`, // Nº factura
         documentType: 'Invoice', // Tipo de documento
         dueDate: `${formattedDate2}`, // Fecha vencimiento
-        externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}`, // Nº documento externo
+        externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}_${cliente}`, // Nº documento externo
         locationCode: `${x.Nom}`, // Cód. almacén
         orderDate: `${formattedDate2}`, // Fecha pedido
         personalStoreInvoice: true,
@@ -950,7 +959,7 @@ export class salesSilemaService {
         no: `${x.Nom}_${turno}_${formattedDate}_${cliente}`, // Nº factura
         documentType: 'Invoice', // Tipo de documento
         dueDate: `${formattedDate2}`, // Fecha vencimiento
-        externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}`, // Nº documento externo
+        externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}_${cliente}`, // Nº documento externo
         locationCode: `${x.Nom}`, // Cód. almacén
         orderDate: `${formattedDate2}`, // Fecha pedido
         personalStoreInvoice: true,
