@@ -70,25 +70,37 @@ export class salesSilemaService {
     return true
   }
 
-  // Funcion que pasandole un dia de inicio y otro 
+  // Funcion que pasandole un dia de inicio y otro de fin sincroniza los datos de ventas de silema
   async syncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
+      let errorWhere = '';
       // Itera desde el día inicial hasta el día final
       for (let day = dayStart; day <= dayEnd; day++) {
-        // Formatea el día y el mes para asegurarse de que tengan 2 dígitos
-        const formattedDay = String(day).padStart(2, '0');
-        const formattedMonth = String(month).padStart(2, '0');
-        const formattedYear = String(year);
+        try {
+          // Formatea el día y el mes para asegurarse de que tengan 2 dígitos
+          const formattedDay = String(day).padStart(2, "0");
+          const formattedMonth = String(month).padStart(2, "0");
+          const formattedYear = String(year);
 
-        // Llama a tu función con el día formateado
-        await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
-        await this.syncSalesSilemaAbono(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
-        //await this.syncSalesSilemaCierre(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
+          console.log(`Procesando ventas para el día: ${formattedDay}/${formattedMonth}/${formattedYear}`);
+
+          // Llama a tu función con el día formateado
+          
+          errorWhere = 'syncSalesSilema';
+          await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
+          errorWhere = 'syncSalesSilemaAbono';
+          await this.syncSalesSilemaAbono(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
+
+          // await this.syncSalesSilemaCierre(...);
+        } catch (error) {
+          console.error(`Error ${errorWhere} para el día ${day}/${month}/${year} en la empresa ${companyID}.`);
+          console.error(error);
+        }
       }
     } catch (error) {
-      throw new Error('Error');
+      console.error("Error general en syncSalesSilemaDate:", error);
     }
-    return true
+    return true;
   }
 
   //Sincroniza tickets HIT-BC, Ventas
@@ -190,7 +202,8 @@ export class salesSilemaService {
           quantity: parseFloat(x.Quantitat),
           shipmentDate: `${isoDate}`,
           lineTotalAmount: parseFloat(x.Import),
-          vatProdPostingGroup: `${x.Iva}`
+          vatProdPostingGroup: `${x.Iva}`,
+          unitPrice: parseFloat(x.precioUnitario)
         };
         salesData.salesLinesBuffer.push(salesLine);
       }
