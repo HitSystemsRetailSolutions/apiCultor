@@ -631,7 +631,7 @@ export class salesSilemaService {
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
-        storeInvoice: true, // Factura tienda
+        storeInvoice: false, // Factura tienda
         vatRegistrationNo: `${x.NIF}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
@@ -983,7 +983,7 @@ export class salesSilemaService {
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
-        storeInvoice: true, // Factura tienda
+        storeInvoice: false, // Factura tienda
         vatRegistrationNo: `${x.NIF}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
@@ -1360,7 +1360,7 @@ export class salesSilemaService {
     DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
     DECLARE @Fin INT = ${parseInt(dayEnd, 10)};
 
-    select v.num_tick as TICKET, V.PLU AS PLU,a.nom as ARTICULO, V.Quantitat AS CANTIDAD, v.data as FECHA, V.Import AS PRECIO, CONCAT('IVA',i.Iva) as IVA, cb.nom as TIENDA, C.NIF AS NIF, SUM(v.Import) OVER () AS TOTAL 
+    select v.num_tick as TICKET, V.PLU AS PLU,a.nom as ARTICULO, V.Quantitat AS CANTIDAD, v.data as FECHA, V.Import AS PRECIO, CONCAT('IVA',i.Iva) as IVA, cb.nom as TIENDA, C.NIF AS NIF, SUM(v.Import) OVER () AS TOTAL, round(v.Import / NULLIF(v.Quantitat, 0),5) AS precioUnitario
     from [v_venut_${year}-${month}] v
     left join articles a on a.codi=v.plu
     left join TipusIva i on i.Tipus=a.TipoIva
@@ -1368,7 +1368,8 @@ export class salesSilemaService {
     left join Clients c on cc.codi=c.codi
     left join clients cb on v.botiga=cb.codi
     where v.otros like '%' + cc.valor + '%' and day(data) between @inicio and @fin and cb.codi='${botiga}'
-    GROUP BY V.Num_tick,v.plu,a.nom,v.Quantitat, v.data,v.import,i.iva,cb.nom,c.nif
+    GROUP BY V.Num_tick,v.plu,a.nom,v.Quantitat, v.data,v.import,i.iva,cb.nom,c.nif, round(v.Import / NULLIF(v.Quantitat, 0),5)
+    HAVING SUM(quantitat) > 0
     order by v.data`;
     //console.log(sqlQT1);
 
@@ -1449,7 +1450,8 @@ export class salesSilemaService {
         quantity: parseFloat(x.CANTIDAD),
         shipmentDate: `${isoDate}`,
         lineTotalAmount: parseFloat(x.PRECIO),
-        vatProdPostingGroup: `${x.IVA}`
+        vatProdPostingGroup: `${x.IVA}`,
+        unitPrice: parseFloat(x.precioUnitario)
       };
       countLines++
       importTotal += parseFloat(x.PRECIO)
@@ -1506,7 +1508,7 @@ export class salesSilemaService {
     DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
     DECLARE @Fin INT = ${parseInt(dayEnd, 10)};
                     
-    SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, C.NIF AS NIF
+    SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, C.NIF AS NIF, round(v.Import / NULLIF(v.Quantitat, 0),5) AS precioUnitario
     FROM [v_venut_${year}-${month}] V
     LEFT JOIN articles A ON A.codi = V.plu
     LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
@@ -1514,8 +1516,9 @@ export class salesSilemaService {
     LEFT JOIN Clients C ON CC.codi = C.codi
     LEFT JOIN clients CB ON V.botiga = CB.codi
     WHERE V.otros LIKE '%' + CC.valor + '%' AND DAY(data) BETWEEN @Inicio and @fin and cb.codi='${botiga}'
-    GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, C.NIF
-    ORDER BY MIN(V.data);`;
+    GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, C.NIF, round(v.Import / NULLIF(v.Quantitat, 0),5)
+    HAVING SUM(quantitat) > 0
+    ORDER BY MIN(V.data)`;
     //console.log(sqlQT1);
 
     data = await this.sql.runSql(sqlQ, database);
@@ -1558,7 +1561,8 @@ export class salesSilemaService {
         quantity: parseFloat(x.CANTIDAD_TOTAL),
         shipmentDate: `${isoDate}`,
         lineTotalAmount: parseFloat(x.IMPORTE_TOTAL),
-        vatProdPostingGroup: `${x.IVA}`
+        vatProdPostingGroup: `${x.IVA}`,
+        unitPrice: parseFloat(x.precioUnitario)
       };
       countLines++
 
@@ -1827,7 +1831,8 @@ export class salesSilemaService {
         quantity: parseFloat(x.CANTIDAD),
         shipmentDate: `${isoDate}`,
         lineTotalAmount: parseFloat(x.PRECIO),
-        vatProdPostingGroup: `${x.IVA}`
+        vatProdPostingGroup: `${x.IVA}`,
+        unitPrice: parseFloat(x.precioUnitario)
       };
       countLines++
       importTotal += parseFloat(x.PRECIO)
@@ -1882,7 +1887,7 @@ export class salesSilemaService {
     sqlQ = `
     DECLARE @Cliente INT = ${parseInt(client, 10)};
                     
-    SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, C.NIF AS NIF
+    SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, C.NIF AS NIF, round(V.Import / NULLIF(V.Quantitat, 0),5) AS precioUnitario
     FROM [v_venut_${year}-${month}] V
     LEFT JOIN articles A ON A.codi = V.plu
     LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
@@ -1890,7 +1895,8 @@ export class salesSilemaService {
     LEFT JOIN Clients C ON CC.codi = C.codi
     LEFT JOIN clients CB ON V.botiga = CB.codi
     WHERE V.otros LIKE '%' + CC.valor + '%'  and cb.codi='${botiga}' and v.Num_tick in (${TicketsString})
-    GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, C.NIF
+    GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, C.NIF, round(V.Import / NULLIF(V.Quantitat, 0),5)
+    HAVING SUM(quantitat) > 0
     ORDER BY MIN(V.data);`;
     //console.log(sqlQT1);
 
@@ -1952,7 +1958,8 @@ export class salesSilemaService {
         quantity: parseFloat(x.CANTIDAD_TOTAL),
         shipmentDate: `${isoDate}`,
         lineTotalAmount: parseFloat(x.IMPORTE_TOTAL),
-        vatProdPostingGroup: `${x.IVA}`
+        vatProdPostingGroup: `${x.IVA}`,
+        unitPrice: parseFloat(x.precioUnitario)
       };
       countLines++
 
