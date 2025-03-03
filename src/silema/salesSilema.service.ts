@@ -82,7 +82,7 @@ export class salesSilemaService {
           const formattedMonth = String(month).padStart(2, "0");
           const formattedYear = String(year);
 
-          console.log(`Procesando ventas para el día: ${formattedDay}/${formattedMonth}/${formattedYear}`);
+          console.log(`Procesando ventas para el día: ${formattedDay}/${formattedMonth}/${formattedYear} | Tienda: ${botiga}`);
 
           // Llama a tu función con el día formateado
           
@@ -93,7 +93,7 @@ export class salesSilemaService {
 
           // await this.syncSalesSilemaCierre(...);
         } catch (error) {
-          console.error(`Error ${errorWhere} para el día ${day}/${month}/${year} en la empresa ${companyID}.`);
+          console.error(`Error ${errorWhere} para el día ${day}/${month}/${year} en la empresa ${companyID}, tienda ${botiga}:`, error);
           console.error(error);
         }
       }
@@ -500,7 +500,8 @@ export class salesSilemaService {
           //description: `${x.producte}`,
           quantity: 1,
           lineTotalAmount: parseFloat(x.Importe),
-          vatProdPostingGroup: `IVA${x.IVA}`
+          vatProdPostingGroup: `IVA${x.IVA}`,
+          unitPrice: parseFloat(x.Importe)
         };
         importTotal += parseFloat(x.Importe)
         salesData.salesLinesBuffer.push(salesLine);
@@ -703,7 +704,8 @@ export class salesSilemaService {
           //description: `${x.producte}`,
           quantity: 1,
           lineTotalAmount: parseFloat(x.Importe),
-          vatProdPostingGroup: `IVA${x.IVA}`
+          vatProdPostingGroup: `IVA${x.IVA}`,
+          unitPrice: parseFloat(x.Importe)
         };
         salesData.salesLinesBuffer.push(salesLine);
         salesData.remainingAmount += parseFloat(x.Importe);
@@ -853,7 +855,8 @@ export class salesSilemaService {
           //description: `${x.producte}`,
           quantity: 1,
           lineTotalAmount: parseFloat(x.Importe),
-          vatProdPostingGroup: `IVA${x.IVA}`
+          vatProdPostingGroup: `IVA${x.IVA}`,
+          unitPrice: parseFloat(x.Importe)
         };
         importTotal += parseFloat(x.Importe)
         salesData.salesLinesBuffer.push(salesLine);
@@ -1055,7 +1058,8 @@ export class salesSilemaService {
           //description: `${x.producte}`,
           quantity: 1,
           lineTotalAmount: parseFloat(x.Importe),
-          vatProdPostingGroup: `IVA${x.IVA}`
+          vatProdPostingGroup: `IVA${x.IVA}`,
+          unitPrice: parseFloat(x.Importe)
         };
         salesData.salesLinesBuffer.push(salesLine);
         salesData.remainingAmount += parseFloat(x.Importe);
