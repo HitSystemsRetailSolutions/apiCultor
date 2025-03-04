@@ -427,6 +427,7 @@ export class salesSilemaService {
         AND CONVERT(TIME, data) < @Hora
         AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, 
         CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
+        AND botiga = @Botiga
     ),
     FilteredData AS (
       SELECT 
@@ -581,6 +582,7 @@ export class salesSilemaService {
           AND CONVERT(TIME, data) < @Hora
           AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, 
           CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
+          AND botiga = @Botiga
       ),
       FilteredData AS (
           SELECT 
@@ -783,6 +785,7 @@ export class salesSilemaService {
         AND CONVERT(TIME, data) > @Hora
         AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, 
         CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
+        AND botiga = @Botiga
     ),
     FilteredData AS (
         SELECT 
@@ -936,6 +939,7 @@ export class salesSilemaService {
         AND CONVERT(TIME, data) > @Hora
         AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, 
         CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
+        AND botiga = @Botiga
       ),
       FilteredData AS (
         SELECT 
