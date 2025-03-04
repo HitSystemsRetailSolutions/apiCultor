@@ -632,7 +632,7 @@ export class salesSilemaService {
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
-        storeInvoice: false, // Factura tienda
+        storeInvoice: true, // Factura tienda
         vatRegistrationNo: `${x.NIF}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
@@ -986,7 +986,7 @@ export class salesSilemaService {
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
-        storeInvoice: false, // Factura tienda
+        storeInvoice: true, // Factura tienda
         vatRegistrationNo: `${x.NIF}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
@@ -1419,7 +1419,7 @@ export class salesSilemaService {
       recapInvoice: true, // Factura recap //false
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
-      storeInvoice: true, // Factura tienda
+      storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
@@ -1545,7 +1545,7 @@ export class salesSilemaService {
       recapInvoice: true, // Factura recap //false
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
-      storeInvoice: true, // Factura tienda
+      storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
@@ -1800,7 +1800,7 @@ export class salesSilemaService {
       manualRecapInvoice: true, // Factura manual
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
-      storeInvoice: true, // Factura tienda
+      storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
@@ -1942,7 +1942,7 @@ export class salesSilemaService {
       manualRecapInvoice: true, // Factura manual
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
-      storeInvoice: true, // Factura tienda
+      storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
