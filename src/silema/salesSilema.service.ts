@@ -10,29 +10,6 @@ export class salesSilemaService {
     private sql: runSqlService,
   ) { }
 
-  async getSaleFromAPI(companyID, docNumber, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    // Get the authentication token
-    let token = await this.token.getToken();
-
-    let res = await axios
-      .get(
-        `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${docNumber}'`,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        },
-      )
-      .catch((error) => {
-        throw new Error('Failed to obtain ticket');
-      });
-
-    if (!res.data) throw new Error('Failed to obtain ticket');
-
-    return res;
-  }
-
   // Funcion que utiliza la tabla records mira donde se quedo la ultima sincronizacion y sincroniza los datos faltantes hasta el dia y hora actuales
   async syncSalesSilemaRecords(companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let sqlRecords = `SELECT * FROM records WHERE Concepte = 'BC_Silema${botiga}'`;
@@ -114,17 +91,18 @@ export class salesSilemaService {
     return true
   }
 
-
   //Sincroniza tickets HIT-BC, Ventas
   async syncSalesSilema(day, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let sqlQHora = `select CONVERT(Time, Data) as hora, Import from [V_Moviments_${year}-${month}] where botiga = ${botiga} and Tipus_moviment = 'Z' and day(data)=${day} group by Data, Import order by Data`
     //console.log(sqlQHora);
-
     let queryHora = await this.sql.runSql(sqlQHora, database);
+    if(queryHora.recordset.length == 0) return;
     let hora = queryHora.recordset[0].hora;
     let importTurno1 = queryHora.recordset[0].Import
-    let importTurno2 = queryHora.recordset[1].Import
+    let importTurno2;
+    if(queryHora.recordset.length > 1)
+      importTurno2 = queryHora.recordset[1].Import
 
     // Extraer la hora, minutos y segundos
     let hours = String(hora.getHours()).padStart(2, '0');
@@ -357,6 +335,7 @@ export class salesSilemaService {
     //console.log(sqlQHora);
 
     let queryHora = await this.sql.runSql(sqlQHora, database);
+    if(queryHora.recordset.length == 0) return;
     let hora = queryHora.recordset[0].hora;
     let importTotal: number = 0;
 
@@ -371,56 +350,58 @@ export class salesSilemaService {
 
     //Turno 1
     let sqlQ = `
-DECLARE @Botiga INT = ${botiga};
-DECLARE @Dia INT = ${day};
-DECLARE @Hora TIME = '${formattedHora}';
+    DECLARE @Botiga INT = ${botiga};
+    DECLARE @Dia INT = ${day};
+    DECLARE @Hora TIME = '${formattedHora}';
 
-;WITH ExtractedData AS (
-    SELECT 
-        SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3)) AS ExtractedValue,
-        v.import,
-        i.iva,
-		v.Botiga
-    FROM [v_venut_${year}-${month}] v
-    LEFT JOIN articles a ON v.plu = a.codi
-    LEFT JOIN TipusIva2012 i ON a.TipoIva = i.Tipus
-    WHERE num_tick IN (
+    ;WITH ExtractedData AS (
         SELECT 
-            SUBSTRING(motiu, CHARINDEX(':', motiu) + 2, LEN(motiu)) AS Numero
-        FROM [v_moviments_${year}-${month}]
-        WHERE botiga = @Botiga
-          AND DAY(data) = @Dia
-          AND CONVERT(TIME, data) < @Hora
-          AND motiu LIKE 'Deute client%'
+            SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3)) AS ExtractedValue,
+            v.import,
+            i.iva,
+        v.Botiga
+        FROM [v_venut_${year}-${month}] v
+        LEFT JOIN articles a ON v.plu = a.codi
+        LEFT JOIN TipusIva2012 i ON a.TipoIva = i.Tipus
+        WHERE num_tick IN (
+            SELECT 
+                SUBSTRING(motiu, CHARINDEX(':', motiu) + 2, LEN(motiu)) AS Numero
+            FROM [v_moviments_${year}-${month}]
+            WHERE botiga = @Botiga
+              AND DAY(data) = @Dia
+              AND CONVERT(TIME, data) < @Hora
+              AND motiu LIKE 'Deute client%'
+        )
+        AND CHARINDEX('id:', v.otros) > 0
+        AND CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) > 0
+        AND CONVERT(TIME, data) < @Hora
+        AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, 
+        CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
+    ),
+    FilteredData AS (
+        SELECT 
+            d.ExtractedValue,
+            c.valor,
+            c.codi,
+            cl.nif,
+            d.import,
+            d.iva,
+        cl2.Nif as nifTienda,
+        cl2.Nom as Nom
+        FROM ExtractedData d
+        INNER JOIN constantsclient c ON c.valor = d.ExtractedValue 
+        INNER JOIN clients cl ON cl.codi = c.codi
+      INNER JOIN clients cl2 ON cl2.codi = d.botiga
     )
-    AND CHARINDEX('id:', v.otros) > 0
-    AND CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) > 0
-    AND CONVERT(TIME, data) < @Hora
-),
-FilteredData AS (
     SELECT 
-        d.ExtractedValue,
-        c.valor,
-        c.codi,
-        cl.nif,
-        d.import,
-        d.iva,
-		cl2.Nif as nifTienda,
-		cl2.Nom as Nom
-    FROM ExtractedData d
-    INNER JOIN constantsclient c ON c.valor = d.ExtractedValue 
-    INNER JOIN clients cl ON cl.codi = c.codi
-	INNER JOIN clients cl2 ON cl2.codi = d.botiga
-)
-SELECT 
-	FilteredData.Nom AS Nom,
-  FilteredData.nifTienda AS NifTienda,
-  FilteredData.iva AS IVA,
-  SUM(FilteredData.import) AS Importe
-FROM FilteredData
-GROUP BY FilteredData.Nom, FilteredData.nifTienda, FilteredData.iva
-ORDER BY FilteredData.iva, FilteredData.nifTienda;
-`;
+      FilteredData.Nom AS Nom,
+      FilteredData.nifTienda AS NifTienda,
+      FilteredData.iva AS IVA,
+      SUM(FilteredData.import) AS Importe
+    FROM FilteredData
+    GROUP BY FilteredData.Nom, FilteredData.nifTienda, FilteredData.iva
+    ORDER BY FilteredData.iva, FilteredData.nifTienda;
+    `;
     //console.log(sqlQT1);
 
     let data = await this.sql.runSql(sqlQ, database);
@@ -519,60 +500,62 @@ ORDER BY FilteredData.iva, FilteredData.nifTienda;
       //Facturas Turno 1
 
       sqlQ = `
-DECLARE @Botiga INT = ${botiga};
-DECLARE @Dia INT = ${day};
-DECLARE @Hora TIME = '${formattedHora}';
+      DECLARE @Botiga INT = ${botiga};
+      DECLARE @Dia INT = ${day};
+      DECLARE @Hora TIME = '${formattedHora}';
 
-;WITH ExtractedData AS (
-    SELECT 
-        SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3)) AS ExtractedValue,
-        v.import,
-        i.iva,
-		v.Botiga
-    FROM [v_venut_${year}-${month}] v
-    LEFT JOIN articles a ON v.plu = a.codi
-    LEFT JOIN TipusIva2012 i ON a.TipoIva = i.Tipus
-    WHERE num_tick IN (
-        SELECT 
-            SUBSTRING(motiu, CHARINDEX(':', motiu) + 2, LEN(motiu)) AS Numero
-        FROM [v_moviments_${year}-${month}]
-        WHERE botiga = @Botiga
-          AND DAY(data) = @Dia
+      ;WITH ExtractedData AS (
+          SELECT 
+              SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3)) AS ExtractedValue,
+              v.import,
+              i.iva,
+          v.Botiga
+          FROM [v_venut_${year}-${month}] v
+          LEFT JOIN articles a ON v.plu = a.codi
+          LEFT JOIN TipusIva2012 i ON a.TipoIva = i.Tipus
+          WHERE num_tick IN (
+              SELECT 
+                  SUBSTRING(motiu, CHARINDEX(':', motiu) + 2, LEN(motiu)) AS Numero
+              FROM [v_moviments_${year}-${month}]
+              WHERE botiga = @Botiga
+                AND DAY(data) = @Dia
+                AND CONVERT(TIME, data) < @Hora
+                AND motiu LIKE 'Deute client%'
+          )
+          AND CHARINDEX('id:', v.otros) > 0
+          AND CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) > 0
           AND CONVERT(TIME, data) < @Hora
-          AND motiu LIKE 'Deute client%'
-    )
-    AND CHARINDEX('id:', v.otros) > 0
-    AND CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) > 0
-    AND CONVERT(TIME, data) < @Hora
-),
-FilteredData AS (
-    SELECT 
-        d.ExtractedValue,
-        c.valor,
-        c.codi,
-        cl.nif,
-        d.import,
-        d.iva,
-        cl2.Nif AS nifTienda,
-        cl2.Nom AS Nom
-    FROM ExtractedData d
-    INNER JOIN constantsclient c ON c.valor = d.ExtractedValue AND c.variable = 'CFINAL'
-    INNER JOIN clients cl ON cl.codi = c.codi
-    INNER JOIN clients cl2 ON cl2.codi = d.botiga
-)
-SELECT 
-    FilteredData.Nom AS Nom,
-    cl.Nom AS NomClient,
-    FilteredData.nifTienda AS NifTienda,
-    FilteredData.nif AS NIF,
-    FilteredData.codi AS CodigoCliente, -- Código del cliente desde ConstantsClient
-    SUM(FilteredData.import) AS Importe,
-    FilteredData.iva AS IVA
-FROM FilteredData
-INNER JOIN clients cl ON cl.nif = FilteredData.nif
-GROUP BY FilteredData.Nom, FilteredData.nif, FilteredData.iva, cl.Nom, FilteredData.nifTienda, FilteredData.codi
-ORDER BY FilteredData.nif, FilteredData.iva;
-`;
+          AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, 
+          CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
+      ),
+      FilteredData AS (
+          SELECT 
+              d.ExtractedValue,
+              c.valor,
+              c.codi,
+              cl.nif,
+              d.import,
+              d.iva,
+              cl2.Nif AS nifTienda,
+              cl2.Nom AS Nom
+          FROM ExtractedData d
+          INNER JOIN constantsclient c ON c.valor = d.ExtractedValue AND c.variable = 'CFINAL'
+          INNER JOIN clients cl ON cl.codi = c.codi
+          INNER JOIN clients cl2 ON cl2.codi = d.botiga
+      )
+      SELECT 
+          FilteredData.Nom AS Nom,
+          cl.Nom AS NomClient,
+          FilteredData.nifTienda AS NifTienda,
+          FilteredData.nif AS NIF,
+          FilteredData.codi AS CodigoCliente, -- Código del cliente desde ConstantsClient
+          SUM(FilteredData.import) AS Importe,
+          FilteredData.iva AS IVA
+      FROM FilteredData
+      INNER JOIN clients cl ON cl.nif = FilteredData.nif
+      GROUP BY FilteredData.Nom, FilteredData.nif, FilteredData.iva, cl.Nom, FilteredData.nifTienda, FilteredData.codi
+      ORDER BY FilteredData.nif, FilteredData.iva;
+      `;
       //console.log(sqlQT1);
 
       data = await this.sql.runSql(sqlQ, database);
@@ -742,6 +725,8 @@ ORDER BY FilteredData.nif, FilteredData.iva;
         AND CHARINDEX('id:', v.otros) > 0
         AND CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) > 0
         AND CONVERT(TIME, data) > @Hora
+        AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, 
+        CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
     ),
     FilteredData AS (
         SELECT 
@@ -891,6 +876,8 @@ ORDER BY FilteredData.nif, FilteredData.iva;
         AND CHARINDEX('id:', v.otros) > 0
         AND CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) > 0
         AND CONVERT(TIME, data) > @Hora
+        AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, 
+        CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
       ),
       FilteredData AS (
         SELECT 
@@ -1305,7 +1292,7 @@ ORDER BY FilteredData.nif, FilteredData.iva;
   }
 
 
-  async syncSalesSilemaRecapitulativa(client, nCliente, botiga, dayStart, dayEnd, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async syncSalesSilemaRecapitulativa(client, botiga, dayStart, dayEnd, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let importTotal: number = 0;
 
@@ -1620,15 +1607,18 @@ ORDER BY FilteredData.nif, FilteredData.iva;
     GROUP BY FilteredData.CodiTienda, FilteredData.Nom, FilteredData.nif, cl.Nom, FilteredData.nifTienda, FilteredData.codi, FilteredData.RecapitulativaAutomatica, FilteredData.PeriodoFacturacion
     ORDER BY FilteredData.nif;`;
     //console.log(sqlQT1);
-    let dayStart = 0
-    let dayEnd = 0
-    const isFirstHalf = new Date().getDate() <= 15; // Determina si estamos en la primera quincena
+    let dayStart = 0;
+    let dayEnd = 0;
+    const today = new Date();
+    const isFirstHalf = today.getDate() <= 15; // Determina si estamos en la primera quincena
 
     let data = await this.sql.runSql(sqlQ, database);
+
+    // TODO: Determinar el último día de cada mes para los cálculos mensuales y quincenales
     switch (periodoRecap) {
       case 'mensual':
-        dayStart = 1
-        dayEnd = 31
+        dayStart = 1;
+        dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate(); // Último día del mes
         break;
       case 'quincenal':
         if (isFirstHalf) {
@@ -1636,28 +1626,30 @@ ORDER BY FilteredData.nif, FilteredData.iva;
           dayEnd = 15;
         } else {
           dayStart = 16;
-          dayEnd = 31;
+          dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
         }
         break;
       case 'semanal':
-        // TODO: Implementar lógica para semana
-        dayStart = 1
-        dayEnd = 7
+        const currentDayOfWeek = today.getDay();
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - (currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1));
+
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+
+        dayStart = monday.getDate();
+        dayEnd = sunday.getDate();
         break;
       default:
-        dayStart = 1
-        dayEnd = 31
+        dayStart = 1;
+        dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
         break;
     }
-    // Objeto para contar las veces que se repite cada tienda
-    let tiendaCounter: Record<string, number> = {};
 
     for (let i = 0; i < data.recordset.length; i++) {
-      let tienda = data.recordset[i].Nom; // Identificador de tienda en minúsculas
-      console.log(tienda)
       // Llamar a la función con el número de ocurrencia de la tienda
       if (data.recordset[i].PeriodoFacturacion.toLowerCase() === periodoRecap.toLowerCase()) {
-        await this.syncSalesSilemaRecapitulativa(data.recordset[i].CodigoCliente, tiendaCounter[tienda], data.recordset[i].Codi, dayStart, dayEnd, month, year, companyID, database, client_id, client_secret, tenant, entorno);
+        await this.syncSalesSilemaRecapitulativa(data.recordset[i].CodigoCliente, data.recordset[i].Codi, dayStart, dayEnd, month, year, companyID, database, client_id, client_secret, tenant, entorno);
       }
     }
     return true;
