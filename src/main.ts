@@ -163,7 +163,7 @@ client.on('message', async function (topic, message) {
           await facturas(companyID, database, msgJson.idFactura, msgJson.tabla, client_id, client_secret, tenant, entorno);
           break;
         case 'Companies':
-          await setCompanies();
+          await setCompanies(client_id, client_secret, tenant, entorno);
           break;
         case 'xml':
           await xml(companyID, msgJson.idFactura, client_id, client_secret, tenant, entorno);
@@ -285,7 +285,6 @@ async function signings(companyNAME, database, client_id, client_secret, tenant,
     console.error('Error al sincronizar firmas:', error);
   }
 }
-
 
 async function syncSalesSilemaRecords(companyID, database, botiga, client_id, client_secret, tenant, entorno) {
   try {
@@ -607,16 +606,21 @@ async function facturas(companyID, database, idFactura, tabla, client_id, client
         entorno: entorno,
       },
     });
-    console.log('Facturas sync sent...');
+    console.log('Sincronización de facturas acabada');
   } catch (error) {
     console.error('Error al sincronizar facturas de ventas:', error);
   }
 }
 
-async function setCompanies() {
+async function setCompanies(client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/getCompaniesId', {
-      params: {},
+      params: {
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
       timeout: 30000,
     });
     console.log('Companies sync sent...');

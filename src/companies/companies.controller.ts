@@ -8,8 +8,8 @@ export class companiesController {
   constructor(private readonly companiesService: companiesService) {}
 
   @Get('getCompaniesId')
-  async companies() {
-    let res = await this.companiesService.getCompaniesId();
+  async companies(@Query('client_id') client_id: string, @Query('client_secret') client_secret: string, @Query('tenant') tenant: string, @Query('entorno') entorno: string) {
+    let res = await this.companiesService.getCompaniesId(client_id, client_secret, tenant, entorno);
     if (res == true) return 'OK';
     else return 'Ha habido un error al obtener los IdCompany';
   }
