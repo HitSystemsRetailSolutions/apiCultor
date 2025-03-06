@@ -157,7 +157,7 @@ client.on('message', async function (topic, message) {
           break;
         case 'SyncTickets':
         case 'tickets':
-          await tickets(msgJson.day, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
+          await tickets(msgJson.dayStart, msgJson.dayEnd, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
           break;
         case 'factura':
           await facturas(companyID, database, msgJson.idFactura, msgJson.tabla, client_id, client_secret, tenant, entorno);
@@ -570,11 +570,12 @@ async function itemCategories(companyID, database, client_id, client_secret, ten
   }
 }
 
-async function tickets(day, month, year, companyID, database, botiga, client_id, client_secret, tenant, entorno) {
+async function tickets(dayStart, dayEnd, month, year, companyID, database, botiga, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/syncSalesTickets', {
       params: {
-        day: day,
+        dayStart: dayStart,
+        dayEnd: dayEnd,
         month: month,
         year: year,
         companyID: companyID,
