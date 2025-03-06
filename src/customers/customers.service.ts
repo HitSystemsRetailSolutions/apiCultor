@@ -191,7 +191,7 @@ export class customersService {
                       c2_diaPago.Valor AS DIAPAGO,
                       CASE c2_venciment.valor WHEN '' THEN 'CON' ELSE c2_venciment.valor + ' DÍAS' END AS TERMINOPAGO, 
                       CASE WHEN COALESCE(NULLIF(ph.Valor1, ''), NULL) IS NULL THEN 'NO' ELSE 'SI' END AS esTienda,
-                      CASE c1.[Tipus Iva] WHEN '2' THEN 'si' ELSE 'no' END AS recargo,
+                      CASE c1.[Tipus Iva] WHEN '2' THEN 'si' ELSE 'no' END AS recargo, c2_idioma.valor as idioma,
                       ROW_NUMBER() OVER (PARTITION BY c1.Nif ORDER BY c1.nom) AS rn
                 FROM ClienteMare cm
                 JOIN Clients c1 ON c1.codi = cm.CODIGO_MARE
@@ -201,10 +201,11 @@ export class customersService {
                 LEFT JOIN ConstantsClient c2_IBAN ON c2_IBAN.codi = c1.codi AND c2_IBAN.variable = 'CompteCorrent'
                 LEFT JOIN ConstantsClient c2_diaPago ON c2_diaPago.codi = c1.codi AND c2_diaPago.variable = 'DiaPagament'
                 LEFT JOIN ConstantsClient c2_venciment ON c2_venciment.codi = c1.codi AND c2_venciment.variable = 'Venciment'
+                LEFT JOIN ConstantsClient c2_idioma ON c2_idioma.codi = c1.codi AND c2_idioma.variable = 'IDIOMA'
                 LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
                 WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) = 9 and c1.Nif = '${codiHIT}'
               )
-              SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo
+              SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma
               FROM ClientesFiltrados
               WHERE rn = 1
               ORDER BY codi;`,
@@ -225,7 +226,7 @@ export class customersService {
                     c2_diaPago.Valor AS DIAPAGO,
                     CASE c2_venciment.valor WHEN '' THEN 'CON' ELSE c2_venciment.valor + ' DÍAS' END AS TERMINOPAGO, 
                     CASE WHEN COALESCE(NULLIF(ph.Valor1, ''), NULL) IS NULL THEN 'NO' ELSE 'SI' END AS esTienda,
-                    CASE c1.[Tipus Iva] WHEN '2' THEN 'si' ELSE 'no' END AS recargo,
+                    CASE c1.[Tipus Iva] WHEN '2' THEN 'si' ELSE 'no' END AS recargo, c2_idioma.valor as idioma,
                     ROW_NUMBER() OVER (PARTITION BY c1.Nif ORDER BY c1.nom) AS rn
               FROM ClienteMare cm
               JOIN Clients c1 ON c1.codi = cm.CODIGO_MARE
@@ -235,17 +236,17 @@ export class customersService {
               LEFT JOIN ConstantsClient c2_IBAN ON c2_IBAN.codi = c1.codi AND c2_IBAN.variable = 'CompteCorrent'
               LEFT JOIN ConstantsClient c2_diaPago ON c2_diaPago.codi = c1.codi AND c2_diaPago.variable = 'DiaPagament'
               LEFT JOIN ConstantsClient c2_venciment ON c2_venciment.codi = c1.codi AND c2_venciment.variable = 'Venciment'
+              LEFT JOIN ConstantsClient c2_idioma ON c2_idioma.codi = c1.codi AND c2_idioma.variable = 'IDIOMA'
               LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
               WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) = 9
             )
-            SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo
+            SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma
             FROM ClientesFiltrados
             WHERE rn = 1
             ORDER BY codi;`,
           database,
         );
       }
-      console.log(customers.recordset);
     } catch (error) {
       this.logError(`❌ Error al ejecutar la consulta SQL en la base de datos '${database}'`, error);
       throw error;
@@ -283,12 +284,11 @@ export class customersService {
           paymentMethodId: `${payMethodId}`,
           paymentTermsId: `${payTermId}`,
           formatRegion: 'es-ES_tradnl',
-          languageCode: 'ESP',
+          languageCode: customer.idioma === 'CA' ? 'CAT' : 'ESP',
           customerPostingGroup: 'NAC',
           pricesIncludingVAT: 'false',
           equivalenceCharge: customer.recargo === 'si' ? 'true' : 'false',
         };
-        console.log(customerData1);
         let res;
         try {
           res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${customer.NIF}'`, {
