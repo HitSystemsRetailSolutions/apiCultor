@@ -18,15 +18,17 @@ export class initConfigService {
   ) {}
 
   async initConfig(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    console.log('Init config');
+    console.log('🚀 Iniciando configuración');
     try {
       await this.paymentMethods(companyID, database, client_id, client_secret, tenant, entorno);
       await this.syncTaxGroups(companyID, database, client_id, client_secret, tenant, entorno);
       await this.syncVATPostingSetup(companyID, database, client_id, client_secret, tenant, entorno);
       await this.createClientesContado(companyID, database, client_id, client_secret, tenant, entorno);
+      await this.createCatalanLanguage(companyID, client_id, client_secret, tenant, entorno);
+      console.log('✅ Configuración inicial completada');
       return true;
     } catch (error) {
-      this.logError('Error configuring:', error);
+      this.logError('❌ Error durante la configuración inicial', error);
       return false;
     }
   }
@@ -66,9 +68,9 @@ export class initConfigService {
           });
         }
       } catch (error) {
-        this.logError(`Error al crear el metodo de pago ${paymentMethod}`, error);
+        this.logError(`❌ Error al crear el metodo de pago ${paymentMethod}`, error);
       }
-      console.log(`Synchronizing payment method ${paymentMethod} ... -> ${i}/${paymentMethods.length} --- ${((i / paymentMethods.length) * 100).toFixed(2)}% `);
+      console.log(`⏳ Sincronizando método de pago ${paymentMethod} ... -> ${i}/${paymentMethods.length} --- ${((i / paymentMethods.length) * 100).toFixed(2)}% `);
       i++;
     }
   }
@@ -78,13 +80,13 @@ export class initConfigService {
     try {
       ivas = await this.sqlService.runSql(`SELECT Iva FROM TipusIva ORDER BY Iva`, database);
     } catch (error) {
-      this.logError(`Database '${database}' does not exist`, error);
+      this.logError(`❌ Error al ejecutar la consulta SQL en la base de datos '${database}'`, error);
       return false;
     }
 
     if (ivas.recordset.length == 0) {
       this.client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
-      console.log('Ivas. No hay registros');
+      console.warn('⚠️ Advertencia: No se encontraron registros de ivas en la base de datos');
       return false;
     }
 
@@ -122,10 +124,10 @@ export class initConfigService {
             });
           }
         } catch (error) {
-          this.logError(`Error al crear el IVA ${iva.Iva}${suffix ? ' + RE' : ''}`, error);
+          this.logError(`❌ Error al crear el IVA ${iva.Iva}${suffix ? ' + RE' : ''}`, error);
         }
       }
-      console.log(`Synchronizing IVA ${iva.Iva} ... -> ${i}/${ivas.recordset.length} --- ${((i / ivas.recordset.length) * 100).toFixed(2)}% `);
+      console.log(`⏳ Sincronizando IVA ${iva.Iva} ... -> ${i}/${ivas.recordset.length} --- ${((i / ivas.recordset.length) * 100).toFixed(2)}% `);
       i++;
     }
   }
@@ -135,13 +137,13 @@ export class initConfigService {
     try {
       ivas = await this.sqlService.runSql(`select Iva, Irpf as RE from TipusIva order by Iva`, database);
     } catch (error) {
-      this.logError(`Database '${database}' does not exist`, error);
+      this.logError(`❌ Error al ejecutar la consulta SQL en la base de datos '${database}'`, error);
       return false;
     }
 
     if (ivas.recordset.length == 0) {
       this.client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
-      console.log('Ivas. No hay registros');
+      console.log('⚠️ Advertencia: No se encontraron registros de ivas en la base de datos');
       return false;
     }
 
@@ -193,10 +195,10 @@ export class initConfigService {
             });
           }
         } catch (error) {
-          this.logError(`Error al crear el IVA ${iva.Iva}${suffix ? ' + RE' : ''}`, error);
+          this.logError(`❌ Error al crear el IVA ${iva.Iva}${suffix ? ' + RE' : ''}`, error);
         }
       }
-      console.log(`Synchronizing iva ${iva.Iva} en VAT Posting Setup  ... -> ${i}/${ivas.recordset.length} --- ${((i / ivas.recordset.length) * 100).toFixed(2)}% `);
+      console.log(`⏳ Sincronizando IVA ${iva.Iva} en VAT Posting Setup ... -> ${i}/${ivas.recordset.length} --- ${((i / ivas.recordset.length) * 100).toFixed(2)}% `);
       i++;
     }
   }
@@ -242,10 +244,50 @@ export class initConfigService {
         },
       });
     }
-    console.log('Cliente contado creado');
+    console.log('✅ Cliente contado creado');
   }
+
+  async createCatalanLanguage(companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
+    try {
+      const languageData = {
+        code: 'CAT',
+        name: 'Català',
+        windowsLanguageId: 1027,
+      };
+
+      let res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/language?$filter=code eq 'CAT'`, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (res.data.value.length == 0) {
+        await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/language`, languageData, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        });
+      } else {
+        const etag = res.data.value[0]['@odata.etag'];
+        await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/language(${res.data.value[0].id})`, languageData, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+            'If-Match': etag,
+          },
+        });
+      }
+    } catch (error) {
+      this.logError(`❌ Error al crear el lenguaje catalán`, error);
+    }
+    console.log('✅ Lenguaje catalán creado');
+  }
+
   private logError(message: string, error: any) {
-    this.client.publish('/Hit/Serveis/Apicultor/Log', message);
-    console.error(message, error);
+    this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
+    console.error(message, error.response?.data || error.message);
   }
 }
