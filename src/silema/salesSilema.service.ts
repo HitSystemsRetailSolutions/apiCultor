@@ -85,7 +85,7 @@ export class salesSilemaService {
           console.log(`Procesando ventas para el día: ${formattedDay}/${formattedMonth}/${formattedYear} | Tienda: ${botiga}`);
 
           // Llama a tu función con el día formateado
-          
+
           errorWhere = 'syncSalesSilema';
           await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
           errorWhere = 'syncSalesSilemaAbono';
@@ -270,7 +270,7 @@ export class salesSilemaService {
     WHERE v.botiga = @Botiga AND DAY(v.data) = @Dia AND CONVERT(TIME, v.data) > @Hora 
     GROUP BY LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))), LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))), COALESCE(a.PREU, az.PREU), LTRIM(RTRIM(c.nom)), LTRIM(RTRIM(c.Nif)), COALESCE(t.Iva, tz.Iva), round(v.Import / NULLIF(v.Quantitat, 0),5)
     HAVING SUM(quantitat) > 0;`
-    
+
     data = await this.sql.runSql(sqlQT2, database);
     let x = data.recordset[0];
     if (data.recordset.length > 0) {
@@ -1356,6 +1356,122 @@ export class salesSilemaService {
     return true;
   }
 
+  async syncRecapPeriodo(periodoRecap, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let sqlQ = `;WITH ExtractedData AS (
+    SELECT 
+        SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3)) AS ExtractedValue,
+        v.import,
+        i.iva,
+        v.Botiga
+    FROM [v_venut_${year}-${month}] v
+    LEFT JOIN articles a ON v.plu = a.codi
+    LEFT JOIN TipusIva2012 i ON a.TipoIva = i.Tipus
+    WHERE num_tick IN (
+        SELECT 
+            SUBSTRING(motiu, CHARINDEX(':', motiu) + 2, LEN(motiu)) AS Numero
+        FROM [v_moviments_${year}-${month}]
+        WHERE  motiu LIKE 'Deute client%'
+    )
+    AND CHARINDEX('id:', v.otros) > 0
+    AND CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) > 0
+
+    ),
+    FilteredData AS (
+    SELECT 
+        d.ExtractedValue,
+        c.valor,
+        c.codi,
+        cl.nif,
+        cl2.Nif AS nifTienda,
+        cl2.Nom AS Nom,
+		d.Botiga as CodiTienda,
+        CASE WHEN r.valor = 'Recapitulativa' THEN 1 ELSE 0 END AS RecapitulativaAutomatica,
+        COALESCE(NULLIF(p.valor, ''), 'Mensual') AS PeriodoFacturacion
+    FROM ExtractedData d
+    INNER JOIN constantsclient c ON c.valor = d.ExtractedValue AND c.variable = 'CFINAL'
+    INNER JOIN clients cl ON cl.codi = c.codi
+    INNER JOIN clients cl2 ON cl2.codi = d.botiga
+    LEFT JOIN constantsclient r ON r.codi = cl.codi AND r.variable = 'Recapitulativa'
+    LEFT JOIN constantsclient p ON p.codi = cl.codi AND p.variable = 'Per_Facturacio'
+    )
+    SELECT 
+        FilteredData.CodiTienda AS Codi,
+      FilteredData.Nom AS Nom,
+        cl.Nom AS NomClient,
+        FilteredData.nifTienda AS NifTienda,
+        FilteredData.nif AS NIF,
+        FilteredData.codi AS CodigoCliente,
+        FilteredData.RecapitulativaAutomatica,
+        FilteredData.PeriodoFacturacion
+    FROM FilteredData
+    INNER JOIN clients cl ON cl.nif = FilteredData.nif
+    where FilteredData.RecapitulativaAutomatica = 1
+    GROUP BY FilteredData.CodiTienda, FilteredData.Nom, FilteredData.nif, cl.Nom, FilteredData.nifTienda, FilteredData.codi, FilteredData.RecapitulativaAutomatica, FilteredData.PeriodoFacturacion
+    ORDER BY FilteredData.nif;`;
+    //console.log(sqlQT1);
+    let dayStart = 0;
+    let dayEnd = 0;
+    const today = new Date(year, month - 1, 1); // Fecha con el mes proporcionado
+
+    let data = await this.sql.runSql(sqlQ, database);
+
+    // Verifica si el periodo es semanal con número (ej. "semanal6")
+    const match = periodoRecap.match(/^semanal(\d+)$/);
+    if (match) {
+      const weekNumber = parseInt(match[1], 10); // Extrae el número de semana
+      const firstDayOfWeek = await this.getFirstDayOfWeek(year, weekNumber);
+
+      dayStart = firstDayOfWeek.getDate();
+      dayEnd = new Date(firstDayOfWeek.getFullYear(), firstDayOfWeek.getMonth(), firstDayOfWeek.getDate() + 6).getDate();
+    } else {
+      // Lógica normal para otros periodos
+      switch (periodoRecap) {
+        case 'mensual':
+          dayStart = 1;
+          dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate(); // Último día del mes
+          break;
+        case 'quincenal1':
+          dayStart = 1;
+          dayEnd = 15;
+          break;
+        case 'quincenal2':
+          dayStart = 16;
+          dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+          break;
+        default:
+          dayStart = 1;
+          dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+          break;
+      }
+    }
+
+    console.log(`Periodo: ${periodoRecap}, Días: ${dayStart} - ${dayEnd}, Mes: ${month}, Año: ${year}`);
+    /*
+    // Itera sobre los datos y ejecuta la sincronización solo si coincide el periodo
+    for (let i = 0; i < data.recordset.length; i++) {
+      if (data.recordset[i].PeriodoFacturacion.toLowerCase() === periodoRecap.toLowerCase()) {
+        await this.syncSalesSilemaRecapitulativa(data.recordset[i].CodigoCliente,data.recordset[i].Codi,dayStart, dayEnd, month, year, companyID, database, client_id, client_secret, tenant, entorno);
+      }
+    }
+*/
+    return true;
+  }
+
+  async getFirstDayOfWeek(year: number, weekNumber: number) {
+    const firstDayOfYear = new Date(year, 0, 1); // 1 de enero del año dado
+    const daysToAdd = (weekNumber - 1) * 7; // Días que hay que sumar para llegar a la semana deseada
+    const firstWeekday = firstDayOfYear.getDay(); // Día de la semana del 1 de enero (0 = Domingo, 1 = Lunes, ..., 6 = Sábado)
+
+    // Ajuste para que la semana comience en lunes
+    const diff = firstWeekday === 0 ? -6 : 1 - firstWeekday; // Si es domingo (-6), si no, ajustar al lunes (1 - firstWeekday)
+    const firstMonday = new Date(year, 0, 1 + diff); // Primer lunes del año
+
+    // Obtener el primer día de la semana solicitada
+    const firstDayOfTargetWeek = new Date(firstMonday);
+    firstDayOfTargetWeek.setDate(firstMonday.getDate() + daysToAdd);
+
+    return firstDayOfTargetWeek;
+  }
 
   async syncSalesSilemaRecapitulativa(client, botiga, dayStart, dayEnd, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
@@ -1622,107 +1738,6 @@ export class salesSilemaService {
       console.log(`Ya existe el abono recapitulativa ${salesData.no}`)
     }
 
-    return true;
-  }
-
-  async syncRecapPeriodo(periodoRecap, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    let sqlQ = `;WITH ExtractedData AS (
-    SELECT 
-        SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3)) AS ExtractedValue,
-        v.import,
-        i.iva,
-        v.Botiga
-    FROM [v_venut_${year}-${month}] v
-    LEFT JOIN articles a ON v.plu = a.codi
-    LEFT JOIN TipusIva2012 i ON a.TipoIva = i.Tipus
-    WHERE num_tick IN (
-        SELECT 
-            SUBSTRING(motiu, CHARINDEX(':', motiu) + 2, LEN(motiu)) AS Numero
-        FROM [v_moviments_${year}-${month}]
-        WHERE  motiu LIKE 'Deute client%'
-    )
-    AND CHARINDEX('id:', v.otros) > 0
-    AND CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) > 0
-
-    ),
-    FilteredData AS (
-    SELECT 
-        d.ExtractedValue,
-        c.valor,
-        c.codi,
-        cl.nif,
-        cl2.Nif AS nifTienda,
-        cl2.Nom AS Nom,
-		d.Botiga as CodiTienda,
-        CASE WHEN r.valor = 'Recapitulativa' THEN 1 ELSE 0 END AS RecapitulativaAutomatica,
-        COALESCE(NULLIF(p.valor, ''), 'Mensual') AS PeriodoFacturacion
-    FROM ExtractedData d
-    INNER JOIN constantsclient c ON c.valor = d.ExtractedValue AND c.variable = 'CFINAL'
-    INNER JOIN clients cl ON cl.codi = c.codi
-    INNER JOIN clients cl2 ON cl2.codi = d.botiga
-    LEFT JOIN constantsclient r ON r.codi = cl.codi AND r.variable = 'Recapitulativa'
-    LEFT JOIN constantsclient p ON p.codi = cl.codi AND p.variable = 'Per_Facturacio'
-    )
-    SELECT 
-        FilteredData.CodiTienda AS Codi,
-      FilteredData.Nom AS Nom,
-        cl.Nom AS NomClient,
-        FilteredData.nifTienda AS NifTienda,
-        FilteredData.nif AS NIF,
-        FilteredData.codi AS CodigoCliente,
-        FilteredData.RecapitulativaAutomatica,
-        FilteredData.PeriodoFacturacion
-    FROM FilteredData
-    INNER JOIN clients cl ON cl.nif = FilteredData.nif
-    where FilteredData.RecapitulativaAutomatica = 1
-    GROUP BY FilteredData.CodiTienda, FilteredData.Nom, FilteredData.nif, cl.Nom, FilteredData.nifTienda, FilteredData.codi, FilteredData.RecapitulativaAutomatica, FilteredData.PeriodoFacturacion
-    ORDER BY FilteredData.nif;`;
-    //console.log(sqlQT1);
-    let dayStart = 0;
-    let dayEnd = 0;
-    const today = new Date();
-    const isFirstHalf = today.getDate() <= 15; // Determina si estamos en la primera quincena
-
-    let data = await this.sql.runSql(sqlQ, database);
-
-    // TODO: Determinar el último día de cada mes para los cálculos mensuales y quincenales
-    switch (periodoRecap) {
-      case 'mensual':
-        dayStart = 1;
-        dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate(); // Último día del mes
-        break;
-      case 'quincenal':
-        if (isFirstHalf) {
-          dayStart = 1;
-          dayEnd = 15;
-        } else {
-          dayStart = 16;
-          dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-        }
-        break;
-      case 'semanal':
-        const currentDayOfWeek = today.getDay();
-        const monday = new Date(today);
-        monday.setDate(today.getDate() - (currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1));
-
-        const sunday = new Date(monday);
-        sunday.setDate(monday.getDate() + 6);
-
-        dayStart = monday.getDate();
-        dayEnd = sunday.getDate();
-        break;
-      default:
-        dayStart = 1;
-        dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-        break;
-    }
-
-    for (let i = 0; i < data.recordset.length; i++) {
-      // Llamar a la función con el número de ocurrencia de la tienda
-      if (data.recordset[i].PeriodoFacturacion.toLowerCase() === periodoRecap.toLowerCase()) {
-        await this.syncSalesSilemaRecapitulativa(data.recordset[i].CodigoCliente, data.recordset[i].Codi, dayStart, dayEnd, month, year, companyID, database, client_id, client_secret, tenant, entorno);
-      }
-    }
     return true;
   }
 
