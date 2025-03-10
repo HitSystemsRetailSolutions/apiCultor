@@ -1419,11 +1419,11 @@ export class salesSilemaService {
     const match = periodoRecap.match(/^semanal(\d+)$/);
     if (match) {
       const weekNumber = parseInt(match[1], 10); // Extrae el número de semana
-      const firstDayOfWeek = await this.getFirstDayOfWeek(year, weekNumber);
+      const firstDayOfWeek = await this.getFirstAndLastDayOfWeek(year, weekNumber);
 
-      dayStart = firstDayOfWeek.getDate();
-      month = firstDayOfWeek.getMonth() + 1;
-      dayEnd = new Date(firstDayOfWeek.getFullYear(), firstDayOfWeek.getMonth(), firstDayOfWeek.getDate() + 6).getDate();
+      dayStart = firstDayOfWeek.firstDay.getDate();
+      month = firstDayOfWeek.firstDay.getMonth() + 1;
+      dayEnd = firstDayOfWeek.lastDay.getDate();
     } else {
       // Lógica normal para otros periodos
       switch (periodoRecap) {
@@ -1458,24 +1458,54 @@ export class salesSilemaService {
     return true;
   }
 
-  async getFirstDayOfWeek(year: number, weekNumber: number) {
+  async getFirstAndLastDayOfWeek(year: number, weekNumber: number) {
+    // Primer día del año
+    const firstDayOfYear = new Date(year, 0, 1);
+
+    // Si es la semana 1, calculamos desde el 1 de enero hasta el primer domingo
     if (weekNumber === 1) {
-        return new Date(year, 0, 1); // Siempre devuelve el 1 de enero si es semana 1
+      const firstSunday = new Date(firstDayOfYear);
+      firstSunday.setDate(firstDayOfYear.getDate() + (7 - firstDayOfYear.getDay())); // Primer domingo del año
+
+      return {
+        firstDay: firstDayOfYear, // El primer día es el 1 de enero
+        lastDay: firstSunday // El último día es el primer domingo
+      };
     }
 
-    const firstDayOfYear = new Date(year, 0, 1); // 1 de enero del año
-    const firstWeekday = firstDayOfYear.getDay(); // Día de la semana (0 = Domingo, ..., 6 = Sábado)
-    
-    // Ajuste para que la primera semana comience en lunes
-    const diff = firstWeekday === 0 ? -6 : 1 - firstWeekday; 
-    const firstMonday = new Date(year, 0, 1 + diff); // Primer lunes del año
+    // Obtener el primer jueves del año
+    const firstThursday = new Date(firstDayOfYear);
+    firstThursday.setDate(firstDayOfYear.getDate() + ((4 - firstDayOfYear.getDay()) + 7) % 7); // Primer jueves
 
-    // Sumar (weekNumber - 1) * 7 días para llegar a la semana deseada
-    const firstDayOfTargetWeek = new Date(firstMonday);
-    firstDayOfTargetWeek.setDate(firstMonday.getDate() + (weekNumber - 1) * 7);
+    // Obtener el primer lunes del año
+    const firstMonday = new Date(firstThursday);
+    firstMonday.setDate(firstThursday.getDate() - 3); // El lunes antes del primer jueves
 
-    return firstDayOfTargetWeek;
-}
+    // Calcular el primer día de la semana 1
+    const firstDayOfWeek1 = new Date(firstMonday);
+
+    if (weekNumber === 53) {
+      // Si es la semana 53, establecer 30 y 31 de diciembre
+      const lastDateOfYear = new Date(year, 11, 31); // 31 de diciembre
+      if (lastDateOfYear.getDay() === 3 || lastDateOfYear.getDay() === 4) { // 30 y 31 de diciembre
+        return {
+          firstDay: new Date(year, 11, 30), // 30 de diciembre
+          lastDay: new Date(year, 11, 31)   // 31 de diciembre
+        };
+      }
+    }
+
+    // Calcular el primer día de la semana deseada
+    const startDateOfWeek = new Date(firstDayOfWeek1);
+    startDateOfWeek.setDate(firstDayOfWeek1.getDate() + (weekNumber - 1) * 7);
+
+    // Calcular el último día de la semana (domingo de esa semana)
+    const endDateOfWeek = new Date(startDateOfWeek);
+    endDateOfWeek.setDate(startDateOfWeek.getDate() + 6); // Domingo de esa semana
+
+    return {firstDay: startDateOfWeek,lastDay: endDateOfWeek};
+  }
+
 
   async syncSalesSilemaRecapitulativa(client, botiga, dayStart, dayEnd, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
