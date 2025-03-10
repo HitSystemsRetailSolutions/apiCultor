@@ -33,7 +33,7 @@ client.on('connect', function () {
 
   // Suscribirse a un tema
   //let tema = '/Hit/Serveis/Apicultor';
-  let tema = '/Testinggg/Hit/Serveis/Apicultor';
+  let tema = '/Testing/Hit/Serveis/Apicultor';
   client.subscribe(tema, function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
