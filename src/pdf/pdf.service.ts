@@ -86,10 +86,10 @@ export class PdfService {
     }
   }
 
-  async enviarCorreoSeleccionarPdf(database, mailTo, idFactura) {
+  async enviarCorreoSeleccionarPdf(database, mailTo, idFactura, client_id, client_secret, tenant, entorno, companyID) {
     try {
       // Obtén todos los fragmentos asociados con el archivo
-      const fragmentos = await this.obtenerFragmentosDeArchivo(idFactura, database);
+      const fragmentos = await this.obtenerFragmentosDeArchivo(idFactura, database,client_id, client_secret, tenant, entorno, companyID);
 
       // Verifica si el archivo existe
       if (!fragmentos || fragmentos.length === 0) {
@@ -108,10 +108,18 @@ export class PdfService {
     }
   }
 
-  async obtenerFragmentosDeArchivo(id: string, database: string) {
+  async obtenerFragmentosDeArchivo(id: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string) {
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
     // Realiza una consulta SQL para recuperar los fragmentos asociados con el archivo
+    const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`, {
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+    });
+    const year = res.data.value[0].postingDate.split('-')[0];
     const sql = `
-      SELECT BC_PDF FROM BC_SyncSales_2024 WHERE BC_IdSale = '${id}' ORDER BY HIT_DataFactura;
+      SELECT BC_PDF FROM BC_SyncSales_${year} WHERE BC_IdSale = '${id}' ORDER BY HIT_DataFactura;
     `;
     let pdf;
     try {
@@ -122,10 +130,10 @@ export class PdfService {
     return pdf.recordset.map((row) => Buffer.from(row.BC_PDF, 'hex'));
   }
 
-  async getPdf(database: string, id: string) {
+  async getPdf(database: string, id: string, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string) {
     try {
       // Obtén todos los fragmentos asociados con el archivo
-      const fragmentos = await this.obtenerFragmentosDeArchivo(id, database);
+      const fragmentos = await this.obtenerFragmentosDeArchivo(id, database, client_id, client_secret, tenant, entorno, companyID);
 
       // Verifica si el archivo existe
       if (!fragmentos || fragmentos.length === 0) {
@@ -168,15 +176,15 @@ export class PdfService {
     }
 
     try {
-      for (let i = 0; i < chunks.length; i++) {
-        const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`, {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        });
-        const year = res.data.value[0].postingDate.split('-')[0];
-        const sql = `UPDATE BC_SyncSales_2024 SET BC_PDF=0x${chunks[i]}, BC_Number=${res.data.value[0].Number} WHERE BC_IdSale='${id}'`;
+      const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+      const year = res.data.postingDate.split('-')[0];
+      for (let i = 0; i < chunks.length; i++) {    
+        const sql = `UPDATE BC_SyncSales_${year} SET BC_PDF=0x${chunks[i]}, BC_Number=${res.data.number} WHERE BC_IdSale='${id}'`;
         let pdf;
         try {
           pdf = await this.sql.runSql(sql, database);
@@ -224,7 +232,7 @@ export class PdfService {
       //     console.log('Error');
       //   }
       // }
-      // return { msg: 'Se ha insertado correctamente' };
+      return { msg: 'Se ha insertado correctamente' };
     } catch (error) {
       console.error('Error al insertar el PDF en la base de datos:', error);
       throw error;

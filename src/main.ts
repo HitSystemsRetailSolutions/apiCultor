@@ -157,13 +157,13 @@ client.on('message', async function (topic, message) {
           break;
         case 'SyncTickets':
         case 'tickets':
-          await tickets(msgJson.day, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
+          await tickets(msgJson.dayStart, msgJson.dayEnd, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
           break;
         case 'factura':
           await facturas(companyID, database, msgJson.idFactura, msgJson.tabla, client_id, client_secret, tenant, entorno);
           break;
         case 'Companies':
-          await setCompanies();
+          await setCompanies(client_id, client_secret, tenant, entorno);
           break;
         case 'xml':
           await xml(companyID, msgJson.idFactura, client_id, client_secret, tenant, entorno);
@@ -285,7 +285,6 @@ async function signings(companyNAME, database, client_id, client_secret, tenant,
     console.error('Error al sincronizar firmas:', error);
   }
 }
-
 
 async function syncSalesSilemaRecords(companyID, database, botiga, client_id, client_secret, tenant, entorno) {
   try {
@@ -571,11 +570,12 @@ async function itemCategories(companyID, database, client_id, client_secret, ten
   }
 }
 
-async function tickets(day, month, year, companyID, database, botiga, client_id, client_secret, tenant, entorno) {
+async function tickets(dayStart, dayEnd, month, year, companyID, database, botiga, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/syncSalesTickets', {
       params: {
-        day: day,
+        dayStart: dayStart,
+        dayEnd: dayEnd,
         month: month,
         year: year,
         companyID: companyID,
@@ -607,16 +607,21 @@ async function facturas(companyID, database, idFactura, tabla, client_id, client
         entorno: entorno,
       },
     });
-    console.log('Facturas sync sent...');
+    console.log('Sincronización de facturas acabada');
   } catch (error) {
     console.error('Error al sincronizar facturas de ventas:', error);
   }
 }
 
-async function setCompanies() {
+async function setCompanies(client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/getCompaniesId', {
-      params: {},
+      params: {
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
       timeout: 30000,
     });
     console.log('Companies sync sent...');

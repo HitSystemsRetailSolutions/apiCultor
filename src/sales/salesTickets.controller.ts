@@ -9,7 +9,8 @@ export class salesTicketsController {
 
   @Get('syncSalesTickets')
   async salesTickets(
-    @Query('day') day: string,
+    @Query('dayStart') dayStart: string,
+    @Query('dayEnd') dayEnd: string,
     @Query('month') month: string,
     @Query('year') year: string,
     @Query('companyID') companyID: string,
@@ -20,7 +21,7 @@ export class salesTicketsController {
     @Query('tenant') tenant: string,
     @Query('entorno') entorno: string,
   ) {
-    let res = await this.salesTicketsService.syncVentas(day, month, year, companyID, database, botiga, client_id, client_secret, tenant, entorno);
+    let res = await this.salesTicketsService.syncVentas(dayStart, dayEnd, month, year, companyID, database, botiga, client_id, client_secret, tenant, entorno);
     if (res == true) return 'Se han sincronizado los tickets correctamente';
     else return 'Ha habido un error al sincronizar los tickets';
   }
