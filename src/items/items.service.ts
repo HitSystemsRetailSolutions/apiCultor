@@ -36,13 +36,13 @@ export class itemsService {
         );
       }
     } catch (error) {
-      this.logError(`Database '${database}' does not exist`, error);
+      this.logError(`❌ Error al ejecutar la consulta SQL en la base de datos '${database}'`, error);
       return false;
     }
 
     if (items.recordset.length == 0) {
       this.client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
-      console.log('Items. No hay registros');
+      console.warn(`⚠️ Advertencia: No se encontraron registros de artículos`);
       return false;
     }
 
@@ -66,18 +66,19 @@ export class itemsService {
         const itemData2 = {
           priceIncludesTax: true,
         };
-        //Para hacer un patch con todos los datos si el artículo ya existe
-        const itemData = {
-          ...itemData1,
-          ...itemData2,
-        };
 
-        const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq '${item.Codi}'`, {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        });
+        let res;
+        try {
+          res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq '${item.Codi}'`, {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          });
+        } catch (error) {
+          this.logError(`❌ Error consultando articulo en BC con plu ${item.Codi}`, error);
+          continue;
+        }
         if (res.data.value.length === 0) {
           const createItem = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items`, itemData1, {
             headers: {
@@ -88,29 +89,44 @@ export class itemsService {
 
           itemId = createItem.data.id;
           const createdItemEtag = createItem.data['@odata.etag'];
-
-          await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${itemId})`, itemData2, {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-              'If-Match': createdItemEtag,
-            },
-          });
+          if (createItem.data.VATProductPostingGroup) {
+            await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${itemId})`, itemData2, {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json',
+                'If-Match': createdItemEtag,
+              },
+            });
+          }
         } else {
-          const etag = res.data.value[0]['@odata.etag'];
-          await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${res.data.value[0].id})`, itemData, {
+          let etag = res.data.value[0]['@odata.etag'];
+          const updateItem = await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${res.data.value[0].id})`, itemData1, {
             headers: {
               Authorization: 'Bearer ' + token,
               'Content-Type': 'application/json',
               'If-Match': etag,
             },
           });
+          etag = updateItem.data['@odata.etag'];
+          if (updateItem.data.VATProductPostingGroup) {
+            await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${res.data.value[0].id})`, itemData2, {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json',
+                'If-Match': etag,
+              },
+            });
+          }
           itemId = res.data.value[0].id;
         }
       } catch (error) {
-        this.logError(`Error processing item ${item.Nom}`, error);
+        this.logError(`❌ Error al procesar el artículo ${item.Nom}, ${item.Codi}`, error);
+        if (codiHIT) {
+          throw error;
+        }
+        continue;
       }
-      console.log(`Synchronizing item ${item.Nom} ... -> ${i}/${items.recordset.length} --- ${((i / items.recordset.length) * 100).toFixed(2)}% `);
+      console.log(`⏳ Sincronizando artículo ${item.Nom} ... -> ${i}/${items.recordset.length} --- ${((i / items.recordset.length) * 100).toFixed(2)}% `);
       i++;
     }
     if (codiHIT) {
@@ -127,17 +143,32 @@ export class itemsService {
   async getItemFromAPI(companyID, database, codiHIT, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let itemId = '';
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
-    let res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq '${codiHIT}'`, {
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!res.data) throw new Error('Failed to obtain item');
+    let res;
+    try {
+      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq '${codiHIT}'`, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      this.logError(`❌ Error consultando item con plu ${codiHIT}`, error);
+      throw error;
+    }
 
     if (res.data.value.length > 0) {
       itemId = res.data.value[0].id;
+      // Comprobar si los campos necesarios existen
+      const item = res.data.value[0];
+      if (!item.generalProductPostingGroupCode?.trim() || item.type !== 'Non_x002D_Inventory' || !item.VATProductPostingGroup?.trim()) {
+        // Si faltan campos, volver a sincronizar el artículo
+        const syncResult = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+        if (syncResult) {
+          return await this.getItemFromAPI(companyID, database, codiHIT, client_id, client_secret, tenant, entorno);
+        } else {
+          return false;
+        }
+      }
       return itemId;
     }
 
@@ -145,13 +176,13 @@ export class itemsService {
     if (newItem) {
       itemId = String(newItem);
       return itemId;
-    }else{
+    } else {
       return false;
     }
   }
 
   private logError(message: string, error: any) {
-    this.client.publish('/Hit/Serveis/Apicultor/Log', message);
-    console.error(message, error);
+    this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
+    console.error(message, error.response?.data || error.message);
   }
 }

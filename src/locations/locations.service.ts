@@ -41,13 +41,13 @@ export class locationsService {
         );
       }
     } catch (error) {
-      this.logError(`Database '${database}' does not exist`, error);
-      return false;
+      this.logError(`❌ Error al ejecutar la consulta SQL en la base de datos '${database}'`, error);
+      throw error;
     }
 
     if (locations.recordset.length == 0) {
       this.client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
-      console.log('Locations. No hay registros');
+      console.error('⚠️ Advertencia: No se encontraron registros de almacén');
       return false;
     }
 
@@ -67,12 +67,18 @@ export class locationsService {
           email: `${location.EMAIL}`,
         };
 
-        const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/locations?$filter=code eq '${location.CODIGO}'`, {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        });
+        let res;
+        try {
+          res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/locations?$filter=code eq '${location.CODIGO}'`, {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          });
+        } catch (error) {
+          this.logError(`❌ Error consultando el almacén en BC con código ${location.CODIGO}`, error);
+          continue;
+        }
 
         if (res.data.value.length == 0) {
           const createLocation = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/locations`, locationData, {
@@ -94,10 +100,13 @@ export class locationsService {
           locationID = res.data.value[0].id;
         }
       } catch (error) {
-        this.logError(`Error processing location ${location.Nombre}`, error);
-        return false;
+        this.logError(`❌ Error al procesar el almacén ${location.NOMBRE}:`, error);
+        if (codiHIT) {
+          throw error;
+        }
+        continue;
       }
-      console.log(`Synchronizing location ${location.Nombre} ... -> ${i}/${locations.recordset.length} --- ${((i / locations.recordset.length) * 100).toFixed(2)}% `);
+      console.log(`⏳ Sincronizando almacén ${location.NOMBRE} ... -> ${i}/${locations.recordset.length} --- ${((i / locations.recordset.length) * 100).toFixed(2)}% `);
       i++;
     }
     if (codiHIT) {
@@ -109,25 +118,29 @@ export class locationsService {
   async getLocationFromAPI(companyID, database, codiHIT, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let locationCode = '';
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
-    let res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/locations?$filter=code eq '${codiHIT}'`, {
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!res.data) throw new Error('Failed to get location');
+    let res;
+    try {
+      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/locations?$filter=code eq '${codiHIT}'`, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      this.logError(`❌ Error consultando almacén con código ${codiHIT}`, error);
+      throw error;
+    }
 
     if (res.data.value.length > 0) {
       locationCode = res.data.value[0].code;
       return true;
     }
-    const newLocation = await this.syncLocations(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+    await this.syncLocations(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
     return true;
   }
 
   private logError(message: string, error: any) {
-    this.client.publish('/Hit/Serveis/Apicultor/Log', message);
-    console.error(message, error);
+    this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
+    console.error(message, error.response?.data || error.message);
   }
 }

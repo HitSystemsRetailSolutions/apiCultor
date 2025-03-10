@@ -19,9 +19,18 @@ export class PdfController {
   constructor(private readonly pdfService: PdfService) {}
 
   @Get('/pdf/:database/:id') //Get del pdf (http://54.77.231.164:3333/pdf/{database}/{id}). Ejemplo: http://54.77.231.164:3333/pdf/Fac_HitRs/743d8234-dbc4-ee11-9078-000d3adbf495
-  async getPdf(@Param('database') database: string, @Param('id') id: string, @Res() res: Response) {
+  async getPdf(
+    @Param('database') database: string,
+    @Param('id') id: string,
+    @Res() res: Response,
+    @Param('client_id') client_id: string,
+    @Param('client_secret') client_secret: string,
+    @Param('tenant') tenant: string,
+    @Param('entorno') entorno: string,
+    @Param('companyId') companyId: string,
+  ) {
     try {
-      const result = await this.pdfService.getPdf(database, id);
+      const result = await this.pdfService.getPdf(database, id, client_id, client_secret, tenant, entorno, companyId);
       if (result.success) {
         // Configura los headers de la respuesta para indicar que es un archivo PDF
         res.setHeader('Content-Type', 'application/pdf');
@@ -61,8 +70,17 @@ export class PdfController {
   }
 
   @Get('sendMail')
-  async sendMail(@Query('database') database: string, @Query('mailTo') mailTo: string, @Query('idFactura') idFactura: string) {
-    let res = await this.pdfService.enviarCorreoSeleccionarPdf(database, mailTo, idFactura);
+  async sendMail(
+    @Query('database') database: string,
+    @Query('mailTo') mailTo: string,
+    @Query('idFactura') idFactura: string,
+    @Query('client_id') client_id: string,
+    @Query('client_secret') client_secret: string,
+    @Query('tenant') tenant: string,
+    @Query('entorno') entorno: string,
+    @Query('companyId') companyId: string,
+  ) {
+    let res = await this.pdfService.enviarCorreoSeleccionarPdf(database, mailTo, idFactura, client_id, client_secret, tenant, entorno, companyId);
     if (!res) return 'Ha habido un error al intentar enviar el correo';
     return 'Se han sincronizado todas las incidencias correctamente';
   }
