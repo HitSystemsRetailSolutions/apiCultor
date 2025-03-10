@@ -203,50 +203,6 @@ export class initConfigService {
     }
   }
 
-  async createClientesContado(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
-    const customerData = {
-      number: `22222222T`,
-      displayName: `CLIENTES CONTADO TIENDAS`,
-      type: 'Company',
-      addressLine1: `.`,
-      city: `.`,
-      country: 'ES',
-      taxRegistrationNumber: `22222222T`,
-      currencyCode: 'EUR',
-      formatRegion: 'es-ES_tradnl',
-      languageCode: 'ESP',
-      customerPostingGroup: 'NAC',
-      pricesIncludingVAT: 'true',
-    };
-
-    let res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '22222222T'`, {
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (res.data.value.length == 0) {
-      await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers`, customerData, {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
-      });
-    } else {
-      const etag = res.data.value[0]['@odata.etag'];
-      await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`, customerData, {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-          'If-Match': etag,
-        },
-      });
-    }
-    console.log('✅ Cliente contado creado');
-  }
-
   async createCatalanLanguage(companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     try {
@@ -282,8 +238,53 @@ export class initConfigService {
       }
     } catch (error) {
       this.logError(`❌ Error al crear el lenguaje catalán`, error);
+      throw error;
     }
     console.log('✅ Lenguaje catalán creado');
+  }
+
+  async createClientesContado(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
+    const customerData = {
+      number: `22222222T`,
+      displayName: `CLIENTES CONTADO TIENDAS`,
+      type: 'Company',
+      addressLine1: `.`,
+      city: `.`,
+      country: 'ES',
+      taxRegistrationNumber: `22222222T`,
+      currencyCode: 'EUR',
+      formatRegion: 'es-ES_tradnl',
+      languageCode: 'CAT',
+      customerPostingGroup: 'NAC',
+      pricesIncludingVAT: 'true',
+    };
+
+    let res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '22222222T'`, {
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (res.data.value.length == 0) {
+      await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers`, customerData, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+    } else {
+      const etag = res.data.value[0]['@odata.etag'];
+      await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`, customerData, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+          'If-Match': etag,
+        },
+      });
+    }
+    console.log('✅ Cliente contado creado');
   }
 
   private logError(message: string, error: any) {
