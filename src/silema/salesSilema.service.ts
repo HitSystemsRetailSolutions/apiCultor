@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { getTokenService } from '../conection/getToken.service';
-import { runSqlService } from 'src/conection/sqlConection.service';
+import { getTokenService } from '../connection/getToken.service';
+import { runSqlService } from 'src/connection/sqlConection.service';
 import axios from 'axios';
 
 @Injectable()
@@ -70,38 +70,53 @@ export class salesSilemaService {
     return true
   }
 
-  // Funcion que pasandole un dia de inicio y otro 
+  // Funcion que pasandole un dia de inicio y otro de fin sincroniza los datos de ventas de silema
   async syncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
+      let errorWhere = '';
       // Itera desde el día inicial hasta el día final
       for (let day = dayStart; day <= dayEnd; day++) {
-        // Formatea el día y el mes para asegurarse de que tengan 2 dígitos
-        const formattedDay = String(day).padStart(2, '0');
-        const formattedMonth = String(month).padStart(2, '0');
-        const formattedYear = String(year);
+        try {
+          // Formatea el día y el mes para asegurarse de que tengan 2 dígitos
+          const formattedDay = String(day).padStart(2, "0");
+          const formattedMonth = String(month).padStart(2, "0");
+          const formattedYear = String(year);
 
-        // Llama a tu función con el día formateado
-        await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
-        await this.syncSalesSilemaAbono(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
-        //await this.syncSalesSilemaCierre(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
+          console.log(`Procesando ventas para el día: ${formattedDay}/${formattedMonth}/${formattedYear} | Tienda: ${botiga}`);
+
+          // Llama a tu función con el día formateado
+
+          errorWhere = 'syncSalesSilema';
+          await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
+          errorWhere = 'syncSalesSilemaAbono';
+          await this.syncSalesSilemaAbono(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, client_id, client_secret, tenant, entorno);
+
+          // await this.syncSalesSilemaCierre(...);
+        } catch (error) {
+          console.error(`Error ${errorWhere} para el día ${day}/${month}/${year} en la empresa ${companyID}, tienda ${botiga}:`, error);
+          console.error(error);
+        }
       }
     } catch (error) {
-      throw new Error('Error');
+      console.error("Error general en syncSalesSilemaDate:", error);
     }
-    return true
+    return true;
   }
 
   //Sincroniza tickets HIT-BC, Ventas
   async syncSalesSilema(day, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
+    let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
+    if (queryFranquicia.recordset.length >= 1) return;
     let sqlQHora = `select CONVERT(Time, Data) as hora, Import from [V_Moviments_${year}-${month}] where botiga = ${botiga} and Tipus_moviment = 'Z' and day(data)=${day} group by Data, Import order by Data`
     //console.log(sqlQHora);
     let queryHora = await this.sql.runSql(sqlQHora, database);
-    if(queryHora.recordset.length == 0) return;
+    if (queryHora.recordset.length == 0) return;
     let hora = queryHora.recordset[0].hora;
     let importTurno1 = queryHora.recordset[0].Import
     let importTurno2;
-    if(queryHora.recordset.length > 1)
+    if (queryHora.recordset.length > 1)
       importTurno2 = queryHora.recordset[1].Import
 
     // Extraer la hora, minutos y segundos
@@ -114,15 +129,24 @@ export class salesSilemaService {
     //console.log(formattedHora); // Debería mostrar "14:31:43"
 
     //Turno 1
-    let sqlQT1 = `SELECT c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) AS Data, COALESCE(a.Codi, az.Codi) AS Codi, COALESCE(a.NOM, az.NOM) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, 
-    (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MinNumTick, 
-    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MaxNumTick 
+    let sqlQT1 = `
+    DECLARE @Botiga INT =${botiga};
+    DECLARE @Dia INT = ${day};
+    DECLARE @Hora TIME = '${formattedHora}';
+
+    SELECT LTRIM(RTRIM(c.Nom)) AS Nom, LTRIM(RTRIM(c.Nif)) AS Nif, MIN(CONVERT(DATE, v.data)) AS Data, LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))) AS Codi, LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, round(v.Import / NULLIF(v.Quantitat, 0),5) AS precioUnitario,
+    (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MinNumTick, 
+    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MaxNumTick
     FROM [v_venut_${year}-${month}] v 
     LEFT JOIN articles a ON v.plu = a.codi 
     LEFT JOIN articles_zombis az ON v.plu = az.codi AND a.codi IS NULL 
-    LEFT JOIN clients c ON v.botiga = c.codi LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
+    LEFT JOIN clients c ON v.botiga = c.codi 
+    LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
     LEFT JOIN TipusIva2012 tz ON az.TipoIva = tz.Tipus AND t.Tipus IS NULL 
-    WHERE v.botiga = ${botiga} AND DAY(v.data) = ${day} AND CONVERT(TIME, v.data) < '${formattedHora}' GROUP BY COALESCE(a.NOM, az.NOM), COALESCE(a.Codi, az.Codi), COALESCE(a.PREU, az.PREU), c.nom, c.Nif, COALESCE(t.Iva, tz.Iva);`
+    WHERE v.botiga = @Botiga AND DAY(v.data) = @Dia AND CONVERT(TIME, v.data) < @Hora 
+    GROUP BY LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))), LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))), COALESCE(a.PREU, az.PREU), LTRIM(RTRIM(c.nom)), LTRIM(RTRIM(c.Nif)), COALESCE(t.Iva, tz.Iva), round(v.Import / NULLIF(v.Quantitat, 0),5)
+    HAVING SUM(quantitat) > 0;`
+
     //console.log(sqlQT1);
 
     let data = await this.sql.runSql(sqlQT1, database);
@@ -139,7 +163,10 @@ export class salesSilemaService {
       let formattedDate = `${day}-${month}-${formattedYear}`;
       let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
       let turno = 1
-
+      let sellToCustomerNo = '';
+      if (x.Nif == 'B61957189') {
+        sellToCustomerNo = '430001314';
+      }
       let salesData = {
         no: `${x.Nom}_${turno}_${formattedDate}`, // Nº factura
         documentType: 'Invoice', // Tipo de documento
@@ -150,8 +177,8 @@ export class salesSilemaService {
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
         remainingAmount: parseFloat(importTurno1), //Precio total incluyendo IVA por factura
-        sellToCustomerNo: "430001314",
         shift: `Shift_x0020_${turno}`, // Turno
+        sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
         vatRegistrationNo: `${x.Nif}`, // CIF/NIF
@@ -164,6 +191,8 @@ export class salesSilemaService {
 
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
+        let date = new Date(x.Data);
+        let isoDate = date.toISOString().substring(0, 10);
         let salesLine = {
           documentNo: `${salesData.no}`,
           type: `Item`,
@@ -171,8 +200,10 @@ export class salesSilemaService {
           lineNo: i + 1,
           description: `${x.Producte}`,
           quantity: parseFloat(x.Quantitat),
+          shipmentDate: `${isoDate}`,
           lineTotalAmount: parseFloat(x.Import),
-          vatProdPostingGroup: `${x.Iva}`
+          vatProdPostingGroup: `${x.Iva}`,
+          unitPrice: parseFloat(x.precioUnitario)
         };
         salesData.salesLinesBuffer.push(salesLine);
       }
@@ -222,16 +253,24 @@ export class salesSilemaService {
 
 
     //Turno 2
-    let sqlQT2 = `SELECT c.Nom, c.Nif, MIN(CONVERT(DATE, v.data)) AS Data, COALESCE(a.Codi, az.Codi) AS Codi, COALESCE(a.NOM, az.NOM) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, 
-    (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MinNumTick, 
-    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = ${botiga}) AS MaxNumTick 
+    let sqlQT2 = `
+    DECLARE @Botiga INT =${botiga};
+    DECLARE @Dia INT = ${day};
+    DECLARE @Hora TIME = '${formattedHora}';
+
+    SELECT LTRIM(RTRIM(c.Nom)) AS Nom, LTRIM(RTRIM(c.Nif)) AS Nif, MIN(CONVERT(DATE, v.data)) AS Data, LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))) AS Codi, LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, round(v.Import / NULLIF(v.Quantitat, 0),5) AS precioUnitario,
+    (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MinNumTick, 
+    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga) AS MaxNumTick
     FROM [v_venut_${year}-${month}] v 
     LEFT JOIN articles a ON v.plu = a.codi 
     LEFT JOIN articles_zombis az ON v.plu = az.codi AND a.codi IS NULL 
-    LEFT JOIN clients c ON v.botiga = c.codi LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
+    LEFT JOIN clients c ON v.botiga = c.codi 
+    LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
     LEFT JOIN TipusIva2012 tz ON az.TipoIva = tz.Tipus AND t.Tipus IS NULL 
-    WHERE v.botiga = ${botiga} AND DAY(v.data) = ${day} AND CONVERT(TIME, v.data) > '${formattedHora}' GROUP BY COALESCE(a.NOM, az.NOM), COALESCE(a.Codi, az.Codi), COALESCE(a.PREU, az.PREU), c.nom, c.Nif, COALESCE(t.Iva, tz.Iva);`
-    let turno = 2
+    WHERE v.botiga = @Botiga AND DAY(v.data) = @Dia AND CONVERT(TIME, v.data) > @Hora 
+    GROUP BY LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))), LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))), COALESCE(a.PREU, az.PREU), LTRIM(RTRIM(c.nom)), LTRIM(RTRIM(c.Nif)), COALESCE(t.Iva, tz.Iva), round(v.Import / NULLIF(v.Quantitat, 0),5)
+    HAVING SUM(quantitat) > 0;`
+
     data = await this.sql.runSql(sqlQT2, database);
     let x = data.recordset[0];
     if (data.recordset.length > 0) {
@@ -245,7 +284,11 @@ export class salesSilemaService {
       // Formateamos la fecha en el formato ddmmyy
       let formattedDate = `${day}-${month}-${year}`;
       let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
-
+      let sellToCustomerNo = '';
+      if (x.Nif == 'B61957189') {
+        sellToCustomerNo = '430001314';
+      }
+      let turno = 2
       let salesData2 = {
         no: `${x.Nom}_${turno}_${formattedDate}`, // Nº factura
         documentType: 'Invoice', // Tipo de documento
@@ -255,9 +298,9 @@ export class salesSilemaService {
         orderDate: `${formattedDate2}`, // Fecha pedido
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
-        remainingAmount: parseFloat(importTurno2), // Precio total incluyendo IVA por factura
-        sellToCustomerNo: "430001314",
+        remainingAmount: parseFloat(importTurno1), //Precio total incluyendo IVA por factura
         shift: `Shift_x0020_${turno}`, // Turno
+        sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
         vatRegistrationNo: `${x.Nif}`, // CIF/NIF
@@ -270,6 +313,8 @@ export class salesSilemaService {
 
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
+        let date = new Date(x.Data);
+        let isoDate = date.toISOString().substring(0, 10);
         let salesLine = {
           documentNo: `${salesData2.no}`,
           type: `Item`,
@@ -277,8 +322,10 @@ export class salesSilemaService {
           lineNo: i + 1,
           description: `${x.Producte}`,
           quantity: parseFloat(x.Quantitat),
+          shipmentDate: `${isoDate}`,
           lineTotalAmount: parseFloat(x.Import),
-          vatProdPostingGroup: `IVA${x.Iva}`
+          vatProdPostingGroup: `IVA${x.Iva}`,
+          unitPrice: parseFloat(x.precioUnitario)
         };
         salesData2.salesLinesBuffer.push(salesLine);
       }
@@ -331,11 +378,14 @@ export class salesSilemaService {
   //Abono
   async syncSalesSilemaAbono(day, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
+    let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
+    if (queryFranquicia.recordset.length >= 1) return;
     let sqlQHora = `select CONVERT(Time, Data) as hora, CONVERT(Date, Data) as data, Import from [V_Moviments_${year}-${month}] where botiga = ${botiga} and Tipus_moviment = 'Z' and day(data)=${day} group by Data, Import order by Data`
     //console.log(sqlQHora);
 
     let queryHora = await this.sql.runSql(sqlQHora, database);
-    if(queryHora.recordset.length == 0) return;
+    if (queryHora.recordset.length == 0) return;
     let hora = queryHora.recordset[0].hora;
     let importTotal: number = 0;
 
@@ -377,31 +427,31 @@ export class salesSilemaService {
         AND CONVERT(TIME, data) < @Hora
         AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, 
         CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
+        AND botiga = @Botiga
     ),
     FilteredData AS (
-        SELECT 
-            d.ExtractedValue,
-            c.valor,
-            c.codi,
-            cl.nif,
-            d.import,
-            d.iva,
-        cl2.Nif as nifTienda,
-        cl2.Nom as Nom
-        FROM ExtractedData d
-        INNER JOIN constantsclient c ON c.valor = d.ExtractedValue 
-        INNER JOIN clients cl ON cl.codi = c.codi
+      SELECT 
+          d.ExtractedValue,
+          c.valor,
+          c.codi,
+          cl.nif,
+          d.import,
+          d.iva,
+          cl2.Nif as nifTienda,
+          cl2.Nom as Nom
+      FROM ExtractedData d
+      INNER JOIN constantsclient c ON c.valor = d.ExtractedValue 
+      INNER JOIN clients cl ON cl.codi = c.codi
       INNER JOIN clients cl2 ON cl2.codi = d.botiga
     )
     SELECT 
       FilteredData.Nom AS Nom,
-      FilteredData.nifTienda AS NifTienda,
+      LTRIM(RTRIM(FilteredData.nifTienda)) AS NifTienda,
       FilteredData.iva AS IVA,
       SUM(FilteredData.import) AS Importe
     FROM FilteredData
-    GROUP BY FilteredData.Nom, FilteredData.nifTienda, FilteredData.iva
-    ORDER BY FilteredData.iva, FilteredData.nifTienda;
-    `;
+    GROUP BY FilteredData.Nom, LTRIM(RTRIM(FilteredData.nifTienda)), FilteredData.iva
+    ORDER BY FilteredData.iva, LTRIM(RTRIM(FilteredData.nifTienda));`;
     //console.log(sqlQT1);
 
     let data = await this.sql.runSql(sqlQ, database);
@@ -415,6 +465,10 @@ export class salesSilemaService {
       let formattedDate = `${formattedDay}-${formattedMonth}-${shortYear}`;
       let formattedDate2 = new Date(queryHora.recordset[0].data).toISOString().substring(0, 10);
       let turno = 1
+      let sellToCustomerNo = '';
+      if (x.NifTienda == 'B61957189') {
+        sellToCustomerNo = '430001314';
+      }
 
       let salesData = {
         no: `${x.Nom}_${turno}_${formattedDate}`, // Nº factura
@@ -427,6 +481,7 @@ export class salesSilemaService {
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
         remainingAmount: importTotal, // Precio total incluyendo IVA por factura
+        sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
@@ -446,7 +501,8 @@ export class salesSilemaService {
           //description: `${x.producte}`,
           quantity: 1,
           lineTotalAmount: parseFloat(x.Importe),
-          vatProdPostingGroup: `IVA${x.IVA}`
+          vatProdPostingGroup: `IVA${x.IVA}`,
+          unitPrice: parseFloat(x.Importe)
         };
         importTotal += parseFloat(x.Importe)
         salesData.salesLinesBuffer.push(salesLine);
@@ -498,7 +554,6 @@ export class salesSilemaService {
       }
 
       //Facturas Turno 1
-
       sqlQ = `
       DECLARE @Botiga INT = ${botiga};
       DECLARE @Dia INT = ${day};
@@ -527,6 +582,7 @@ export class salesSilemaService {
           AND CONVERT(TIME, data) < @Hora
           AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, 
           CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
+          AND botiga = @Botiga
       ),
       FilteredData AS (
           SELECT 
@@ -544,23 +600,23 @@ export class salesSilemaService {
           INNER JOIN clients cl2 ON cl2.codi = d.botiga
       )
       SELECT 
-          FilteredData.Nom AS Nom,
-          cl.Nom AS NomClient,
-          FilteredData.nifTienda AS NifTienda,
-          FilteredData.nif AS NIF,
-          FilteredData.codi AS CodigoCliente, -- Código del cliente desde ConstantsClient
-          SUM(FilteredData.import) AS Importe,
-          FilteredData.iva AS IVA
+        FilteredData.Nom AS Nom,
+        LTRIM(RTRIM(cl.Nom)) AS NomClient,
+        LTRIM(RTRIM(FilteredData.nifTienda)) AS NifTienda,
+        LTRIM(RTRIM(FilteredData.nif)) AS NIF,
+        FilteredData.codi AS CodigoCliente, -- Código del cliente desde ConstantsClient
+        SUM(FilteredData.import) AS Importe,
+        FilteredData.iva AS IVA
       FROM FilteredData
-      INNER JOIN clients cl ON cl.nif = FilteredData.nif
-      GROUP BY FilteredData.Nom, FilteredData.nif, FilteredData.iva, cl.Nom, FilteredData.nifTienda, FilteredData.codi
-      ORDER BY FilteredData.nif, FilteredData.iva;
-      `;
+      INNER JOIN clients cl ON LTRIM(RTRIM(cl.nif)) = LTRIM(RTRIM(FilteredData.nif))
+      GROUP BY FilteredData.Nom, LTRIM(RTRIM(FilteredData.nif)), FilteredData.iva, LTRIM(RTRIM(cl.Nom)), LTRIM(RTRIM(FilteredData.nifTienda)), FilteredData.codi
+      ORDER BY LTRIM(RTRIM(FilteredData.nif)), FilteredData.iva;`;
       //console.log(sqlQT1);
 
       data = await this.sql.runSql(sqlQ, database);
       x = data.recordset[0];
       importTotal = 0;
+      sellToCustomerNo = '';
 
       let nCliente = 1;
       let cliente = `C${nCliente}`
@@ -568,13 +624,14 @@ export class salesSilemaService {
         no: `${x.Nom}_${turno}_${formattedDate}_${cliente}`, // Nº factura
         documentType: 'Invoice', // Tipo de documento
         dueDate: `${formattedDate2}`, // Fecha vencimiento
-        externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}`, // Nº documento externo
+        externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}_${cliente}`, // Nº documento externo
         locationCode: `${x.Nom}`, // Cód. almacén
         orderDate: `${formattedDate2}`, // Fecha pedido
         personalStoreInvoice: true,
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
         remainingAmount: importTotal, // Precio total incluyendo IVA por factura
+        sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
@@ -649,7 +706,8 @@ export class salesSilemaService {
           //description: `${x.producte}`,
           quantity: 1,
           lineTotalAmount: parseFloat(x.Importe),
-          vatProdPostingGroup: `IVA${x.IVA}`
+          vatProdPostingGroup: `IVA${x.IVA}`,
+          unitPrice: parseFloat(x.Importe)
         };
         salesData.salesLinesBuffer.push(salesLine);
         salesData.remainingAmount += parseFloat(x.Importe);
@@ -727,6 +785,7 @@ export class salesSilemaService {
         AND CONVERT(TIME, data) > @Hora
         AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, 
         CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
+        AND botiga = @Botiga
     ),
     FilteredData AS (
         SELECT 
@@ -745,20 +804,22 @@ export class salesSilemaService {
     )
     SELECT 
       FilteredData.Nom AS Nom,
-      FilteredData.nifTienda AS NifTienda,
+      LTRIM(RTRIM(FilteredData.nifTienda)) AS NifTienda,
       FilteredData.iva AS IVA,
       SUM(FilteredData.import) AS Importe
     FROM FilteredData
-    GROUP BY FilteredData.Nom, FilteredData.nifTienda, FilteredData.iva
-    ORDER BY FilteredData.iva, FilteredData.nifTienda;
-    `;
+    GROUP BY FilteredData.Nom, LTRIM(RTRIM(FilteredData.nifTienda)), FilteredData.iva
+    ORDER BY FilteredData.iva, LTRIM(RTRIM(FilteredData.nifTienda));`;
     //console.log(sqlQT1);
 
     data = await this.sql.runSql(sqlQ, database);
     if (data.recordset.length > 0) {
       let x = data.recordset[0];
       let shortYear = year.slice(-2);
-
+      let sellToCustomerNo = '';
+      if (x.NifTienda == 'B61957189') {
+        sellToCustomerNo = '430001314';
+      }
       let formattedDay = day.padStart(2, '0');
       let formattedMonth = month.padStart(2, '0');
       // Formateamos la fecha en el formato ddmmyy
@@ -777,7 +838,7 @@ export class salesSilemaService {
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
         remainingAmount: importTotal, // Precio total incluyendo IVA por factura
-        sellToCustomerNo: "430001314",
+        sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
@@ -797,7 +858,8 @@ export class salesSilemaService {
           //description: `${x.producte}`,
           quantity: 1,
           lineTotalAmount: parseFloat(x.Importe),
-          vatProdPostingGroup: `IVA${x.IVA}`
+          vatProdPostingGroup: `IVA${x.IVA}`,
+          unitPrice: parseFloat(x.Importe)
         };
         importTotal += parseFloat(x.Importe)
         salesData.salesLinesBuffer.push(salesLine);
@@ -849,7 +911,6 @@ export class salesSilemaService {
       }
 
       //Facturas Turno 2
-
       sqlQ = `
       DECLARE @Botiga INT = ${botiga};
       DECLARE @Dia INT = ${day};
@@ -878,6 +939,7 @@ export class salesSilemaService {
         AND CONVERT(TIME, data) > @Hora
         AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, 
         CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
+        AND botiga = @Botiga
       ),
       FilteredData AS (
         SELECT 
@@ -896,17 +958,16 @@ export class salesSilemaService {
       )
       SELECT 
         FilteredData.Nom AS Nom,
-        cl.Nom AS NomClient,
-        FilteredData.nifTienda AS NifTienda,
-        FilteredData.nif AS NIF,
+        LTRIM(RTRIM(cl.Nom)) AS NomClient,
+        LTRIM(RTRIM(FilteredData.nifTienda)) AS NifTienda,
+        LTRIM(RTRIM(FilteredData.nif)) AS NIF,
         FilteredData.codi AS CodigoCliente, -- Código del cliente desde ConstantsClient
         SUM(FilteredData.import) AS Importe,
         FilteredData.iva AS IVA
       FROM FilteredData
-      INNER JOIN clients cl ON cl.nif = FilteredData.nif
-      GROUP BY FilteredData.Nom, FilteredData.nif, FilteredData.iva, cl.Nom, FilteredData.nifTienda, FilteredData.codi
-      ORDER BY FilteredData.nif, FilteredData.iva;
-      `;
+      INNER JOIN clients cl ON LTRIM(RTRIM(cl.nif)) = LTRIM(RTRIM(FilteredData.nif))
+      GROUP BY FilteredData.Nom, LTRIM(RTRIM(FilteredData.nif)), FilteredData.iva, LTRIM(RTRIM(cl.Nom)), LTRIM(RTRIM(FilteredData.nifTienda)), FilteredData.codi
+      ORDER BY LTRIM(RTRIM(FilteredData.nif)), FilteredData.iva;`;
       //console.log(sqlQT1);
 
       data = await this.sql.runSql(sqlQ, database);
@@ -919,14 +980,14 @@ export class salesSilemaService {
         no: `${x.Nom}_${turno}_${formattedDate}_${cliente}`, // Nº factura
         documentType: 'Invoice', // Tipo de documento
         dueDate: `${formattedDate2}`, // Fecha vencimiento
-        externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}`, // Nº documento externo
+        externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}_${cliente}`, // Nº documento externo
         locationCode: `${x.Nom}`, // Cód. almacén
         orderDate: `${formattedDate2}`, // Fecha pedido
         personalStoreInvoice: true,
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
         remainingAmount: importTotal, // Precio total incluyendo IVA por factura
-        sellToCustomerNo: `43000${String(x.CodigoCliente)}`,
+        sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
@@ -1001,7 +1062,8 @@ export class salesSilemaService {
           //description: `${x.producte}`,
           quantity: 1,
           lineTotalAmount: parseFloat(x.Importe),
-          vatProdPostingGroup: `IVA${x.IVA}`
+          vatProdPostingGroup: `IVA${x.IVA}`,
+          unitPrice: parseFloat(x.Importe)
         };
         salesData.salesLinesBuffer.push(salesLine);
         salesData.remainingAmount += parseFloat(x.Importe);
@@ -1056,6 +1118,9 @@ export class salesSilemaService {
   //Sincroniza tickets HIT-BC, Ventas
   async syncSalesSilemaCierre(day, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
+    let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
+    if (queryFranquicia.recordset.length >= 1) return;
     let sqlQHora = `select CONVERT(Time, Data) as hora, Import from [V_Moviments_${year}-${month}] where botiga = ${botiga} and Tipus_moviment = 'Z' and day(data)=${day} group by Data, Import order by Data`
     //console.log(sqlQHora);
 
@@ -1115,7 +1180,7 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.Nif}`, // CIF/NIF
+        vatRegistrationNo: `${x.NIF}`, // CIF/NIF
         firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
         lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
@@ -1223,7 +1288,7 @@ export class salesSilemaService {
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
-        vatRegistrationNo: `${x.Nif}`, // CIF/NIF
+        vatRegistrationNo: `${x.NIF}`, // CIF/NIF
         firstSummaryDocNo: `${x.MinNumTick}`, // Nº. Doc. Resumen primero
         lastSummaryDocNo: `${x.MaxNumTick}`, // Nº. Doc. Resumen último
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
@@ -1291,17 +1356,139 @@ export class salesSilemaService {
     return true;
   }
 
+  async syncRecapPeriodo(periodoRecap, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    let sqlQ = `;WITH ExtractedData AS (
+    SELECT 
+        SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3)) AS ExtractedValue,
+        v.import,
+        i.iva,
+        v.Botiga
+    FROM [v_venut_${year}-${month}] v
+    LEFT JOIN articles a ON v.plu = a.codi
+    LEFT JOIN TipusIva2012 i ON a.TipoIva = i.Tipus
+    WHERE num_tick IN (
+        SELECT 
+            SUBSTRING(motiu, CHARINDEX(':', motiu) + 2, LEN(motiu)) AS Numero
+        FROM [v_moviments_${year}-${month}]
+        WHERE  motiu LIKE 'Deute client%'
+    )
+    AND CHARINDEX('id:', v.otros) > 0
+    AND CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) > 0
+
+    ),
+    FilteredData AS (
+    SELECT 
+        d.ExtractedValue,
+        c.valor,
+        c.codi,
+        cl.nif,
+        cl2.Nif AS nifTienda,
+        cl2.Nom AS Nom,
+		d.Botiga as CodiTienda,
+        CASE WHEN r.valor = 'Recapitulativa' THEN 1 ELSE 0 END AS RecapitulativaAutomatica,
+        COALESCE(NULLIF(p.valor, ''), 'Mensual') AS PeriodoFacturacion
+    FROM ExtractedData d
+    INNER JOIN constantsclient c ON c.valor = d.ExtractedValue AND c.variable = 'CFINAL'
+    INNER JOIN clients cl ON cl.codi = c.codi
+    INNER JOIN clients cl2 ON cl2.codi = d.botiga
+    LEFT JOIN constantsclient r ON r.codi = cl.codi AND r.variable = 'Recapitulativa'
+    LEFT JOIN constantsclient p ON p.codi = cl.codi AND p.variable = 'Per_Facturacio'
+    )
+    SELECT 
+        FilteredData.CodiTienda AS Codi,
+      FilteredData.Nom AS Nom,
+        cl.Nom AS NomClient,
+        FilteredData.nifTienda AS NifTienda,
+        FilteredData.nif AS NIF,
+        FilteredData.codi AS CodigoCliente,
+        FilteredData.RecapitulativaAutomatica,
+        FilteredData.PeriodoFacturacion
+    FROM FilteredData
+    INNER JOIN clients cl ON cl.nif = FilteredData.nif
+    where FilteredData.RecapitulativaAutomatica = 1
+    GROUP BY FilteredData.CodiTienda, FilteredData.Nom, FilteredData.nif, cl.Nom, FilteredData.nifTienda, FilteredData.codi, FilteredData.RecapitulativaAutomatica, FilteredData.PeriodoFacturacion
+    ORDER BY FilteredData.nif;`;
+    //console.log(sqlQT1);
+    let dayStart = 0;
+    let dayEnd = 0;
+    const today = new Date(year, month - 1, 1); // Fecha con el mes proporcionado
+
+    let data = await this.sql.runSql(sqlQ, database);
+
+    // Verifica si el periodo es semanal con número (ej. "semanal6")
+    const match = periodoRecap.match(/^semanal(\d+)$/);
+    if (match) {
+      const weekNumber = parseInt(match[1], 10); // Extrae el número de semana
+      const firstDayOfWeek = await this.getFirstDayOfWeek(year, weekNumber);
+
+      dayStart = firstDayOfWeek.getDate();
+      month = firstDayOfWeek.getMonth() + 1;
+      dayEnd = new Date(firstDayOfWeek.getFullYear(), firstDayOfWeek.getMonth(), firstDayOfWeek.getDate() + 6).getDate();
+    } else {
+      // Lógica normal para otros periodos
+      switch (periodoRecap) {
+        case 'mensual':
+          dayStart = 1;
+          dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate(); // Último día del mes
+          break;
+        case 'quincenal1':
+          dayStart = 1;
+          dayEnd = 15;
+          break;
+        case 'quincenal2':
+          dayStart = 16;
+          dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+          break;
+        default:
+          dayStart = 1;
+          dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+          break;
+      }
+    }
+
+    console.log(`Periodo: ${periodoRecap}, Días: ${dayStart} - ${dayEnd}, Mes: ${month}, Año: ${year}`);
+    /*
+    // Itera sobre los datos y ejecuta la sincronización solo si coincide el periodo
+    for (let i = 0; i < data.recordset.length; i++) {
+      if (data.recordset[i].PeriodoFacturacion.toLowerCase() === periodoRecap.toLowerCase()) {
+        await this.syncSalesSilemaRecapitulativa(data.recordset[i].CodigoCliente,data.recordset[i].Codi,dayStart, dayEnd, month, year, companyID, database, client_id, client_secret, tenant, entorno);
+      }
+    }
+*/
+    return true;
+  }
+
+  async getFirstDayOfWeek(year: number, weekNumber: number) {
+    if (weekNumber === 1) {
+        return new Date(year, 0, 1); // Siempre devuelve el 1 de enero si es semana 1
+    }
+
+    const firstDayOfYear = new Date(year, 0, 1); // 1 de enero del año
+    const firstWeekday = firstDayOfYear.getDay(); // Día de la semana (0 = Domingo, ..., 6 = Sábado)
+    
+    // Ajuste para que la primera semana comience en lunes
+    const diff = firstWeekday === 0 ? -6 : 1 - firstWeekday; 
+    const firstMonday = new Date(year, 0, 1 + diff); // Primer lunes del año
+
+    // Sumar (weekNumber - 1) * 7 días para llegar a la semana deseada
+    const firstDayOfTargetWeek = new Date(firstMonday);
+    firstDayOfTargetWeek.setDate(firstMonday.getDate() + (weekNumber - 1) * 7);
+
+    return firstDayOfTargetWeek;
+}
 
   async syncSalesSilemaRecapitulativa(client, botiga, dayStart, dayEnd, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let importTotal: number = 0;
-
+    let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
+    if (queryFranquicia.recordset.length >= 1) return;
     let sqlQ = `
     DECLARE @Cliente INT = ${parseInt(client, 10)};
     DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
     DECLARE @Fin INT = ${parseInt(dayEnd, 10)};
 
-    select v.num_tick as TICKET, V.PLU AS PLU,a.nom as ARTICULO, V.Quantitat AS CANTIDAD, v.data as FECHA, V.Import AS PRECIO, CONCAT('IVA',i.Iva) as IVA, cb.nom as TIENDA, C.NIF AS NIF, SUM(v.Import) OVER () AS TOTAL 
+    select v.num_tick as TICKET, V.PLU AS PLU,a.nom as ARTICULO, V.Quantitat AS CANTIDAD, v.data as FECHA, V.Import AS PRECIO, CONCAT('IVA',i.Iva) as IVA, cb.nom as TIENDA, C.NIF AS NIF, SUM(v.Import) OVER () AS TOTAL, round(v.Import / NULLIF(v.Quantitat, 0),5) AS precioUnitario
     from [v_venut_${year}-${month}] v
     left join articles a on a.codi=v.plu
     left join TipusIva i on i.Tipus=a.TipoIva
@@ -1309,7 +1496,8 @@ export class salesSilemaService {
     left join Clients c on cc.codi=c.codi
     left join clients cb on v.botiga=cb.codi
     where v.otros like '%' + cc.valor + '%' and day(data) between @inicio and @fin and cb.codi='${botiga}'
-    GROUP BY V.Num_tick,v.plu,a.nom,v.Quantitat, v.data,v.import,i.iva,cb.nom,c.nif
+    GROUP BY V.Num_tick,v.plu,a.nom,v.Quantitat, v.data,v.import,i.iva,cb.nom,c.nif, round(v.Import / NULLIF(v.Quantitat, 0),5)
+    HAVING SUM(quantitat) > 0
     order by v.data`;
     //console.log(sqlQT1);
 
@@ -1355,7 +1543,7 @@ export class salesSilemaService {
       recapInvoice: true, // Factura recap //false
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
-      storeInvoice: true, // Factura tienda
+      storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
@@ -1390,7 +1578,8 @@ export class salesSilemaService {
         quantity: parseFloat(x.CANTIDAD),
         shipmentDate: `${isoDate}`,
         lineTotalAmount: parseFloat(x.PRECIO),
-        vatProdPostingGroup: `${x.IVA}`
+        vatProdPostingGroup: `${x.IVA}`,
+        unitPrice: parseFloat(x.precioUnitario)
       };
       countLines++
       importTotal += parseFloat(x.PRECIO)
@@ -1447,7 +1636,7 @@ export class salesSilemaService {
     DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
     DECLARE @Fin INT = ${parseInt(dayEnd, 10)};
                     
-    SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, C.NIF AS NIF
+    SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, C.NIF AS NIF, round(v.Import / NULLIF(v.Quantitat, 0),5) AS precioUnitario
     FROM [v_venut_${year}-${month}] V
     LEFT JOIN articles A ON A.codi = V.plu
     LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
@@ -1455,8 +1644,9 @@ export class salesSilemaService {
     LEFT JOIN Clients C ON CC.codi = C.codi
     LEFT JOIN clients CB ON V.botiga = CB.codi
     WHERE V.otros LIKE '%' + CC.valor + '%' AND DAY(data) BETWEEN @Inicio and @fin and cb.codi='${botiga}'
-    GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, C.NIF
-    ORDER BY MIN(V.data);`;
+    GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, C.NIF, round(v.Import / NULLIF(v.Quantitat, 0),5)
+    HAVING SUM(quantitat) > 0
+    ORDER BY MIN(V.data)`;
     //console.log(sqlQT1);
 
     data = await this.sql.runSql(sqlQ, database);
@@ -1479,7 +1669,7 @@ export class salesSilemaService {
       recapInvoice: true, // Factura recap //false
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
-      storeInvoice: true, // Factura tienda
+      storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
@@ -1499,7 +1689,8 @@ export class salesSilemaService {
         quantity: parseFloat(x.CANTIDAD_TOTAL),
         shipmentDate: `${isoDate}`,
         lineTotalAmount: parseFloat(x.IMPORTE_TOTAL),
-        vatProdPostingGroup: `${x.IVA}`
+        vatProdPostingGroup: `${x.IVA}`,
+        unitPrice: parseFloat(x.precioUnitario)
       };
       countLines++
 
@@ -1554,126 +1745,12 @@ export class salesSilemaService {
     return true;
   }
 
-  async syncRecapPeriodo(periodoRecap, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    let sqlQ = `;WITH ExtractedData AS (
-    SELECT 
-        SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3)) AS ExtractedValue,
-        v.import,
-        i.iva,
-        v.Botiga
-    FROM [v_venut_${year}-${month}] v
-    LEFT JOIN articles a ON v.plu = a.codi
-    LEFT JOIN TipusIva2012 i ON a.TipoIva = i.Tipus
-    WHERE num_tick IN (
-        SELECT 
-            SUBSTRING(motiu, CHARINDEX(':', motiu) + 2, LEN(motiu)) AS Numero
-        FROM [v_moviments_${year}-${month}]
-        WHERE  motiu LIKE 'Deute client%'
-    )
-    AND CHARINDEX('id:', v.otros) > 0
-    AND CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) > 0
-
-    ),
-    FilteredData AS (
-    SELECT 
-        d.ExtractedValue,
-        c.valor,
-        c.codi,
-        cl.nif,
-        cl2.Nif AS nifTienda,
-        cl2.Nom AS Nom,
-		d.Botiga as CodiTienda,
-        CASE WHEN r.valor = 'Recapitulativa' THEN 1 ELSE 0 END AS RecapitulativaAutomatica,
-        COALESCE(NULLIF(p.valor, ''), 'Mensual') AS PeriodoFacturacion
-    FROM ExtractedData d
-    INNER JOIN constantsclient c ON c.valor = d.ExtractedValue AND c.variable = 'CFINAL'
-    INNER JOIN clients cl ON cl.codi = c.codi
-    INNER JOIN clients cl2 ON cl2.codi = d.botiga
-    LEFT JOIN constantsclient r ON r.codi = cl.codi AND r.variable = 'Recapitulativa'
-    LEFT JOIN constantsclient p ON p.codi = cl.codi AND p.variable = 'Per_Facturacio'
-    )
-    SELECT 
-        FilteredData.CodiTienda AS Codi,
-      FilteredData.Nom AS Nom,
-        cl.Nom AS NomClient,
-        FilteredData.nifTienda AS NifTienda,
-        FilteredData.nif AS NIF,
-        FilteredData.codi AS CodigoCliente,
-        FilteredData.RecapitulativaAutomatica,
-        FilteredData.PeriodoFacturacion
-    FROM FilteredData
-    INNER JOIN clients cl ON cl.nif = FilteredData.nif
-    where FilteredData.RecapitulativaAutomatica = 1
-    GROUP BY FilteredData.CodiTienda, FilteredData.Nom, FilteredData.nif, cl.Nom, FilteredData.nifTienda, FilteredData.codi, FilteredData.RecapitulativaAutomatica, FilteredData.PeriodoFacturacion
-    ORDER BY FilteredData.nif;`;
-    //console.log(sqlQT1);
-    let dayStart = 0;
-    let dayEnd = 0;
-    const today = new Date();
-    const isFirstHalf = today.getDate() <= 15; // Determina si estamos en la primera quincena
-
-    let data = await this.sql.runSql(sqlQ, database);
-
-    // TODO: Determinar el último día de cada mes para los cálculos mensuales y quincenales
-    switch (periodoRecap) {
-      case 'mensual':
-        dayStart = 1;
-        dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate(); // Último día del mes
-        break;
-      case 'quincenal':
-        if (isFirstHalf) {
-          dayStart = 1;
-          dayEnd = 15;
-        } else {
-          dayStart = 16;
-          dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-        }
-        break;
-      case 'semanal':
-        const currentDayOfWeek = today.getDay();
-        const monday = new Date(today);
-        monday.setDate(today.getDate() - (currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1));
-
-        const sunday = new Date(monday);
-        sunday.setDate(monday.getDate() + 6);
-
-        dayStart = monday.getDate();
-        dayEnd = sunday.getDate();
-        break;
-      default:
-        dayStart = 1;
-        dayEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-        break;
-    }
-
-    for (let i = 0; i < data.recordset.length; i++) {
-      // Llamar a la función con el número de ocurrencia de la tienda
-      if (data.recordset[i].PeriodoFacturacion.toLowerCase() === periodoRecap.toLowerCase()) {
-        await this.syncSalesSilemaRecapitulativa(data.recordset[i].CodigoCliente, data.recordset[i].Codi, dayStart, dayEnd, month, year, companyID, database, client_id, client_secret, tenant, entorno);
-      }
-    }
-    return true;
-  }
-
   async syncSalesSilemaRecapitulativaManual(TicketsArray: Array<String>, client, botiga, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let importTotal: number = 0;
-
-    /*
-    DECLARE @Cliente INT = 6935;
-
-select v.num_tick as TICKET, V.PLU AS PLU,a.nom as ARTICULO, V.Quantitat AS CANTIDAD, v.data as FECHA, V.Import AS PRECIO, CONCAT('IVA',i.Iva) as IVA, cb.nom as TIENDA, C.NIF AS NIF, SUM(v.Import) OVER () AS TOTAL 
-from [v_venut_2025-02] v
-left join articles a on a.codi=v.plu
-left join TipusIva i on i.Tipus=a.TipoIva
-left join ConstantsClient cc on @Cliente= cc.Codi and variable='CFINAL'
-left join Clients c on cc.codi=c.codi
-left join clients cb on v.botiga=cb.codi
-where v.otros like '%' + cc.valor + '%' and cb.codi=842 and num_tick in ('9040845','9040846')
-GROUP BY V.Num_tick,v.plu,a.nom,v.Quantitat, v.data,v.import,i.iva,cb.nom,c.nif
-order by v.data
-    */
-
+    let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
+    if (queryFranquicia.recordset.length >= 1) return;
     const TicketsString = TicketsArray.join(",");
 
     let sqlQ = `
@@ -1746,7 +1823,7 @@ order by v.data
       manualRecapInvoice: true, // Factura manual
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
-      storeInvoice: true, // Factura tienda
+      storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
@@ -1781,7 +1858,8 @@ order by v.data
         quantity: parseFloat(x.CANTIDAD),
         shipmentDate: `${isoDate}`,
         lineTotalAmount: parseFloat(x.PRECIO),
-        vatProdPostingGroup: `${x.IVA}`
+        vatProdPostingGroup: `${x.IVA}`,
+        unitPrice: parseFloat(x.precioUnitario)
       };
       countLines++
       importTotal += parseFloat(x.PRECIO)
@@ -1836,7 +1914,7 @@ order by v.data
     sqlQ = `
     DECLARE @Cliente INT = ${parseInt(client, 10)};
                     
-    SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, C.NIF AS NIF
+    SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, C.NIF AS NIF, round(V.Import / NULLIF(V.Quantitat, 0),5) AS precioUnitario
     FROM [v_venut_${year}-${month}] V
     LEFT JOIN articles A ON A.codi = V.plu
     LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
@@ -1844,7 +1922,8 @@ order by v.data
     LEFT JOIN Clients C ON CC.codi = C.codi
     LEFT JOIN clients CB ON V.botiga = CB.codi
     WHERE V.otros LIKE '%' + CC.valor + '%'  and cb.codi='${botiga}' and v.Num_tick in (${TicketsString})
-    GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, C.NIF
+    GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, C.NIF, round(V.Import / NULLIF(V.Quantitat, 0),5)
+    HAVING SUM(quantitat) > 0
     ORDER BY MIN(V.data);`;
     //console.log(sqlQT1);
 
@@ -1886,7 +1965,7 @@ order by v.data
       manualRecapInvoice: true, // Factura manual
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
-      storeInvoice: true, // Factura tienda
+      storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
       invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
@@ -1906,7 +1985,8 @@ order by v.data
         quantity: parseFloat(x.CANTIDAD_TOTAL),
         shipmentDate: `${isoDate}`,
         lineTotalAmount: parseFloat(x.IMPORTE_TOTAL),
-        vatProdPostingGroup: `${x.IVA}`
+        vatProdPostingGroup: `${x.IVA}`,
+        unitPrice: parseFloat(x.precioUnitario)
       };
       countLines++
 

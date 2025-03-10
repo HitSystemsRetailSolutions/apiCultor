@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { getTokenService } from '../conection/getToken.service';
-import { runSqlService } from 'src/conection/sqlConection.service';
+import { getTokenService } from '../connection/getToken.service';
+import { runSqlService } from 'src/connection/sqlConection.service';
 import * as nodemailer from 'nodemailer';
 import axios from 'axios';
 import * as mailgunTransport from 'nodemailer-mailgun-transport';

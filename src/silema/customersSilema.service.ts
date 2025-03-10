@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { getTokenService } from '../conection/getToken.service';
-import { runSqlService } from 'src/conection/sqlConection.service';
+import { getTokenService } from '../connection/getToken.service';
+import { runSqlService } from 'src/connection/sqlConection.service';
 import axios from 'axios';
 import { query } from 'express';
 
@@ -107,17 +107,7 @@ export class customersSilemaService {
                 await this.sqlConstantClient(Codi, 'NoPagaEnTienda', 'NoPagaEnTienda', 2, database)
               if (IdHitCFINAL != "")
                 await this.sqlConstantClient(Codi, 'CFINAL', IdHitCFINAL, 2, database)
-              const data = {
-                processedHIT: true
-              };
-              let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/customers(${res.data.value[i].id})`
-              const patchResponse = await axios.patch(url2, data, {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  "Content-Type": "application/json",
-                  "If-Match": "*",
-                },
-              });
+              this.marcaProcesado(res.data.value[i].id, token, companyID, tenant, entorno)
             } catch (error) {
               throw new Error('Failed to put customer');
             }
@@ -171,17 +161,7 @@ export class customersSilemaService {
                 await this.sqlConstantClient(Codi, 'NoPagaEnTienda', 'NoPagaEnTienda', 2, database)
               if (IdHitCFINAL != "")
                 await this.sqlConstantClient(Codi, 'CFINAL', IdHitCFINAL, 2, database)
-              const data = {
-                processedHIT: true
-              };
-              let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/customers(${res.data.value[i].id})`
-              const patchResponse = await axios.patch(url2, data, {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  "Content-Type": "application/json",
-                  "If-Match": "*",
-                },
-              });
+              this.marcaProcesado(res.data.value[i].id, token, companyID, tenant, entorno)
             } catch (error) {
               throw new Error('Failed to put customer');
             }
@@ -254,17 +234,7 @@ export class customersSilemaService {
               await this.sqlConstantClient(Codi, 'NoPagaEnTienda', 'NoPagaEnTienda', 2, database)
             if (IdHitCFINAL != "")
               await this.sqlConstantClient(Codi, 'CFINAL', IdHitCFINAL, 2, database)
-            const data = {
-              processedHIT: true
-            };
-            let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/customers(${res.data.value[i].id})`
-            const patchResponse = await axios.patch(url2, data, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-                "If-Match": "*",
-              },
-            });
+            this.marcaProcesado(res.data.value[i].id, token, companyID, tenant, entorno)
           } catch (error) {
             throw new Error('Failed to put customer');
           }
@@ -302,5 +272,21 @@ export class customersSilemaService {
       let sqlQuery = await this.sql.runSql(sql, database)
     }
 
+  }
+
+  async marcaProcesado(id, token, companyID, tenant, entorno) {
+    try {
+      const data = { processedHIT: true };
+      let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/customers(${id})`;
+      await axios.patch(url2, data, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "If-Match": "*",
+        },
+      });
+    } catch (error) {
+      throw new Error('Failed to put customer');
+    }
   }
 }

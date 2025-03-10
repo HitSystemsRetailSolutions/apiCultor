@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { getTokenService } from '../conection/getToken.service';
-import { runSqlService } from 'src/conection/sqlConection.service';
+import { getTokenService } from '../connection/getToken.service';
+import { runSqlService } from 'src/connection/sqlConection.service';
 import axios from 'axios';
 
 @Injectable()
@@ -149,7 +149,7 @@ export class contactsSilemaService {
   async marcarProcesado(id, token, companyID, tenant, entorno) {
     try {
       const data = { processedHIT: true };
-      let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/vendors(${id})`;
+      let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/contacts(${id})`;
       await axios.patch(url2, data, {
         headers: {
           Authorization: `Bearer ${token}`,

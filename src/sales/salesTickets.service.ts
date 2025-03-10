@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { getTokenService } from '../conection/getToken.service';
-import { runSqlService } from 'src/conection/sqlConection.service';
+import { getTokenService } from '../connection/getToken.service';
+import { runSqlService } from 'src/connection/sqlConection.service';
 import { itemsService } from 'src/items/items.service';
 import { customersService } from 'src/customers/customers.service';
 import { locationsService } from 'src/locations/locations.service';
