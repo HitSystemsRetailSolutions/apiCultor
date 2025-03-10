@@ -176,15 +176,15 @@ export class PdfService {
     }
 
     try {
-      for (let i = 0; i < chunks.length; i++) {
-        const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`, {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        });
-        const year = res.data.value[0].postingDate.split('-')[0];
-        const sql = `UPDATE BC_SyncSales_${year} SET BC_PDF=0x${chunks[i]}, BC_Number=${res.data.value[0].Number} WHERE BC_IdSale='${id}'`;
+      const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+      const year = res.data.postingDate.split('-')[0];
+      for (let i = 0; i < chunks.length; i++) {    
+        const sql = `UPDATE BC_SyncSales_${year} SET BC_PDF=0x${chunks[i]}, BC_Number=${res.data.number} WHERE BC_IdSale='${id}'`;
         let pdf;
         try {
           pdf = await this.sql.runSql(sql, database);
