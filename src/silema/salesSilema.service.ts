@@ -1422,6 +1422,7 @@ export class salesSilemaService {
       const firstDayOfWeek = await this.getFirstDayOfWeek(year, weekNumber);
 
       dayStart = firstDayOfWeek.getDate();
+      month = firstDayOfWeek.getMonth() + 1;
       dayEnd = new Date(firstDayOfWeek.getFullYear(), firstDayOfWeek.getMonth(), firstDayOfWeek.getDate() + 6).getDate();
     } else {
       // Lógica normal para otros periodos
@@ -1458,20 +1459,23 @@ export class salesSilemaService {
   }
 
   async getFirstDayOfWeek(year: number, weekNumber: number) {
-    const firstDayOfYear = new Date(year, 0, 1); // 1 de enero del año dado
-    const daysToAdd = (weekNumber - 1) * 7; // Días que hay que sumar para llegar a la semana deseada
-    const firstWeekday = firstDayOfYear.getDay(); // Día de la semana del 1 de enero (0 = Domingo, 1 = Lunes, ..., 6 = Sábado)
+    if (weekNumber === 1) {
+        return new Date(year, 0, 1); // Siempre devuelve el 1 de enero si es semana 1
+    }
 
-    // Ajuste para que la semana comience en lunes
-    const diff = firstWeekday === 0 ? -6 : 1 - firstWeekday; // Si es domingo (-6), si no, ajustar al lunes (1 - firstWeekday)
+    const firstDayOfYear = new Date(year, 0, 1); // 1 de enero del año
+    const firstWeekday = firstDayOfYear.getDay(); // Día de la semana (0 = Domingo, ..., 6 = Sábado)
+    
+    // Ajuste para que la primera semana comience en lunes
+    const diff = firstWeekday === 0 ? -6 : 1 - firstWeekday; 
     const firstMonday = new Date(year, 0, 1 + diff); // Primer lunes del año
 
-    // Obtener el primer día de la semana solicitada
+    // Sumar (weekNumber - 1) * 7 días para llegar a la semana deseada
     const firstDayOfTargetWeek = new Date(firstMonday);
-    firstDayOfTargetWeek.setDate(firstMonday.getDate() + daysToAdd);
+    firstDayOfTargetWeek.setDate(firstMonday.getDate() + (weekNumber - 1) * 7);
 
     return firstDayOfTargetWeek;
-  }
+}
 
   async syncSalesSilemaRecapitulativa(client, botiga, dayStart, dayEnd, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
