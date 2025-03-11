@@ -1447,14 +1447,13 @@ export class salesSilemaService {
     }
 
     console.log(`Periodo: ${periodoRecap}, Días: ${dayStart} - ${dayEnd}, Mes: ${month}, Año: ${year}`);
-    /*
+
     // Itera sobre los datos y ejecuta la sincronización solo si coincide el periodo
     for (let i = 0; i < data.recordset.length; i++) {
       if (data.recordset[i].PeriodoFacturacion.toLowerCase() === periodoRecap.toLowerCase()) {
-        await this.syncSalesSilemaRecapitulativa(data.recordset[i].CodigoCliente,data.recordset[i].Codi,dayStart, dayEnd, month, year, companyID, database, client_id, client_secret, tenant, entorno);
+        await this.syncSalesSilemaRecapitulativa(data.recordset[i].CodigoCliente, data.recordset[i].Codi, dayStart, dayEnd, month, year, companyID, database, client_id, client_secret, tenant, entorno);
       }
     }
-*/
     return true;
   }
 
@@ -1503,7 +1502,7 @@ export class salesSilemaService {
     const endDateOfWeek = new Date(startDateOfWeek);
     endDateOfWeek.setDate(startDateOfWeek.getDate() + 6); // Domingo de esa semana
 
-    return {firstDay: startDateOfWeek,lastDay: endDateOfWeek};
+    return { firstDay: startDateOfWeek, lastDay: endDateOfWeek };
   }
 
 
