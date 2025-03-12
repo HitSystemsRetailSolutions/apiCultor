@@ -1540,7 +1540,7 @@ export class salesSilemaService {
     let formattedDateDayEnd = new Date(Date.UTC(year, month - 1, dayEnd)).toISOString().substring(0, 10);
 
     // Calculamos `n` basado en las facturas recapitulativas existentes
-    let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_R') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd}`;    let n = 1; // Valor por defecto si no hay facturas recapitulativas
+    let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_R') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd}`; let n = 1; // Valor por defecto si no hay facturas recapitulativas
     //console.log(`URL para obtener facturas recapitulativas: ${url}`);
     try {
       // Obtenemos las facturas filtradas desde Business Central
@@ -1827,17 +1827,17 @@ export class salesSilemaService {
     // Extraer todas las fechas del dataset
     let fechas = data.recordset.map(row => new Date(row.FECHA));
 
-    // Determinar la fecha más antigua y más reciente
-    let fechaMasAntigua = new Date(Date.UTC(Math.max(...fechas)));
-    let fechaMasNueva = new Date(Date.UTC(Math.min(...fechas)));
+    // Determinar la fecha más antigua y más reciente correctamente
+    let fechaMasAntigua = new Date(Math.min(...fechas.map(f => f.getTime()))); // Fecha más antigua
+    let fechaMasNueva = new Date(Math.max(...fechas.map(f => f.getTime()))); // Fecha más reciente
 
     // Extraer día, mes y año en el formato adecuado
-    let shortYear = year.slice(-2);
+    let shortYear = String(year).slice(-2);
     let monthFormatted = `${month}-${shortYear}`;
 
     let formattedDate = `${fechaMasAntigua.getDate()}-${monthFormatted}`; // Factura más antigua (para externalDocumentNo)
-    let formattedDateDayStart = fechaMasNueva.toISOString().substring(0, 10); // Factura más reciente (YYYY-MM-DD)
-    let formattedDateDayEnd = fechaMasAntigua.toISOString().substring(0, 10); // Factura más antigua (YYYY-MM-DD)
+    let formattedDateDayStart = fechaMasAntigua.toISOString().substring(0, 10); // Factura más antigua (YYYY-MM-DD)
+    let formattedDateDayEnd = fechaMasNueva.toISOString().substring(0, 10); // Factura más reciente (YYYY-MM-DD)
 
     // Calculamos `n` basado en las facturas recapitulativas existentes
     let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_RM') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd}`;
@@ -1989,17 +1989,17 @@ export class salesSilemaService {
     // Extraer todas las fechas de última venta
     let fechasUltimaVenta = data.recordset.map(row => new Date(row.FECHA_ULTIMA_VENTA));
 
-    // Determinar la fecha más antigua y más reciente
-    fechaMasAntigua = new Date(Date.UTC(Math.max(...fechas)));
-    fechaMasNueva = new Date(Date.UTC(Math.min(...fechas)));
+    // Determinar la fecha más antigua y más reciente correctamente
+    fechaMasAntigua = new Date(Math.min(...fechas.map(f => f.getTime()))); // Fecha más antigua
+    fechaMasNueva = new Date(Math.max(...fechas.map(f => f.getTime()))); // Fecha más reciente
 
     // Extraer día, mes y año en el formato adecuado
-    shortYear = year.slice(-2);
+    shortYear = String(year).slice(-2);
     monthFormatted = `${month}-${shortYear}`;
 
-    formattedDate = `${fechaMasAntigua.getDate()}-${monthFormatted}`; // Fecha de la primera venta más antigua
-    formattedDateDayStart = fechaMasNueva.toISOString().substring(0, 10); // Última venta más reciente (YYYY-MM-DD)
-    formattedDateDayEnd = fechaMasAntigua.toISOString().substring(0, 10); // Primera venta más antigua (YYYY-MM-DD)
+    formattedDate = `${fechaMasAntigua.getDate()}-${monthFormatted}`; // Factura más antigua (para externalDocumentNo)
+    formattedDateDayStart = fechaMasAntigua.toISOString().substring(0, 10); // Factura más antigua (YYYY-MM-DD)
+    formattedDateDayEnd = fechaMasNueva.toISOString().substring(0, 10); // Factura más reciente (YYYY-MM-DD)
 
     importTotal = 0;
     salesData = {
