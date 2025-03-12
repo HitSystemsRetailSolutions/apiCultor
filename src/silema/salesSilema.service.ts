@@ -1868,7 +1868,7 @@ export class salesSilemaService {
       locationCode: `${x.TIENDA}`, // Cód. almacén
       orderDate: `${formattedDateDayEnd}`, // Fecha pedido
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
-      recapInvoice: true, // Factura recap //false
+      recapInvoice: false, // Factura recap //false
       manualRecapInvoice: true, // Factura manual
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
@@ -2010,7 +2010,7 @@ export class salesSilemaService {
       locationCode: `${x.TIENDA}`, // Cód. almacén
       orderDate: `${formattedDateDayEnd}`, // Fecha pedido
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
-      recapInvoice: true, // Factura recap //false
+      recapInvoice: false, // Factura recap //false
       manualRecapInvoice: true, // Factura manual
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
       shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
