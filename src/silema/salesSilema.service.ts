@@ -1828,8 +1828,8 @@ export class salesSilemaService {
     let fechas = data.recordset.map(row => new Date(row.FECHA));
 
     // Determinar la fecha más antigua y más reciente
-    let fechaMasAntigua = new Date(Math.max(...fechas));
-    let fechaMasNueva = new Date(Math.min(...fechas));
+    let fechaMasAntigua = new Date(Date.UTC(Math.max(...fechas)));
+    let fechaMasNueva = new Date(Date.UTC(Math.min(...fechas)));
 
     // Extraer día, mes y año en el formato adecuado
     let shortYear = year.slice(-2);
@@ -1990,8 +1990,8 @@ export class salesSilemaService {
     let fechasUltimaVenta = data.recordset.map(row => new Date(row.FECHA_ULTIMA_VENTA));
 
     // Determinar la fecha más antigua y más reciente
-    fechaMasAntigua = new Date(Math.max(...fechas)); // Primera venta más antigua
-    fechaMasNueva = new Date(Math.min(...fechasUltimaVenta)); // Última venta más reciente
+    fechaMasAntigua = new Date(Date.UTC(Math.max(...fechas)));
+    fechaMasNueva = new Date(Date.UTC(Math.min(...fechas)));
 
     // Extraer día, mes y año en el formato adecuado
     shortYear = year.slice(-2);
