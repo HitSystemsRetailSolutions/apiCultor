@@ -1536,12 +1536,11 @@ export class salesSilemaService {
 
     // Formateamos las fechas
     let formattedDate = `${dayEnd}-${month}-${shortYear}`;
-    let formattedDateDayStart = new Date(`${year}-${month}-${dayStart}`).toISOString().substring(0, 10);
-    let formattedDateDayEnd = new Date(`${year}-${month}-${dayEnd}`).toISOString().substring(0, 10);
+    let formattedDateDayStart = new Date(Date.UTC(year, month - 1, dayStart)).toISOString().substring(0, 10);
+    let formattedDateDayEnd = new Date(Date.UTC(year, month - 1, dayEnd)).toISOString().substring(0, 10);
 
     // Calculamos `n` basado en las facturas recapitulativas existentes
-    let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_R') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd}`;
-    let n = 1; // Valor por defecto si no hay facturas recapitulativas
+    let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_R') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd}`;    let n = 1; // Valor por defecto si no hay facturas recapitulativas
     //console.log(`URL para obtener facturas recapitulativas: ${url}`);
     try {
       // Obtenemos las facturas filtradas desde Business Central
@@ -1617,6 +1616,26 @@ export class salesSilemaService {
     salesData.remainingAmount = importTotal;
     //console.log(salesData)
 
+    let urlExist = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_R') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd} and contains(vatRegistrationNo, '${x.NIF}') and remainingAmount eq ${importTotal}`;
+    let resGetExist = await axios
+      .get(
+        urlExist,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+      .catch((error) => {
+        console.log(`Url ERROR: ${url1}`)
+        throw new Error('Failed to obtain sale');
+      });
+    if (resGetExist.data.value.length >= 1) {
+      console.log(`Ya existe la recapitulativa ${resGetExist.data.value[0].no}`)
+      return;
+    }
+
     let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=no eq '${salesData.no}' and documentType eq '${salesData.documentType}'`;
     //console.log(url1);
     let resGet1 = await axios
@@ -1684,8 +1703,9 @@ export class salesSilemaService {
 
     // Formateamos la fecha en el formato ddmmyy
     formattedDate = `${dayEnd}-${month}-${shortYear}`;
-    formattedDateDayStart = new Date(`${year}-${month}-${dayStart}`).toISOString().substring(0, 10);
-    formattedDateDayEnd = new Date(`${year}-${month}-${dayEnd}`).toISOString().substring(0, 10);
+    formattedDateDayStart = new Date(Date.UTC(year, month - 1, dayStart)).toISOString().substring(0, 10);
+    formattedDateDayEnd = new Date(Date.UTC(year, month - 1, dayEnd)).toISOString().substring(0, 10);
+
     importTotal = 0;
     salesData = {
       no: `${x.TIENDA}_${formattedDate}_AR${n}`, // Nº factura
@@ -1943,7 +1963,7 @@ export class salesSilemaService {
     sqlQ = `
     DECLARE @Cliente INT = ${parseInt(client, 10)};
                     
-    SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, C.NIF AS NIF, round(V.Import / NULLIF(V.Quantitat, 0),5) AS precioUnitario
+    SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, CB.Nif AS NIFTIENDA, C.NIF AS NIF, round(V.Import / NULLIF(V.Quantitat, 0),5) AS precioUnitario
     FROM [v_venut_${year}-${month}] V
     LEFT JOIN articles A ON A.codi = V.plu
     LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
@@ -1951,7 +1971,7 @@ export class salesSilemaService {
     LEFT JOIN Clients C ON CC.codi = C.codi
     LEFT JOIN clients CB ON V.botiga = CB.codi
     WHERE V.otros LIKE '%' + CC.valor + '%'  and cb.codi='${botiga}' and v.Num_tick in (${TicketsString})
-    GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, C.NIF, round(V.Import / NULLIF(V.Quantitat, 0),5)
+    GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, CB.Nif, C.NIF, round(V.Import / NULLIF(V.Quantitat, 0),5)
     HAVING SUM(quantitat) > 0
     ORDER BY MIN(V.data);`;
     //console.log(sqlQT1);
