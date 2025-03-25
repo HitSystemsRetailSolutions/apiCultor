@@ -4,9 +4,16 @@ import { runSqlService } from 'src/connection/sqlConection.service';
 import * as nodemailer from 'nodemailer';
 import axios from 'axios';
 import * as mailgunTransport from 'nodemailer-mailgun-transport';
+import * as mqtt from 'mqtt';
 
 @Injectable()
 export class PdfService {
+  private client = mqtt.connect({
+    host: process.env.MQTT_HOST,
+    username: process.env.MQTT_USER,
+    password: process.env.MQTT_PASSWORD,
+  });
+
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
@@ -45,7 +52,7 @@ export class PdfService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error al enviar el correo electrónico:', error);
+      this.logError('❌ Error al enviar el correo electrónico:', error);
       return { success: false, message: 'Error al enviar el correo electrónico' };
     }
   }
@@ -81,7 +88,7 @@ export class PdfService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error al enviar el correo electrónico:', error);
+      this.logError('❌ Error al enviar el correo electrónico:', error);
       return { success: false, message: 'Error al enviar el correo electrónico' };
     }
   }
@@ -89,7 +96,7 @@ export class PdfService {
   async enviarCorreoSeleccionarPdf(database, mailTo, idFactura, client_id, client_secret, tenant, entorno, companyID) {
     try {
       // Obtén todos los fragmentos asociados con el archivo
-      const fragmentos = await this.obtenerFragmentosDeArchivo(idFactura, database,client_id, client_secret, tenant, entorno, companyID);
+      const fragmentos = await this.obtenerFragmentosDeArchivo(idFactura, database, client_id, client_secret, tenant, entorno, companyID);
 
       // Verifica si el archivo existe
       if (!fragmentos || fragmentos.length === 0) {
@@ -103,31 +110,32 @@ export class PdfService {
       // Envía el PDF por correo electrónico
       await this.enviarCorreoConPdf(archivoCompleto, mailTo);
     } catch (error) {
-      console.error('Error al enviar el correo:', error);
+      this.logError('❌ Error al enviar el correo:', error);
       return { success: false, message: 'Error al enviar el correo' };
     }
   }
 
-  async obtenerFragmentosDeArchivo(id: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string) {
-    let token = await this.token.getToken2(client_id, client_secret, tenant);
-    // Realiza una consulta SQL para recuperar los fragmentos asociados con el archivo
-    const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`, {
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
-      },
-    });
-    const year = res.data.value[0].postingDate.split('-')[0];
-    const sql = `
-      SELECT BC_PDF FROM BC_SyncSales_${year} WHERE BC_IdSale = '${id}' ORDER BY HIT_DataFactura;
-    `;
-    let pdf;
+  async obtenerFragmentosDeArchivo(id, database, client_id, client_secret, tenant, entorno, companyID) {
     try {
-      pdf = await this.sql.runSql(sql, database);
-    } catch {
-      console.log('Error');
+      const token = await this.token.getToken2(client_id, client_secret, tenant);
+
+      const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const year = res.data.postingDate.split('-')[0];
+      const sql = `SELECT BC_PDF FROM BC_SyncSales_${year} WHERE BC_IdSale = '${id}' ORDER BY HIT_DataFactura;`;
+      const result = await this.sql.runSql(sql, database);
+
+      // Convertir los fragmentos a buffers
+      return result.recordset.map((row) => Buffer.from(row.BC_PDF, 'hex'));
+    } catch (error) {
+      this.logError(`❌ Error al obtener los fragmentos del archivo para el ID ${id}:`, error);
+      throw error;
     }
-    return pdf.recordset.map((row) => Buffer.from(row.BC_PDF, 'hex'));
   }
 
   async getPdf(database: string, id: string, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string) {
@@ -150,7 +158,7 @@ export class PdfService {
       // Devuelve el PDF
       return { success: true, pdfData: archivoCompleto };
     } catch (error) {
-      console.error('Error al descargar el archivo:', error);
+      this.logError('❌ Error al descargar el archivo:', error);
       return { success: false, message: 'Error al descargar el archivo' };
     }
   }
@@ -165,77 +173,34 @@ export class PdfService {
   }
 
   async subirPdf(id: string, archivoBase64: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string) {
-    // Convierte el Base64 a Buffer
-    let token = await this.token.getToken2(client_id, client_secret, tenant);
-    const bufferArchivo = Buffer.from(archivoBase64, 'base64');
-    const chunks = [];
-    const chunkSize = bufferArchivo.length; // Tamaño de cada fragmento en bytes
-    for (let i = 0; i < bufferArchivo.length; i += chunkSize) {
-      const chunk = bufferArchivo.slice(i, i + chunkSize);
-      chunks.push(chunk.toString('hex'));
-    }
-
     try {
+      let token = await this.token.getToken2(client_id, client_secret, tenant);
+      // Convierte el Base64 a Buffer
+      const bufferArchivo = Buffer.from(archivoBase64, 'base64');
+
       const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`, {
         headers: {
           Authorization: 'Bearer ' + token,
           'Content-Type': 'application/json',
         },
       });
-      const year = res.data.postingDate.split('-')[0];
-      for (let i = 0; i < chunks.length; i++) {    
-        const sql = `UPDATE BC_SyncSales_${year} SET BC_PDF=0x${chunks[i]}, BC_Number=${res.data.number} WHERE BC_IdSale='${id}'`;
-        let pdf;
-        try {
-          pdf = await this.sql.runSql(sql, database);
-        } catch {
-          console.log('Error');
-        }
-      }
-      // let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`;
-      // let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})/salesInvoiceLines`;
-      // let res1 = await axios
-      //   .get(url1, {
-      //     headers: {
-      //       Authorization: 'Bearer ' + token,
-      //       'Content-Type': 'application/json',
-      //     },
-      //   })
-      //   .catch((error) => {
-      //     throw new Error(`Failed get salesInvoices(${id})`);
-      //   });
-      // let res2 = await axios
-      //   .get(url2, {
-      //     headers: {
-      //       Authorization: 'Bearer ' + token,
-      //       'Content-Type': 'application/json',
-      //     },
-      //   })
-      //   .catch((error) => {
-      //     throw new Error(`Failed get salesInvoices(${id})/salesInvoiceLines`);
-      //   });
-      // for (let i = 0; i < res2.data.value.length; i++) {
-      //   let x = res1.data;
-      //   let y = res2.data.value[i];
-      //   let año = x.invoiceDate.toString().split('-')[0];
-      //   let BC_Number = x.number;
-      //   let BC_TaxCode = y.taxCode;
-      //   let BC_TaxPercent = y.taxPercent;
-      //   let BC_AmountExcludingTax = y.amountExcludingTax;
-      //   let BC_TotalTaxAmount = y.totalTaxAmount;
-      //   let sql2 = `INSERT INTO [BC_SyncSalesTaxes_${año}] (ID, BC_Number, BC_TaxCode, BC_TaxPercent, BC_AmountExcludingTax, BC_TotalTaxAmount) VALUES
-      //   (NEWID(), ${BC_Number}, '${BC_TaxCode}', ${BC_TaxPercent}, ${BC_AmountExcludingTax}, ${BC_TotalTaxAmount})`;
-      //   let factura;
-      //   try {
-      //     factura = await this.sql.runSql(sql2, database);
-      //   } catch {
-      //     console.log('Error');
-      //   }
-      // }
+
+      const { postingDate, number } = res.data;
+      const year = postingDate.split('-')[0];
+
+      const pdfHex = bufferArchivo.toString('hex');
+
+      const sql = `UPDATE BC_SyncSales_${year} SET BC_PDF=0x${pdfHex}, BC_Number='${number}' WHERE BC_IdSale='${id}'`;
+      await this.sql.runSql(sql, database);
+
       return { msg: 'Se ha insertado correctamente' };
     } catch (error) {
-      console.error('Error al insertar el PDF en la base de datos:', error);
+      this.logError(`❌ Error al insertar el PDF en la base de datos`, error);
       throw error;
     }
+  }
+  private logError(message: string, error: any) {
+    this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
+    console.error(message, error.response?.data || error.message);
   }
 }

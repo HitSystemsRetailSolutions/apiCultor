@@ -49,7 +49,7 @@ export class PdfController {
 
   @Post('/pdf/subirPDF') //Post del pdf para subr a la base de datos
   async subirPdf(@Body() body: SubirPdfRequest, @Res() res: Response) {
-    const { id, archivo, database, client, secret, tenant, entorno, companyId, empresaCodi } = body;
+    const { id, archivo, database, client, secret, tenant, entorno, companyId} = body;
 
     //Diferentes errores para que avise del problema por si no se proporciona uno de los datos necesarios
     if (!archivo) {

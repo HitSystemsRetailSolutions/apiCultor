@@ -49,7 +49,12 @@ export class salesFacturasService {
           const endpointline = x.Total >= 0 ? 'salesInvoiceLines' : 'salesCreditMemoLines';
 
           console.log(`-------------------SINCRONIZANDO FACTURA NÚMERO ${num} -----------------------`);
-          const customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientNif, client_id, client_secret, tenant, entorno);
+          let customerId;
+          if (tenant === process.env.blockedTenant) {
+            customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientCodi, client_id, client_secret, tenant, entorno);
+          } else {
+            customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientNif, client_id, client_secret, tenant, entorno);
+          }
 
           let res;
           try {
@@ -134,38 +139,86 @@ export class salesFacturasService {
   async processInvoiceLines(salesInvoiceData, endpointline, companyID, database, tabFacturacioDATA, Hit_IdFactura, BC_facturaId, client_id: string, client_secret: string, tenant: string, entorno: string) {
     console.log(`📦 Procesando líneas de la factura...`);
     try {
-      const sqlQ = `SELECT SUM(CASE WHEN f.Servit = 0 THEN f.Tornat * -1 ELSE f.Servit END) AS Quantitat, round(f.preu,3) AS UnitPrice, CAST(f.Producte AS VARCHAR) AS Plu , f.desconte as Descuento, f.iva as Iva, f.ProducteNom as Nombre FROM ${tabFacturacioDATA} f WHERE f.idFactura = '${Hit_IdFactura}' GROUP BY f.Producte,f.Desconte,f.Preu,f.Iva,f.ProducteNom;`;
-      const invoiceLines = await this.sql.runSql(sqlQ, database);
-      let lineData = {};
-      const limit = pLimit(15);
-      const promises = invoiceLines.recordset.map((line: any) =>
-        limit(async () => {
-          const itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
+      const sqlQ = `SELECT CASE WHEN CHARINDEX('IdAlbara:', f.referencia) > 0 THEN 
+                      SUBSTRING(f.referencia, CHARINDEX('IdAlbara:', f.referencia) + 9, 
+                      CHARINDEX(']', f.referencia, CHARINDEX('IdAlbara:', f.referencia)) - CHARINDEX('IdAlbara:', f.referencia) - 9)
+                      ELSE NULL END AS IdAlbara, 
+                      c.Nom as Client, FORMAT(f.Data, 'dd/MM/yyyy') AS Data,
+                      SUM(CASE WHEN f.Servit = 0 THEN f.Tornat * -1 ELSE f.Servit END) AS Quantitat, 
+                      ROUND(f.preu, 3) AS UnitPrice, CAST(f.Producte AS VARCHAR) AS Plu, 
+                      f.desconte as Descuento, f.iva as Iva, f.ProducteNom as Nombre,  
+                      RIGHT(f.Referencia, CHARINDEX(']', REVERSE(f.Referencia)) - 1) AS Comentario 
+                  FROM ${tabFacturacioDATA} f
+                  LEFT JOIN clients c ON f.client = c.codi
+                  WHERE f.idFactura = '${Hit_IdFactura}' 
+                  GROUP BY f.Producte, f.Desconte, f.Preu, f.Iva, f.ProducteNom, referencia, c.Nom, f.Data
+                  ORDER BY f.Data, f.Producte;`;
 
-          if (itemAPI) {
-            lineData = {
-              itemId: itemAPI,
-              lineType: 'Item',
-              quantity: line.Quantitat,
-              unitPrice: line.UnitPrice,
-              discountPercent: line.Descuento,
-              taxCode: `IVA${line.Iva}`,
-            };
-          } else {
-            lineData = {
-              lineObjectNumber: line.Quantitat > 0 ? '7000001' : '7090001',
-              description: line.Nombre,
-              lineType: 'Account',
-              quantity: line.Quantitat,
-              unitPrice: line.UnitPrice,
-              discountPercent: line.Descuento,
-              taxCode: `IVA${line.Iva}`,
-            };
-          }
-          salesInvoiceData[endpointline].push(lineData);
-        }),
-      );
-      await Promise.all(promises);
+      const invoiceLines = await this.sql.runSql(sqlQ, database);
+      if (invoiceLines.recordset.length === 0) {
+        console.warn(`⚠️ La factura ${Hit_IdFactura} no tiene líneas.`);
+        return salesInvoiceData;
+      }
+
+      const groupedByDate = invoiceLines.recordset.reduce((acc, line) => {
+        if (!acc[line.Data]) acc[line.Data] = [];
+        acc[line.Data].push(line);
+        return acc;
+      }, {});
+
+      const limit = pLimit(15);
+
+      for (const date in groupedByDate) {
+        const lines = groupedByDate[date];
+        const firstLine = lines[0];
+        let lineData = {};
+
+        if (firstLine.IdAlbara) {
+          lineData = {
+            lineType: 'Comment',
+            description: `ALBARÀ: ${firstLine.IdAlbara} - (${firstLine.Client}) - ${date}`,
+          };
+        } else {
+          lineData = {
+            lineType: 'Comment',
+            description: `(${firstLine.Client}) - ${date}`,
+          };
+        }
+        salesInvoiceData[endpointline].push(lineData);
+
+        const promises = lines.map((line) =>
+          limit(async () => {
+            const itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
+            if (itemAPI) {
+              salesInvoiceData[endpointline].push({
+                itemId: itemAPI,
+                lineType: 'Item',
+                quantity: line.Quantitat,
+                unitPrice: line.UnitPrice,
+                discountPercent: line.Descuento,
+                taxCode: `IVA${line.Iva}`,
+              });
+              if (line.Comentario) {
+                salesInvoiceData[endpointline].push({
+                  lineType: 'Comment',
+                  description: line.Comentario,
+                });
+              }
+            } else {
+              salesInvoiceData[endpointline].push({
+                lineObjectNumber: line.Quantitat > 0 ? '7000001' : '7090001',
+                description: line.Nombre,
+                lineType: 'Account',
+                quantity: line.Quantitat,
+                unitPrice: line.UnitPrice,
+                discountPercent: line.Descuento,
+                taxCode: `IVA${line.Iva}`,
+              });
+            }
+          }),
+        );
+        await Promise.all(promises);
+      }
       console.log(`✅ Todas las líneas de la factura procesadas`);
       return salesInvoiceData;
     } catch (error) {
@@ -305,5 +358,26 @@ export class salesFacturasService {
   private logError(message: string, error: any) {
     this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
     console.error(message, error.response?.data || error.message);
+  }
+  async updateRegistro(companyID: string, database: string, idFactura: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    try {
+      const salesData = await this.getSaleFromAPI(companyID, idFactura, 'salesInvoices', client_id, client_secret, tenant, entorno);
+
+      if (!salesData.data) {
+        console.warn(`⚠️ No se encontró información para la factura ${idFactura}`);
+        return false;
+      }
+      const year = salesData.data.postingDate.split('-')[0];
+
+      const updateSql = `UPDATE [BC_SyncSales_${year}] 
+                         SET Registrada = 'Si'
+                         WHERE BC_IdSale = '${idFactura}'`;
+
+      await this.sql.runSql(updateSql, database);
+    } catch (error) {
+      this.logError(`❌ Error al actualizar la factura con id ${idFactura} en BC_SyncSales`, error);
+      throw error;
+    }
+    return true;
   }
 }

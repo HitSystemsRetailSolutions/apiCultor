@@ -547,7 +547,7 @@ async function items(companyID, database, client_id, client_secret, tenant, ento
     });
     console.log('Items sync sent...');
   } catch (error) {
-    console.error('Error al sincronizar ítems:', error);
+    console.error('Error al sincronizar items:', error);
   }
 }
 
@@ -566,7 +566,7 @@ async function itemCategories(companyID, database, client_id, client_secret, ten
     });
     console.log('ItemCategories sync sent...');
   } catch (error) {
-    console.error('Error al sincronizar categorías de ítems:', error);
+    console.error('Error al sincronizar categorías de items:', error);
   }
 }
 

@@ -3,28 +3,21 @@ import { getTokenService } from '../connection/getToken.service';
 import { runSqlService } from 'src/connection/sqlConection.service';
 import axios from 'axios';
 import { response } from 'express';
-
-//MQTT connect
-const mqtt = require('mqtt');
-const mqttOptions = {
-  host: process.env.MQTT_HOST,
-  username: process.env.MQTT_USER,
-  password: process.env.MQTT_PASSWORD,
-};
-
-// Crear un cliente MQTT
-const client = mqtt.connect(mqttOptions);
+import * as mqtt from 'mqtt';
 
 @Injectable()
 export class signingsService {
+  private client = mqtt.connect({
+    host: process.env.MQTT_HOST,
+    username: process.env.MQTT_USER,
+    password: process.env.MQTT_PASSWORD,
+  });
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
   ) {}
 
   async syncSignings(companyNAME: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    let token = await this.token.getToken2(client_id, client_secret, tenant);
-
     let signings;
     try {
       signings = await this.sql.runSql(
@@ -32,67 +25,66 @@ export class signingsService {
         database,
       );
     } catch (error) {
-      //Comprovacion de errores y envios a mqtt
-      client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
-      console.log('No existe la database');
+      this.logError(`❌ Error al ejecutar la consulta SQL en la base de datos '${database}'`, error);
       return false;
     }
     if (signings.recordset.length == 0) {
       //Comprovacion de errores y envios a mqtt
-      client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
-      console.log('No hay registros');
+      this.client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
+      console.warn('⚠️ Advertencia: No se encontraron registros de fichajes en la base de datos');
       return false;
     }
-
-    for (let i = 0; i < signings.recordset.length; i++) {
-      let x = signings.recordset[i];
-
-      let res = await axios
-        .get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/cdpDadesFichador2?$filter=idr eq '${x.idr}'`, {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        })
-        .catch((error) => {
-          throw new Error('Failed to obtain access token');
-        });
-
-      if (!res.data) throw new Error('Failed to obtain access token');
-      if (res.data.value.length === 0) {
-        let newSignings = await axios
-          .post(
-            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/cdpDadesFichador2`,
-            {
-              idr: x.idr,
-              tmst: x.tmst,
-              accio: x.accio,
-              usuari: x.usuari,
-              nombre: x.nombre,
-              dni: x.dni,
-              editor: x.editor,
-              historial: x.historial,
-              lloc: x.lloc,
-              comentari: x.comentari,
-              id: x.id,
+    const token = await this.token.getToken2(client_id, client_secret, tenant);
+    let i = 1;
+    for (const signing of signings.recordset) {
+      try {
+        const data = {
+          idr: signing.idr,
+          tmst: signing.tmst,
+          accio: signing.accio,
+          usuari: signing.usuari,
+          nombre: signing.nombre,
+          dni: signing.dni,
+          editor: signing.editor,
+          historial: signing.historial,
+          lloc: signing.lloc,
+          comentari: signing.comentari,
+          id: signing.id,
+        };
+        let res;
+        try {
+          res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/cdpDadesFichador2?$filter=idr eq '${signing.idr}'`, {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
             },
-            {
-              headers: {
-                Authorization: 'Bearer ' + token,
-                'Content-Type': 'application/json',
-              },
-            },
-          )
-          .catch((error) => {
-            throw new Error('Failed to obtain access token');
           });
+        } catch (error) {
+          this.logError(`❌ Error consultando el fichaje en BC`, error);
+          continue;
+        }
 
-        if (!newSignings.data) return new Error('Failed to obtain access token');
-        console.log(`Synchronizing signings... -> ${i}/${signings.recordset.length} --- ${((i / signings.recordset.length) * 100).toFixed(2)}% `);
-
-        await this.sql.runSql(`update records set timestamp='${x.tmstStr}' where Concepte='BC_CdpDadesFichador'`, database);
+        if (res.data.value.length === 0) {
+          await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/ODataV4/Company('${companyNAME}')/cdpDadesFichador2`, data, {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          });
+        }
+        await this.sql.runSql(`UPDATE records SET timestamp='${signing.tmstStr}' WHERE Concepte='BC_CdpDadesFichador'`, database);
+      } catch (error) {
+        this.logError(`❌ Error al insertar el fichaje`, error);
+        continue;
       }
+      console.log(`⏳ Sincronizando fichajes... -> ${i}/${signings.recordset.length} --- ${((i / signings.recordset.length) * 100).toFixed(2)}% `);
+      i++;
     }
     return true;
+  }
+
+  private logError(message: string, error: any) {
+    this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
+    console.error(message, error.response?.data || error.message);
   }
 }

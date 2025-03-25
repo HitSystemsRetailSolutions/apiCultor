@@ -3,6 +3,16 @@ import { salesFacturasService } from './salesFacturas.service';
 import fs = require('fs');
 // POST --> CON LA PETICIÓN ENVIAS DATOS, I ESPERAS RESPUESTA (EL PRECIO DE CIERTO PRODUCTO)
 // GET ---> SOLO ESPERAS RESPUESTA (LA HORA)
+
+interface updateRegistroRequest {
+  companyId: string;
+  database: string; // Base de datos
+  id: string; // Id de BC
+  client: string;
+  secret: string;
+  tenant: string;
+  entorno: string;
+}
 @Controller()
 export class salesFacturasController {
   constructor(private readonly salesFacturasService: salesFacturasService) {}
@@ -22,7 +32,13 @@ export class salesFacturasController {
     if (res == true) return 'Se han sincronizado las facturas correctamente';
     else return 'Ha habido un error al sincronizar las facturas';
   }
-
+  @Post('updateRegistro')
+  async updateRegistro(@Body() body: updateRegistroRequest) {
+    const { companyId, database, id, client, secret, tenant, entorno } = body;
+    let res = await this.salesFacturasService.updateRegistro(companyId, database, id, client, secret, tenant, entorno);
+    if (!res) return 'Ha habido un error al actualizar el registro';
+    return 'Se han actualizado las facturas correctamente';
+  }
   // @Get('generateXML')
   // async generateXML(
   //   @Query('companyID') companyID: string,

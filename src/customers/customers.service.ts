@@ -369,28 +369,51 @@ export class customersService {
     let customerId = '';
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
-    try {
-      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`, {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
-      });
-    } catch (error) {
-      this.logError(`❌ Error consultando cliente con código ${codiHIT}`, error);
-      throw error;
-    }
+    if (tenant === process.env.blockedTenant) {
+      codiHIT = await this.sqlService.runSql(`select IdBc from BC_SincroIds where TipoDato = 'customer' and IdHit = ${codiHIT}`, database);
+      try {
+        res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (error) {
+        this.logError(`❌ Error consultando cliente con código ${codiHIT}`, error);
+        throw error;
+      }
+      if (res.data.value.length > 0) {
+        customerId = res.data.value[0].id;
+        console.log('📘 Cliente existente en la API con ID:', customerId);
+        return customerId;
+      } else {
+        console.log('📘 Cliente no encontrado en la API');
+        return false;
+      }
+    } else {
+      try {
+        res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (error) {
+        this.logError(`❌ Error consultando cliente con código ${codiHIT}`, error);
+        throw error;
+      }
 
-    if (res.data.value.length > 0) {
-      customerId = res.data.value[0].id;
-      console.log('📘 Cliente existente en la API con ID:', customerId);
+      if (res.data.value.length > 0) {
+        customerId = res.data.value[0].id;
+        console.log('📘 Cliente existente en la API con ID:', customerId);
+        return customerId;
+      }
+
+      const newCustomer = await this.syncCustomers(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+      console.log('📘 Nuevo cliente sincronizado con ID:', newCustomer);
+      customerId = String(newCustomer);
       return customerId;
     }
-
-    const newCustomer = await this.syncCustomers(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-    console.log('📘 Nuevo cliente sincronizado con ID:', newCustomer);
-    customerId = String(newCustomer);
-    return customerId;
   }
 
   private logError(message: string, error: any) {
