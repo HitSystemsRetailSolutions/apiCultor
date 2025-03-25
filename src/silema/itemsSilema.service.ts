@@ -54,26 +54,11 @@ export class itemsSilemaService {
         // Check si hay familia en BC para insertarla en Hit
         if (res.data.value[i].familyDimValue !== "" && res.data.value[i].subfamilyDimValue !== "" && res.data.value[i].level3DimValue !== "") {
           // Familia N1
-          let sqlFamilia = `SELECT * FROM [families] WHERE Nom = '${res.data.value[i].familyDimValue}'`;
-          let queryFamilia = await this.sql.runSql(sqlFamilia, database)
-          if (queryFamilia.recordset.length == 0) {
-            let sqlInsert = `INSERT INTO families (Nom, Pare, Nivell) VALUES ('${res.data.value[i].familyDimValue}', 'Article', 1);`;
-            let recordsInsert = await this.sql.runSql(sqlInsert, database);
-          }
+          this.checkFamilia(familiaL1, 'Article', 1, database)
           // Familia N2
-          sqlFamilia = `SELECT * FROM [families] WHERE Nom = '${res.data.value[i].subfamilyDimValue}'`;
-          queryFamilia = await this.sql.runSql(sqlFamilia, database)
-          if (queryFamilia.recordset.length == 0) {
-            let sqlInsert = `INSERT INTO families (Nom, Pare, Nivell) VALUES ('${res.data.value[i].subfamilyDimValue}', '${res.data.value[i].familyDimValue}', 2);`;
-            let recordsInsert = await this.sql.runSql(sqlInsert, database);
-          }
+          this.checkFamilia(familiaL2, familiaL1, 2, database)
           // Familia N3
-          sqlFamilia = `SELECT * FROM [families] WHERE Nom = '${res.data.value[i].level3DimValue}'`;
-          queryFamilia = await this.sql.runSql(sqlFamilia, database)
-          if (queryFamilia.recordset.length == 0) {
-            let sqlInsert = `INSERT INTO families (Nom, Pare, Nivell) VALUES ('${res.data.value[i].level3DimValue}', '${res.data.value[i].subfamilyDimValue}', 3);`;
-            let recordsInsert = await this.sql.runSql(sqlInsert, database);
-          }
+          this.checkFamilia(familiaL3, familiaL2, 3, database)
         }
         let sqlSincroIds = `SELECT * FROM BC_SincroIds WHERE IdBc = '${res.data.value[i].number}'`;
         let querySincro = await this.sql.runSql(sqlSincroIds, database)
@@ -100,17 +85,7 @@ export class itemsSilemaService {
               let querySincro = await this.sql.runSql(sqlPropietats, database)
             }
             let queryInsertSincro = await this.sql.runSql(sqlSincroIds, database)
-            const data = {
-              processedHIT: true
-            };
-            let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/items(${res.data.value[i].id})`
-            const patchResponse = await axios.patch(url2, data, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-                "If-Match": "*",
-              },
-            });
+            this.marcarProcesado(res.data.value[i].id, token, companyID, tenant, entorno)
           } catch (error) {
             throw new Error('Failed to put item');
           }
@@ -136,17 +111,7 @@ export class itemsSilemaService {
               (${Codi},'NoEsVen', 'on')`;
               let querySincro = await this.sql.runSql(sqlPropietats, database)
             }
-            const data = {
-              processedHIT: true
-            };
-            let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/items(${res.data.value[i].id})`
-            const patchResponse = await axios.patch(url2, data, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-                "If-Match": "*",
-              },
-            });
+            this.marcarProcesado(res.data.value[i].id, token, companyID, tenant, entorno)
           } catch (error) {
             throw new Error('Failed to put item');
           }
@@ -156,5 +121,31 @@ export class itemsSilemaService {
       console.log(`Synchronizing items... -> ${i}/${res.data.value.length} --- ${((i / res.data.value.length) * 100).toFixed(2)}%`);
     }
     return true;
+  }
+
+  async checkFamilia(NomFamilia, NomPare, Level, database) {
+    let sqlFamilia = `SELECT * FROM [families] WHERE Nom = '${NomFamilia}'`;
+    let queryFamilia = await this.sql.runSql(sqlFamilia, database)
+    if (queryFamilia.recordset.length == 0) {
+      let sqlInsert = `INSERT INTO families (Nom, Pare, Nivell) VALUES ('${NomFamilia}', '${NomPare}', ${Level});`;
+      let recordsInsert = await this.sql.runSql(sqlInsert, database);
+    }
+  }
+
+  async marcarProcesado(id, token, companyID, tenant, entorno) {
+    try {
+      const data = { processedHIT: true };
+      let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/items(${id})`;
+      await axios.patch(url2, data, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "If-Match": "*",
+        },
+      });
+    } catch (error) {
+      console.error(`Error al marcar como procesado el item: ID=${id}, CompanyID=${companyID}`);
+      console.error(error);
+    }
   }
 }
