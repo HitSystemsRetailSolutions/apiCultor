@@ -132,6 +132,9 @@ client.on('message', async function (topic, message) {
     let nif = '';
     if (msgJson.hasOwnProperty('nif')) nif = msgJson.nif;
 
+    let turno = 0;
+    if (msgJson.hasOwnProperty('turno')) nif = msgJson.turno;
+
     if (!test) {
       switch (msgJson.msg) {
         case 'SyncEmployes':
@@ -183,11 +186,17 @@ client.on('message', async function (topic, message) {
         case 'silemaDate':
           await syncSalesSilemaDate(msgJson.dayStart, msgJson.dayEnd, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
           break;
+        case 'silemaDateTurno':
+          await syncSalesSilemaDateTurno(msgJson.dayStart, msgJson.dayEnd, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, turno, client_id, client_secret, tenant, entorno);
+          break;
         case 'silema':
-          await syncSalesSilema(msgJson.day, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
+          await syncSalesSilema(msgJson.day, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, turno, client_id, client_secret, tenant, entorno);
           break;
         case 'silemaAbono':
-          await syncSalesSilemaAbono(msgJson.day, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
+          await syncSalesSilemaAbono(msgJson.day, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, turno, client_id, client_secret, tenant, entorno);
+          break;
+        case 'silemaCierre':
+          await syncSalesSilemaCierre(msgJson.day, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, turno, client_id, client_secret, tenant, entorno);
           break;
         case 'silemaRecap':
           await syncSalesSilemaRecap(msgJson.periodoRecap, msgJson.month, msgJson.year, companyID, database, client_id, client_secret, tenant, entorno);
@@ -328,7 +337,31 @@ async function syncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, dat
   }
 }
 
-async function syncSalesSilema(day, month, year, companyID, database, botiga, client_id, client_secret, tenant, entorno) {
+async function syncSalesSilemaDateTurno(dayStart, dayEnd, month, year, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno) {
+  try {
+    await axios.get('http://localhost:3333/syncSalesSilemaDate', {
+      params: {
+        dayStart: dayStart,
+        dayEnd: dayEnd,
+        month: month,
+        year: year,
+        companyID: companyID,
+        database: database,
+        botiga: botiga,
+        turno: turno,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+    });
+    console.log('Sales Silema Date sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar Sales Silema Date:', error);
+  }
+}
+
+async function syncSalesSilema(day, month, year, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/syncSalesSilema', {
       params: {
@@ -338,6 +371,7 @@ async function syncSalesSilema(day, month, year, companyID, database, botiga, cl
         companyID: companyID,
         database: database,
         botiga: botiga,
+        turno: turno,
         client_id: client_id,
         client_secret: client_secret,
         tenant: tenant,
@@ -351,7 +385,7 @@ async function syncSalesSilema(day, month, year, companyID, database, botiga, cl
   }
 }
 
-async function syncSalesSilemaAbono(day, month, year, companyID, database, botiga, client_id, client_secret, tenant, entorno) {
+async function syncSalesSilemaAbono(day, month, year, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/syncSalesSilemaAbono', {
       params: {
@@ -361,6 +395,7 @@ async function syncSalesSilemaAbono(day, month, year, companyID, database, botig
         companyID: companyID,
         database: database,
         botiga: botiga,
+        turno: turno,
         client_id: client_id,
         client_secret: client_secret,
         tenant: tenant,
@@ -371,6 +406,30 @@ async function syncSalesSilemaAbono(day, month, year, companyID, database, botig
     console.log('Sales Silema Abono sync sent...');
   } catch (error) {
     console.error('Error al sincronizar Sales Silema Abono:', error);
+  }
+}
+
+async function syncSalesSilemaCierre(day, month, year, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno) {
+  try {
+    await axios.get('http://localhost:3333/syncSalesSilemaCierre', {
+      params: {
+        day: day,
+        month: month,
+        year: year,
+        companyID: companyID,
+        database: database,
+        botiga: botiga,
+        turno: turno,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+      timeout: 30000,
+    });
+    console.log('Sales Silema Cierre sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar Sales Silema Cierre:', error);
   }
 }
 
