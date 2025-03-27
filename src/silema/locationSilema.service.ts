@@ -29,12 +29,12 @@ export class locationSilemaService {
         console.log(`Url ERROR: ${url1}`)
         throw new Error('Failed to obtain customers');
       });
-    let sqlClients = `select * from clients`
-    let queryClients = await this.sql.runSql(sqlClients, database)
     for (let i = 0; i < res.data.value.length; i++) {
       if (res.data.value[i].processHIT) {
         let locationExists = false;
-        let Nom = res.data.value[i].name || "";
+        let Nom = `T--${res.data.value[i].name || ""}`;
+        let sqlClients = `select * from clients where Nom = '${Nom}'`;
+        let queryClients = await this.sql.runSql(sqlClients, database)
         for (let j = 0; j < queryClients.recordset.length; j++) {
           if (queryClients.recordset[j].Nom.toLowerCase() == Nom.toLowerCase()) {
             locationExists = true;

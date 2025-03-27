@@ -74,6 +74,7 @@ export class salesSilemaService {
   async syncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, database, botigas: Array<String>, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
       let errorWhere = '';
+      let cierre = false;
       for (const botiga of botigas) {
         // Itera desde el día inicial hasta el día final
         for (let day = dayStart; day <= dayEnd; day++) {
@@ -87,12 +88,25 @@ export class salesSilemaService {
 
             // Llama a tu función con el día formateado
             let turno = 0;
-            errorWhere = 'syncSalesSilema';
+            console.log("Iniciando syncSalesSilema...");
             await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
+
+            console.log("syncSalesSilema completado.");
+
             errorWhere = 'syncSalesSilemaAbono';
+
+            console.log("Iniciando syncSalesSilemaAbono...");
             await this.syncSalesSilemaAbono(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
-            errorWhere = 'syncSalesSilemaCierre';
-            await this.syncSalesSilemaCierre(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
+
+            console.log("syncSalesSilemaAbono completado.");
+            if (cierre) {
+              console.log("Iniciando syncSalesSilemaCierre...");
+
+              errorWhere = 'syncSalesSilemaCierre';
+              await this.syncSalesSilemaCierre(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
+
+              console.log("syncSalesSilemaCierre completado.");
+            }
           } catch (error) {
             console.error(`Error ${errorWhere} para el día ${day}/${month}/${year} en la empresa ${companyID}, tienda ${botiga}:`, error);
             console.error(error);
@@ -105,40 +119,43 @@ export class salesSilemaService {
     return true;
   }
 
-    // Funcion que pasandole un dia de inicio y otro de fin sincroniza los datos de ventas de silema
-    async syncSalesSilemaDateTurno(dayStart, dayEnd, month, year, companyID, database, botigas: Array<String>, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
-      try {
-        let errorWhere = '';
-        for (const botiga of botigas) {
-          // Itera desde el día inicial hasta el día final
-          for (let day = dayStart; day <= dayEnd; day++) {
-            try {
-              // Formatea el día y el mes para asegurarse de que tengan 2 dígitos
-              const formattedDay = String(day).padStart(2, "0");
-              const formattedMonth = String(month).padStart(2, "0");
-              const formattedYear = String(year);
-  
-              console.log(`Procesando ventas para el día: ${formattedDay}/${formattedMonth}/${formattedYear} | Tienda: ${botiga}`);
-  
-              // Llama a tu función con el día formateado
-  
-              errorWhere = 'syncSalesSilema';
-              await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
-              errorWhere = 'syncSalesSilemaAbono';
-              await this.syncSalesSilemaAbono(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
+  // Funcion que pasandole un dia de inicio y otro de fin sincroniza los datos de ventas de silema
+  async syncSalesSilemaDateTurno(dayStart, dayEnd, month, year, companyID, database, botigas: Array<String>, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    try {
+      let errorWhere = '';
+      let cierre = false;
+      for (const botiga of botigas) {
+        // Itera desde el día inicial hasta el día final
+        for (let day = dayStart; day <= dayEnd; day++) {
+          try {
+            // Formatea el día y el mes para asegurarse de que tengan 2 dígitos
+            const formattedDay = String(day).padStart(2, "0");
+            const formattedMonth = String(month).padStart(2, "0");
+            const formattedYear = String(year);
+
+            console.log(`Procesando ventas para el día: ${formattedDay}/${formattedMonth}/${formattedYear} | Tienda: ${botiga}`);
+
+            // Llama a tu función con el día formateado
+
+            errorWhere = 'syncSalesSilema';
+            await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
+            errorWhere = 'syncSalesSilemaAbono';
+            await this.syncSalesSilemaAbono(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
+            if (cierre) {
               errorWhere = 'syncSalesSilemaCierre';
               await this.syncSalesSilemaCierre(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
-            } catch (error) {
-              console.error(`Error ${errorWhere} para el día ${day}/${month}/${year} en la empresa ${companyID}, tienda ${botiga}:`, error);
-              console.error(error);
             }
+          } catch (error) {
+            console.error(`Error ${errorWhere} para el día ${day}/${month}/${year} en la empresa ${companyID}, tienda ${botiga}:`, error);
+            console.error(error);
           }
         }
-      } catch (error) {
-        console.error("Error general en syncSalesSilemaDate:", error);
       }
-      return true;
+    } catch (error) {
+      console.error("Error general en syncSalesSilemaDate:", error);
     }
+    return true;
+  }
 
   //Sincroniza tickets HIT-BC, Ventas
   async syncSalesSilema(day, month, year, companyID, database, botiga, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -157,7 +174,8 @@ export class salesSilemaService {
       importTurno2 = queryHora.recordset[1].Import
 
     // Formatear en "hh:mm:ss"
-    let formattedHora = `${String(hora.getHours()).padStart(2, '0')}:${String(hora.getMinutes()).padStart(2, '0')}:${String(hora.getSeconds()).padStart(2, '0')}`;
+    let formattedHora = `${String(hora.getUTCHours()).padStart(2, '0')}:${String(hora.getMinutes()).padStart(2, '0')}:${String(hora.getSeconds()).padStart(2, '0')}`;
+    //console.log(formattedHora)
     switch (turno) {
       case 1:
         await this.processTurnoSalesSilema(1, "<", importTurno1, botiga, day, month, year, formattedHora, database, tipo, tenant, entorno, companyID, token);
@@ -186,7 +204,7 @@ export class salesSilemaService {
     if (queryHora.recordset.length == 0) return;
     let hora = queryHora.recordset[0].hora;
     // Formatear en "hh:mm:ss"
-    let formattedHora = `${String(hora.getHours()).padStart(2, '0')}:${String(hora.getMinutes()).padStart(2, '0')}:${String(hora.getSeconds()).padStart(2, '0')}`;
+    let formattedHora = `${String(hora.getUTCHours()).padStart(2, '0')}:${String(hora.getMinutes()).padStart(2, '0')}:${String(hora.getSeconds()).padStart(2, '0')}`;
     //console.log(formattedHora); // Debería mostrar "14:31:43"
     switch (turno) {
       case 1:
@@ -217,7 +235,7 @@ export class salesSilemaService {
     if (queryHora.recordset.length == 0) return;
     let hora = queryHora.recordset[0].hora;
     // Formatear en "hh:mm:ss"
-    let formattedHora = `${String(hora.getHours()).padStart(2, '0')}:${String(hora.getMinutes()).padStart(2, '0')}:${String(hora.getSeconds()).padStart(2, '0')}`;
+    let formattedHora = `${String(hora.getUTCHours()).padStart(2, '0')}:${String(hora.getMinutes()).padStart(2, '0')}:${String(hora.getSeconds()).padStart(2, '0')}`;
     //console.log(formattedHora); // Debería mostrar "14:31:43"
     switch (turno) {
       case 1:
@@ -421,18 +439,18 @@ export class salesSilemaService {
     let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_R') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd}`;
     //console.log(url);
     let n = await this.getNumberOfRecap(url, token);
-    if (x.TIENDA.toLowerCase() == 'bot granollers') x.TIENDA = 'T-000';
+    if (x.TIENDA.toLowerCase() == 'bot granollers') x.TIENDA = 'T--000';
     let salesData = {
       no: `${x.TIENDA}_${formattedDate}_R${n}`, // Nº factura
       documentType: 'Invoice', // Tipo de documento+
       dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
       externalDocumentNo: `${x.TIENDA}_${formattedDate}_R${n}`, // Nº documento externo
-      locationCode: `${x.TIENDA}`, // Cód. almacén
+      locationCode: `${this.extractNumber(x.TIENDA)}`, // Cód. almacén
       orderDate: `${formattedDateDayEnd}`, // Fecha pedido
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
       recapInvoice: true, // Factura recap //false
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
-      shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
+      shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
@@ -451,8 +469,10 @@ export class salesSilemaService {
       let isoDate = date.toISOString().substring(0, 10);
       let formattedDateAlbaran = `${day}/${month}/${shortYear}`;
       if (x.TIENDA != salesData.locationCode && !changetLocationCode) {
-        salesData.no = `T-000__${formattedDate}_R${n}`
-        salesData.locationCode = 'T-000';
+        salesData.no = `T--000_${formattedDate}_R${n}`
+        salesData.externalDocumentNo = `T--000_${formattedDate}_R${n}`
+        salesData.locationCode = '000';
+        salesData.shipToCode = '000';
         changetLocationCode = true;
       }
       let salesLineAlbaran = {
@@ -462,7 +482,7 @@ export class salesSilemaService {
         quantity: 1,
         shipmentDate: `${isoDate}`,
         lineTotalAmount: 0,
-        locationCode: `${x.TIENDA}`
+        locationCode: `${this.extractNumber(x.TIENDA)}`
       };
       countLines++
       salesData.salesLinesBuffer.push(salesLineAlbaran);
@@ -477,7 +497,7 @@ export class salesSilemaService {
         lineTotalAmount: parseFloat(x.PRECIO),
         vatProdPostingGroup: `${x.IVA}`,
         unitPrice: parseFloat(x.precioUnitario),
-        locationCode: `${x.TIENDA}`
+        locationCode: `${this.extractNumber(x.TIENDA)}`
       };
       countLines++
       importTotal += parseFloat(x.PRECIO)
@@ -560,18 +580,18 @@ export class salesSilemaService {
     formattedDateDayEnd = new Date(Date.UTC(year, month - 1, dayEnd)).toISOString().substring(0, 10);
 
     importTotal = 0;
-    if (x.TIENDA.toLowerCase() == 'bot granollers') x.TIENDA = 'T-000';
+    if (x.TIENDA.toLowerCase() == 'bot granollers') x.TIENDA = 'T--000';
     salesData = {
       no: `${x.TIENDA}_${formattedDate}_AR${n}`, // Nº factura
       documentType: 'Credit_x0020_Memo', // Tipo de documento
       dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
-      externalDocumentNo: `${x.TIENDA}_${formattedDate}_A${n}`, // Nº documento externo
-      locationCode: `${x.TIENDA}`, // Cód. almacén
+      externalDocumentNo: `${x.TIENDA}_${formattedDate}_AR${n}`, // Nº documento externo
+      locationCode: `${this.extractNumber(x.TIENDA)}`, // Cód. almacén
       orderDate: `${formattedDateDayEnd}`, // Fecha pedido
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
       recapInvoice: true, // Factura recap //false
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
-      shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
+      shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
@@ -585,8 +605,10 @@ export class salesSilemaService {
       let date = new Date(x.FECHA_PRIMERA_VENTA);
       let isoDate = date.toISOString().substring(0, 10);
       if (x.TIENDA != salesData.locationCode && !changetLocationCode) {
-        salesData.no = `T-000__${formattedDate}_AR${n}`
-        salesData.locationCode = 'T-000';
+        salesData.no = `T--000_${formattedDate}_AR${n}`
+        salesData.externalDocumentNo = `T--000_${formattedDate}_AR${n}`
+        salesData.locationCode = '000';
+        salesData.shipToCode = '000';
         changetLocationCode = true;
       }
       let salesLine = {
@@ -600,7 +622,7 @@ export class salesSilemaService {
         lineTotalAmount: parseFloat(x.IMPORTE_TOTAL),
         vatProdPostingGroup: `${x.IVA}`,
         unitPrice: parseFloat(x.precioUnitario),
-        locationCode: `${x.TIENDA}`
+        locationCode: `${this.extractNumber(x.TIENDA)}`
       };
       countLines++
 
@@ -626,14 +648,14 @@ export class salesSilemaService {
     let sqlQ = `
     DECLARE @Cliente INT = ${parseInt(client, 10)};
 
-    select v.num_tick as TICKET, V.PLU AS PLU,a.nom as ARTICULO, V.Quantitat AS CANTIDAD, v.data as FECHA, V.Import AS PRECIO, CONCAT('IVA',i.Iva) as IVA, cb.nom as TIENDA, C.NIF AS NIF, SUM(v.Import) OVER () AS TOTAL 
+    select v.num_tick as TICKET, V.PLU AS PLU,a.nom as ARTICULO, V.Quantitat AS CANTIDAD, v.data as FECHA, V.Import AS PRECIO, CONCAT('IVA',i.Iva) as IVA, cb.nom as TIENDA, C.NIF AS NIF, SUM(v.Import) OVER () AS TOTAL, round(V.Import / NULLIF(V.Quantitat, 0),5) AS precioUnitario
     from [v_venut_${year}-${month}] v
     left join articles a on a.codi=v.plu
     left join TipusIva i on i.Tipus=a.TipoIva
     left join ConstantsClient cc on @Cliente= cc.Codi and variable='CFINAL' and valor != ''
     left join Clients c on cc.codi=c.codi
     left join clients cb on v.botiga=cb.codi
-    where v.otros like '%' + cc.valor + '%' and cb.codi=${botiga} and num_tick in (${TicketsString})
+    where v.otros like '%' + cc.valor + '%' and num_tick in (${TicketsString})
     GROUP BY V.Num_tick,v.plu,a.nom,v.Quantitat, v.data,v.import,i.iva,cb.nom,c.nif
     order by v.data`;
     //console.log(sqlQT1);
@@ -668,14 +690,14 @@ export class salesSilemaService {
       no: `${x.TIENDA}_${formattedDate}_RM${n}`, // Nº factura
       documentType: 'Invoice', // Tipo de documento
       dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
-      externalDocumentNo: `${x.TIENDA}_${formattedDate}_R${n}`, // Nº documento externo
-      locationCode: `${x.TIENDA}`, // Cód. almacén
+      externalDocumentNo: `${x.TIENDA}_${formattedDate}_RM${n}`, // Nº documento externo
+      locationCode: `${this.extractNumber(x.TIENDA)}`, // Cód. almacén
       orderDate: `${formattedDateDayEnd}`, // Fecha pedido
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
       recapInvoice: false, // Factura recap //false
       manualRecapInvoice: true, // Factura manual
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
-      shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
+      shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
@@ -694,8 +716,10 @@ export class salesSilemaService {
       let isoDate = date.toISOString().substring(0, 10);
       let formattedDateAlbaran = `${day}/${month}/${shortYear}`;
       if (x.TIENDA != salesData.locationCode && !changetLocationCode) {
-        salesData.no = `T-000__${formattedDate}_RM${n}`
-        salesData.locationCode = 'T-000';
+        salesData.no = `T--000_${formattedDate}_RM${n}`
+        salesData.externalDocumentNo = `T--000_${formattedDate}_RM${n}`
+        salesData.locationCode = '000';
+        salesData.shipToCode = '000';
         changetLocationCode = true;
       }
       let salesLineAlbaran = {
@@ -705,7 +729,7 @@ export class salesSilemaService {
         quantity: 1,
         shipmentDate: `${isoDate}`,
         lineTotalAmount: 0,
-        locationCode: `${x.TIENDA}`
+        locationCode: `${this.extractNumber(x.TIENDA)}`
       };
       countLines++
       salesData.salesLinesBuffer.push(salesLineAlbaran);
@@ -720,7 +744,7 @@ export class salesSilemaService {
         lineTotalAmount: parseFloat(x.PRECIO),
         vatProdPostingGroup: `${x.IVA}`,
         unitPrice: parseFloat(x.precioUnitario),
-        locationCode: `${x.TIENDA}`
+        locationCode: `${this.extractNumber(x.TIENDA)}`
       };
       countLines++
       importTotal += parseFloat(x.PRECIO)
@@ -741,7 +765,7 @@ export class salesSilemaService {
     LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' and valor != ''
     LEFT JOIN Clients C ON CC.codi = C.codi
     LEFT JOIN clients CB ON V.botiga = CB.codi
-    WHERE V.otros LIKE '%' + CC.valor + '%'  and cb.codi='${botiga}' and v.Num_tick in (${TicketsString})
+    WHERE V.otros LIKE '%' + CC.valor + '%' and v.Num_tick in (${TicketsString})
     GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, CB.Nif, C.NIF, round(V.Import / NULLIF(V.Quantitat, 0),5)
     HAVING SUM(quantitat) > 0
     ORDER BY MIN(V.data);`;
@@ -777,14 +801,14 @@ export class salesSilemaService {
       no: `${x.TIENDA}_${formattedDate}_ARM${n}`, // Nº factura
       documentType: 'Credit_x0020_Memo', // Tipo de documento
       dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
-      externalDocumentNo: `${x.TIENDA}_${formattedDate}_A${n}`, // Nº documento externo
-      locationCode: `${x.TIENDA}`, // Cód. almacén
+      externalDocumentNo: `${x.TIENDA}_${formattedDate}_ARM${n}`, // Nº documento externo
+      locationCode: `${this.extractNumber(x.TIENDA)}`, // Cód. almacén
       orderDate: `${formattedDateDayEnd}`, // Fecha pedido
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
       recapInvoice: false, // Factura recap //false
       manualRecapInvoice: true, // Factura manual
       remainingAmount: importTotal, // Precio total incluyendo IVA por factura
-      shipToCode: `${x.TIENDA.toUpperCase()}`, // Cód. dirección envío cliente
+      shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
@@ -798,8 +822,10 @@ export class salesSilemaService {
       let date = new Date(x.FECHA_PRIMERA_VENTA);
       let isoDate = date.toISOString().substring(0, 10);
       if (x.TIENDA != salesData.locationCode && !changetLocationCode) {
-        salesData.no = `T-000__${formattedDate}_ARM${n}`
-        salesData.locationCode = 'T-000';
+        salesData.no = `T--000_${formattedDate}_ARM${n}`
+        salesData.externalDocumentNo = `T--000_${formattedDate}_ARM${n}`
+        salesData.locationCode = '000';
+        salesData.shipToCode = '000';
         changetLocationCode = true;
       }
       let salesLine = {
@@ -813,7 +839,7 @@ export class salesSilemaService {
         lineTotalAmount: parseFloat(x.IMPORTE_TOTAL),
         vatProdPostingGroup: `${x.IVA}`,
         unitPrice: parseFloat(x.precioUnitario),
-        locationCode: `${x.TIENDA}`
+        locationCode: `${this.extractNumber(x.TIENDA)}`
       };
       countLines++
 
@@ -913,20 +939,20 @@ export class salesSilemaService {
       let formattedDate2 = date.toISOString().substring(0, 10);
 
       let sellToCustomerNo = (x.Nif === 'B61957189') ? '430001314' : '';
-
+      x.Nom = x.Nom.substring(0, 6);
       let salesData = {
         no: `${x.Nom}_${turno}_${formattedDate}`,
         documentType: 'Invoice',
         dueDate: formattedDate2,
         externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}`,
-        locationCode: x.Nom,
+        locationCode: `${this.extractNumber(x.Nom)}`,
         orderDate: formattedDate2,
         postingDate: formattedDate2,
         recapInvoice: false,
         remainingAmount: parseFloat(importAmount), // Esto parece que debería ser diferente para cada turno, revísalo
         shift: `Shift_x0020_${turno}`,
         sellToCustomerNo: sellToCustomerNo,
-        shipToCode: x.Nom.toUpperCase(),
+        shipToCode: `${this.extractNumber(x.Nom).toUpperCase()}`,
         storeInvoice: true,
         vatRegistrationNo: x.Nif,
         firstSummaryDocNo: x.MinNumTick.toString(),
@@ -935,15 +961,9 @@ export class salesSilemaService {
         invoiceEndDate: formattedDate2,
         salesLinesBuffer: []
       };
-      let changetLocationCode = false;
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
         let isoDate = new Date(x.Data).toISOString().substring(0, 10);
-        if (x.Nom != salesData.locationCode && !changetLocationCode) {
-          salesData.no = `T-000_${turno}_${formattedDate}`
-          salesData.locationCode = 'T-000';
-          changetLocationCode = true;
-        }
         let salesLine = {
           documentNo: salesData.no,
           type: `Item`,
@@ -955,7 +975,7 @@ export class salesSilemaService {
           lineTotalAmount: parseFloat(x.Import),
           vatProdPostingGroup: `IVA${x.Iva}`,
           unitPrice: parseFloat(x.precioUnitario),
-          locationCode: `${x.Nom}`
+          locationCode: `${this.extractNumber(x.Nom)}`
         };
         salesData.salesLinesBuffer.push(salesLine);
       }
@@ -1086,7 +1106,10 @@ export class salesSilemaService {
     let importAmount = 0;
 
     let data = await this.sql.runSql(sqlQ, database);
+    //console.log("Data lenght: " + data.recordset.length)
+    //console.log(sqlQ);
     if (data.recordset.length > 0) {
+      
       let x = data.recordset[0];
       let shortYear = year.slice(-2);
 
@@ -1099,13 +1122,13 @@ export class salesSilemaService {
       if (x.NifTienda == 'B61957189') {
         sellToCustomerNo = '430001314';
       }
-
+      x.Nom = x.Nom.substring(0, 6);
       let salesData = {
         no: `${x.Nom}_${turno}_${formattedDate}`, // Nº factura
         documentType: 'Credit_x0020_Memo', // Tipo de documento
         dueDate: `${formattedDate2}`, // Fecha vencimiento
         externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}`, // Nº documento externo
-        locationCode: `${x.Nom}`, // Cód. almacén
+        locationCode: `${this.extractNumber(x.Nom)}`, // Cód. almacén
         orderDate: `${formattedDate2}`, // Fecha pedido
         personalStoreInvoice: true,
         postingDate: `${formattedDate2}`, // Fecha registro
@@ -1113,21 +1136,15 @@ export class salesSilemaService {
         remainingAmount: importAmount, // Precio total incluyendo IVA por factura
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
-        shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
+        shipToCode: `${this.extractNumber(x.Nom).toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
         vatRegistrationNo: `${x.NifTienda}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
         salesLinesBuffer: [] // Array vacío para las líneas de ventas
       };
-      let changetLocationCode = false;
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
-        if (x.Nom != salesData.locationCode && !changetLocationCode) {
-          salesData.no = `T-000_${turno}_${formattedDate}`
-          salesData.locationCode = 'T-000';
-          changetLocationCode = true;
-        }
         let salesLine = {
           documentNo: `${salesData.no}`,
           type: `G_x002F_L_x0020_Account`,
@@ -1138,7 +1155,7 @@ export class salesSilemaService {
           lineTotalAmount: parseFloat(x.Importe),
           vatProdPostingGroup: `IVA${x.IVA}`,
           unitPrice: parseFloat(x.Importe),
-          locationCode: `${x.Nom}`
+          locationCode: `${this.extractNumber(x.Nom)}`
         };
         importAmount += parseFloat(x.Importe)
         salesData.salesLinesBuffer.push(salesLine);
@@ -1157,7 +1174,7 @@ export class salesSilemaService {
       x = data.recordset[0];
       importAmount = 0;
       sellToCustomerNo = '';
-
+      x.Nom = x.Nom.substring(0, 6);
       let nCliente = 1;
       let cliente = `C${nCliente}`
       salesData = {
@@ -1165,7 +1182,7 @@ export class salesSilemaService {
         documentType: 'Invoice', // Tipo de documento
         dueDate: `${formattedDate2}`, // Fecha vencimiento
         externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}_${cliente}`, // Nº documento externo
-        locationCode: `${x.Nom}`, // Cód. almacén
+        locationCode: `${this.extractNumber(x.Nom)}`, // Cód. almacén
         orderDate: `${formattedDate2}`, // Fecha pedido
         personalStoreInvoice: true,
         postingDate: `${formattedDate2}`, // Fecha registro
@@ -1173,7 +1190,7 @@ export class salesSilemaService {
         remainingAmount: importAmount, // Precio total incluyendo IVA por factura
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
-        shipToCode: `${x.Nom.toUpperCase()}`, // Cód. dirección envío cliente
+        shipToCode: `${this.extractNumber(x.Nom).toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
         vatRegistrationNo: `${x.NIF}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
@@ -1182,7 +1199,6 @@ export class salesSilemaService {
       };
 
       let NifAnterior = x.NIF;
-      changetLocationCode = false;
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
         if (x.NIF != NifAnterior) {
@@ -1200,11 +1216,6 @@ export class salesSilemaService {
           importAmount = 0;
           salesData.remainingAmount = importAmount;
         }
-        if (x.Nom != salesData.locationCode && !changetLocationCode) {
-          salesData.no = `T-000_${turno}_${formattedDate}_${cliente}`
-          salesData.locationCode = 'T-000';
-          changetLocationCode = true;
-        }
         let salesLine = {
           documentNo: `${salesData.no}`,
           type: `G_x002F_L_x0020_Account`,
@@ -1215,7 +1226,7 @@ export class salesSilemaService {
           lineTotalAmount: parseFloat(x.Importe),
           vatProdPostingGroup: `IVA${x.IVA}`,
           unitPrice: parseFloat(x.Importe),
-          locationCode: `${x.Nom}`
+          locationCode: `${this.extractNumber(x.Nom)}`
         };
         salesData.salesLinesBuffer.push(salesLine);
         salesData.remainingAmount += parseFloat(x.Importe);
@@ -1384,7 +1395,7 @@ export class salesSilemaService {
           shift: `Shift_x0020_${turno}`,
           withdrawalsForExpenses: false,
           dueDate: `${formattedDate2}`,
-          locationCode: `${x.Botiga}`,
+          locationCode: `${this.extractNumber(x.Botiga)}`,
           drawerEntries: false,
           excessCheckCashing: false
         };
@@ -1570,5 +1581,11 @@ export class salesSilemaService {
       console.error(`Url ERROR: ${url}`, error);
       throw new Error("Failed to obtain sale count");
     }
+  }
+
+  extractNumber(input: string): string | null {
+    input = input.toUpperCase();
+    const match = input.match(/[TM]--(\d{3})/);
+    return match ? match[1] : null;
   }
 }
