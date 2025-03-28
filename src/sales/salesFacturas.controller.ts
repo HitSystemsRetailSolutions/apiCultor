@@ -12,6 +12,7 @@ interface updateRegistroRequest {
   secret: string;
   tenant: string;
   entorno: string;
+  endpoint: string;
 }
 @Controller()
 export class salesFacturasController {
@@ -34,8 +35,8 @@ export class salesFacturasController {
   }
   @Post('updateRegistro')
   async updateRegistro(@Body() body: updateRegistroRequest) {
-    const { companyId, database, id, client, secret, tenant, entorno } = body;
-    let res = await this.salesFacturasService.updateRegistro(companyId, database, id, client, secret, tenant, entorno);
+    const { companyId, database, id, client, secret, tenant, entorno, endpoint } = body;
+    let res = await this.salesFacturasService.updateRegistro(companyId, database, id, client, secret, tenant, entorno, endpoint);
     if (!res) return 'Ha habido un error al actualizar el registro';
     return 'Se han actualizado las facturas correctamente';
   }

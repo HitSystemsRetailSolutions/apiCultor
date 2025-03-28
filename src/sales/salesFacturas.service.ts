@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { getTokenService } from '../connection/getToken.service';
 import { runSqlService } from 'src/connection/sqlConection.service';
 import axios from 'axios';
@@ -7,6 +7,9 @@ import { itemsService } from 'src/items/items.service';
 import { locationsService } from 'src/locations/locations.service';
 import * as mqtt from 'mqtt';
 import * as pLimit from 'p-limit';
+import { error } from 'console';
+
+let errores: string[] = [];
 @Injectable()
 export class salesFacturasService {
   private client = mqtt.connect({
@@ -17,8 +20,11 @@ export class salesFacturasService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
+    @Inject(forwardRef(() => customersService))
     private customers: customersService,
+    @Inject(forwardRef(() => itemsService))
     private items: itemsService,
+    @Inject(forwardRef(() => locationsService))
     private locations: locationsService,
   ) {}
 
@@ -29,6 +35,7 @@ export class salesFacturasService {
       const tabFacturacioDATA = `[FACTURACIO_${tabla}_DATA]`;
       let i = 1;
       for (const idFactura of idFacturas) {
+        errores = [];
         let facturaId_BC: string | null = null;
         let num: string | null = null;
         let endpoint: string = '';
@@ -66,11 +73,13 @@ export class salesFacturasService {
             });
           } catch (error) {
             this.logError(`❌ Error consultando factura en BC con número ${num}, pasamos a la siguiente factura`, error);
+            i++;
             continue;
           }
 
           if (!res.data || !res.data.value) {
             console.error(`❌ Error: La respuesta de la API no contiene datos válidos para la factura ${num}, pasamos a la siguiente factura.`);
+            i++;
             continue;
           }
 
@@ -94,13 +103,16 @@ export class salesFacturasService {
           }
 
           invoiceData = await this.processInvoiceLines(invoiceData, endpointline, companyID, database, tabFacturacioDATA, x.IdFactura, facturaId_BC, client_id, client_secret, tenant, entorno);
-
+          if (errores.length > 0) {
+            console.log(`❌ Error en la factura ${num}, pasamos a la siguiente factura.`);
+            for (const errorMsg of errores) {
+              await this.logBCError(num, errorMsg, client_id, client_secret, tenant, entorno, companyID);
+            }
+            i++;
+            continue;
+          }
           if (res.data.value.length === 0) {
             facturaId_BC = await this.createInvoice(invoiceData, endpoint, x.ClientCodi, database, client_id, client_secret, token, tenant, entorno, companyID);
-
-            if (x.Total < 0 && x.ClientNif != '22222222J') {
-              await this.updateCorrectedInvoice(companyID, facturaId_BC, tenant, entorno, database, token, idFactura);
-            }
           } else {
             facturaId_BC = res.data.value[0]['id'];
             try {
@@ -116,14 +128,14 @@ export class salesFacturasService {
               throw deleteError;
             }
             facturaId_BC = await this.createInvoice(invoiceData, endpoint, x.ClientCodi, database, client_id, client_secret, token, tenant, entorno, companyID);
-            if (x.Total < 0 && x.ClientNif != '22222222J') {
-              await this.updateCorrectedInvoice(companyID, facturaId_BC, tenant, entorno, database, token, idFactura);
-            }
           }
-
+          if (x.Total < 0 && x.ClientNif != '22222222J') {
+            await this.updateCorrectedInvoice(companyID, facturaId_BC, tenant, entorno, database, token, idFactura);
+          }
           await this.updateSQLSale(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno, x.IdFactura, database);
         } catch (error) {
           await this.handleError(error, num, endpoint, token, companyID, tenant, entorno);
+          i++;
           continue;
         }
         console.log(`⏳ Sincronizando facturas... -> ${i}/${idFacturas.length} --- ${((i / idFacturas.length) * 100).toFixed(2)}% `);
@@ -189,6 +201,7 @@ export class salesFacturasService {
         const promises = lines.map((line) =>
           limit(async () => {
             const itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
+            if (itemAPI == 'error') return;
             if (itemAPI) {
               salesInvoiceData[endpointline].push({
                 itemId: itemAPI,
@@ -243,6 +256,12 @@ export class salesFacturasService {
           LocationCode: `${clientCodi}`,
         };
         await this.locations.getLocationFromAPI(companyID, database, clientCodi, client_id, client_secret, tenant, entorno);
+        if (errores.length > 0) {
+          for (const errorMsg of errores) {
+            await this.logBCError(salesInvoiceData.externalDocumentNumber, errorMsg, client_id, client_secret, tenant, entorno, companyID);
+          }
+          throw error;
+        }
         await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/salesHeader(${factura.data.id})`, salesInvoiceData2, {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -355,13 +374,9 @@ export class salesFacturasService {
     }
   }
 
-  private logError(message: string, error: any) {
-    this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
-    console.error(message, error.response?.data || error.message);
-  }
-  async updateRegistro(companyID: string, database: string, idFactura: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async updateRegistro(companyID: string, database: string, idFactura: string, client_id: string, client_secret: string, tenant: string, entorno: string, endpoint: string) {
     try {
-      const salesData = await this.getSaleFromAPI(companyID, idFactura, 'salesInvoices', client_id, client_secret, tenant, entorno);
+      const salesData = await this.getSaleFromAPI(companyID, idFactura, endpoint, client_id, client_secret, tenant, entorno);
 
       if (!salesData.data) {
         console.warn(`⚠️ No se encontró información para la factura ${idFactura}`);
@@ -379,5 +394,27 @@ export class salesFacturasService {
       throw error;
     }
     return true;
+  }
+  private logError(message: string, error: any) {
+    this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
+    console.error(message, error.response?.data || error.message);
+  }
+  private async logBCError(factura: string, error: any, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string) {
+    const token = await this.token.getToken2(client_id, client_secret, tenant);
+    const logData = {
+      dateTime: new Date().toISOString(),
+      invoice: factura,
+      error: error,
+    };
+    await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/Silema/v2.0/companies(${companyID})/LogsInvoices`, logData, {
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  async addError(error: string) {
+    errores.push(error);
   }
 }

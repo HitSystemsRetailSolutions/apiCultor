@@ -11,7 +11,7 @@ interface SubirPdfRequest {
   client: string;
   secret: string;
   companyId: string;
-  empresaCodi: string;
+  endpoint: string;
 }
 
 @Controller()
@@ -49,7 +49,7 @@ export class PdfController {
 
   @Post('/pdf/subirPDF') //Post del pdf para subr a la base de datos
   async subirPdf(@Body() body: SubirPdfRequest, @Res() res: Response) {
-    const { id, archivo, database, client, secret, tenant, entorno, companyId} = body;
+    const { id, archivo, database, client, secret, tenant, entorno, companyId, endpoint } = body;
 
     //Diferentes errores para que avise del problema por si no se proporciona uno de los datos necesarios
     if (!archivo) {
@@ -61,7 +61,7 @@ export class PdfController {
     }
 
     try {
-      const result = await this.pdfService.subirPdf(id, archivo, database, client, secret, tenant, entorno, companyId);
+      const result = await this.pdfService.subirPdf(id, archivo, database, client, secret, tenant, entorno, companyId, endpoint);
       return res.status(200).json(result);
     } catch (error) {
       console.error('Error al subir el PDF:', error);

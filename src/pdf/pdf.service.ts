@@ -172,13 +172,13 @@ export class PdfService {
     return true;
   }
 
-  async subirPdf(id: string, archivoBase64: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string) {
+  async subirPdf(id: string, archivoBase64: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string, endpoint: string) {
     try {
       let token = await this.token.getToken2(client_id, client_secret, tenant);
       // Convierte el Base64 a Buffer
       const bufferArchivo = Buffer.from(archivoBase64, 'base64');
 
-      const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices(${id})`, {
+      const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${id})`, {
         headers: {
           Authorization: 'Bearer ' + token,
           'Content-Type': 'application/json',

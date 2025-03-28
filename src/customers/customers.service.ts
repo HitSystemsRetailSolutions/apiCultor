@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { getTokenService } from '../connection/getToken.service';
 import { runSqlService } from 'src/connection/sqlConection.service';
 import axios from 'axios';
 import * as mqtt from 'mqtt';
+import { salesFacturasService } from 'src/sales/salesFacturas.service';
 
 @Injectable()
 export class customersService {
@@ -15,6 +16,8 @@ export class customersService {
   constructor(
     private tokenService: getTokenService,
     private sqlService: runSqlService,
+    @Inject(forwardRef(() => salesFacturasService))
+    private salesFacturas: salesFacturasService,
   ) {}
 
   private async getIdFromAPI(endpoint: string, filter: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
@@ -174,6 +177,7 @@ export class customersService {
   }
 
   async syncCustomers(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, codiHIT?: string) {
+    if (tenant === process.env.blockedTenant) return;
     let customers;
     try {
       if (codiHIT) {
@@ -203,7 +207,7 @@ export class customersService {
                 LEFT JOIN ConstantsClient c2_venciment ON c2_venciment.codi = c1.codi AND c2_venciment.variable = 'Venciment'
                 LEFT JOIN ConstantsClient c2_idioma ON c2_idioma.codi = c1.codi AND c2_idioma.variable = 'IDIOMA'
                 LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
-                WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) = 9 and c1.Nif = '${codiHIT}'
+                WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9 and c1.Nif = '${codiHIT}'
               )
               SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma
               FROM ClientesFiltrados
@@ -238,7 +242,7 @@ export class customersService {
               LEFT JOIN ConstantsClient c2_venciment ON c2_venciment.codi = c1.codi AND c2_venciment.variable = 'Venciment'
               LEFT JOIN ConstantsClient c2_idioma ON c2_idioma.codi = c1.codi AND c2_idioma.variable = 'IDIOMA'
               LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
-              WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) = 9
+              WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9
             )
             SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma
             FROM ClientesFiltrados
@@ -370,7 +374,15 @@ export class customersService {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
     if (tenant === process.env.blockedTenant) {
-      codiHIT = await this.sqlService.runSql(`select IdBc from BC_SincroIds where TipoDato = 'customer' and IdHit = ${codiHIT}`, database);
+      const getBCcode = await this.sqlService.runSql(`select IdBc from BC_SincroIds where TipoDato = 'customer' and IdHit = ${codiHIT}`, database);
+      if (getBCcode.recordset.length === 0) {
+        console.log(`❌ Cliente con código ${codiHIT} no encontrado en la tabla de mapeo`);
+        this.salesFacturas.addError(`Cliente con código ${codiHIT} no encontrado en la tabla de mapeo, el cliente no existe en BC`);
+        return;
+      } else {
+        codiHIT = getBCcode.recordset[0].IdBc;
+        console.log('📘 Código HIT convertido a ID BC:', codiHIT);
+      }
       try {
         res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`, {
           headers: {
@@ -387,8 +399,9 @@ export class customersService {
         console.log('📘 Cliente existente en la API con ID:', customerId);
         return customerId;
       } else {
-        console.log('📘 Cliente no encontrado en la API');
-        return false;
+        console.log(`❌ Cliente con código ${codiHIT} no encontrado en BC pero si en la tabla de mapeo, seguramente se haya eliminado`);
+        this.salesFacturas.addError(`Cliente con código ${codiHIT} no encontrado en BC pero si en la tabla de mapeo, seguramente se haya eliminado`);
+        return;
       }
     } else {
       try {
