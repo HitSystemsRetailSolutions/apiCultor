@@ -156,10 +156,10 @@ export class salesFacturasService {
                       CHARINDEX(']', f.referencia, CHARINDEX('IdAlbara:', f.referencia)) - CHARINDEX('IdAlbara:', f.referencia) - 9)
                       ELSE NULL END AS IdAlbara, 
                       c.Nom as Client, FORMAT(f.Data, 'dd/MM/yyyy') AS Data,
-                      SUM(CASE WHEN f.Servit = 0 THEN f.Tornat * -1 ELSE f.Servit END) AS Quantitat, 
+                      SUM(CASE WHEN f.Servit = 0 THEN f.Tornat ELSE f.Servit END) AS Quantitat, 
                       ROUND(f.preu, 3) AS UnitPrice, CAST(f.Producte AS VARCHAR) AS Plu, 
                       f.desconte as Descuento, f.iva as Iva, f.ProducteNom as Nombre,  
-                      RIGHT(f.Referencia, CHARINDEX(']', REVERSE(f.Referencia)) - 1) AS Comentario 
+                      LEFT(RIGHT(f.Referencia, CHARINDEX(']', REVERSE(f.Referencia)) - 1), 100) AS Comentario 
                   FROM ${tabFacturacioDATA} f
                   LEFT JOIN clients c ON f.client = c.codi
                   WHERE f.idFactura = '${Hit_IdFactura}' 
@@ -292,6 +292,8 @@ export class salesFacturasService {
       });
       const updateData = {
         CorrectedInvoiceNo: correctedInvoice.data.value[0].number,
+        AppliesToDocType: 'Invoice',
+        AppliesToDocNo: correctedInvoice.data.value[0].number,
       };
       //Esto solo funciona si la factura a la que corrige ya está registrada en BC
       await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/salesHeader(${facturaId_BC})`, updateData, {
