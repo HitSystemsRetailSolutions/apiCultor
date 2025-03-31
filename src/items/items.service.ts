@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { getTokenService } from '../connection/getToken.service';
 import { runSqlService } from 'src/connection/sqlConection.service';
 import axios from 'axios';
 import * as mqtt from 'mqtt';
+import { salesFacturasService } from 'src/sales/salesFacturas.service';
 
 @Injectable()
 export class itemsService {
@@ -15,9 +16,12 @@ export class itemsService {
   constructor(
     private tokenService: getTokenService,
     private sqlService: runSqlService,
+    @Inject(forwardRef(() => salesFacturasService))
+    private salesFacturas: salesFacturasService,
   ) {}
 
   async syncItems(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, codiHIT?: string) {
+    if (tenant === process.env.blockedTenant) return;
     let items;
     try {
       if (codiHIT) {
@@ -144,40 +148,71 @@ export class itemsService {
     let itemId = '';
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
-    try {
-      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq '${codiHIT}'`, {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
-      });
-    } catch (error) {
-      this.logError(`❌ Error consultando item con plu ${codiHIT}`, error);
-      throw error;
-    }
-
-    if (res.data.value.length > 0) {
-      itemId = res.data.value[0].id;
-      // Comprobar si los campos necesarios existen
-      const item = res.data.value[0];
-      if (!item.generalProductPostingGroupCode?.trim() || item.type !== 'Non_x002D_Inventory' || !item.VATProductPostingGroup?.trim()) {
-        // Si faltan campos, volver a sincronizar el artículo
-        const syncResult = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-        if (syncResult) {
-          return await this.getItemFromAPI(companyID, database, codiHIT, client_id, client_secret, tenant, entorno);
-        } else {
-          return false;
-        }
+    if (tenant === process.env.blockedTenant) {
+      const getBCcode = await this.sqlService.runSql(`select IdBc from BC_SincroIds where TipoDato = 'item' and IdHit = ${codiHIT}`, database);
+      if (getBCcode.recordset.length === 0) {
+        console.log(`❌ Item con código ${codiHIT} no encontrado en tabla de mapeo, el item no existe en BC`);
+        this.salesFacturas.addError(`Item con código ${codiHIT} no encontrado en tabla de mapeo, el item no existe en BC`);
+        return 'error';
+      } else {
+        codiHIT = getBCcode.recordset[0].IdBc;
+        console.log('📘 Código HIT convertido a ID BC:', codiHIT);
       }
-      return itemId;
-    }
-
-    const newItem = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-    if (newItem) {
-      itemId = String(newItem);
-      return itemId;
+      try {
+        res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/items?$filter=number eq '${codiHIT}'`, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (error) {
+        this.logError(`❌ Error consultando item con plu ${codiHIT}`, error);
+        throw error;
+      }
+      if (res.data.value.length > 0) {
+        itemId = res.data.value[0].id;
+        return itemId;
+      } else {
+        console.log(`❌ Item con codigo ${codiHIT} no encontrado en BC pero si en la tabla de mapeo, seguramente se haya eliminado`);
+        this.salesFacturas.addError(`Item con codigo ${codiHIT} no encontrado en BC pero si en la tabla de mapeo, seguramente se haya eliminado`);
+        return 'error';
+      }
     } else {
-      return false;
+      try {
+        res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq '${codiHIT}'`, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (error) {
+        this.logError(`❌ Error consultando item con plu ${codiHIT}`, error);
+        throw error;
+      }
+
+      if (res.data.value.length > 0) {
+        itemId = res.data.value[0].id;
+        // Comprobar si los campos necesarios existen
+        const item = res.data.value[0];
+        if (!item.generalProductPostingGroupCode?.trim() || item.type !== 'Non_x002D_Inventory' || !item.VATProductPostingGroup?.trim()) {
+          // Si faltan campos, volver a sincronizar el artículo
+          const syncResult = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+          if (syncResult) {
+            return await this.getItemFromAPI(companyID, database, codiHIT, client_id, client_secret, tenant, entorno);
+          } else {
+            return false;
+          }
+        }
+        return itemId;
+      }
+
+      const newItem = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+      if (newItem) {
+        itemId = String(newItem);
+        return itemId;
+      } else {
+        return false;
+      }
     }
   }
 

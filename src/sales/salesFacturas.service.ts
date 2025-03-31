@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { getTokenService } from '../connection/getToken.service';
 import { runSqlService } from 'src/connection/sqlConection.service';
 import axios from 'axios';
@@ -7,6 +7,9 @@ import { itemsService } from 'src/items/items.service';
 import { locationsService } from 'src/locations/locations.service';
 import * as mqtt from 'mqtt';
 import * as pLimit from 'p-limit';
+import { error } from 'console';
+
+let errores: string[] = [];
 @Injectable()
 export class salesFacturasService {
   private client = mqtt.connect({
@@ -17,8 +20,11 @@ export class salesFacturasService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
+    @Inject(forwardRef(() => customersService))
     private customers: customersService,
+    @Inject(forwardRef(() => itemsService))
     private items: itemsService,
+    @Inject(forwardRef(() => locationsService))
     private locations: locationsService,
   ) {}
 
@@ -29,6 +35,7 @@ export class salesFacturasService {
       const tabFacturacioDATA = `[FACTURACIO_${tabla}_DATA]`;
       let i = 1;
       for (const idFactura of idFacturas) {
+        errores = [];
         let facturaId_BC: string | null = null;
         let num: string | null = null;
         let endpoint: string = '';
@@ -49,7 +56,12 @@ export class salesFacturasService {
           const endpointline = x.Total >= 0 ? 'salesInvoiceLines' : 'salesCreditMemoLines';
 
           console.log(`-------------------SINCRONIZANDO FACTURA NÚMERO ${num} -----------------------`);
-          const customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientNif, client_id, client_secret, tenant, entorno);
+          let customerId;
+          if (tenant === process.env.blockedTenant) {
+            customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientCodi, client_id, client_secret, tenant, entorno);
+          } else {
+            customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientNif, client_id, client_secret, tenant, entorno);
+          }
 
           let res;
           try {
@@ -61,11 +73,13 @@ export class salesFacturasService {
             });
           } catch (error) {
             this.logError(`❌ Error consultando factura en BC con número ${num}, pasamos a la siguiente factura`, error);
+            i++;
             continue;
           }
 
           if (!res.data || !res.data.value) {
             console.error(`❌ Error: La respuesta de la API no contiene datos válidos para la factura ${num}, pasamos a la siguiente factura.`);
+            i++;
             continue;
           }
 
@@ -89,13 +103,16 @@ export class salesFacturasService {
           }
 
           invoiceData = await this.processInvoiceLines(invoiceData, endpointline, companyID, database, tabFacturacioDATA, x.IdFactura, facturaId_BC, client_id, client_secret, tenant, entorno);
-
+          if (errores.length > 0) {
+            console.log(`❌ Error en la factura ${num}, pasamos a la siguiente factura.`);
+            for (const errorMsg of errores) {
+              await this.logBCError(num, errorMsg, client_id, client_secret, tenant, entorno, companyID);
+            }
+            i++;
+            continue;
+          }
           if (res.data.value.length === 0) {
             facturaId_BC = await this.createInvoice(invoiceData, endpoint, x.ClientCodi, database, client_id, client_secret, token, tenant, entorno, companyID);
-
-            if (x.Total < 0 && x.ClientNif != '22222222J') {
-              await this.updateCorrectedInvoice(companyID, facturaId_BC, tenant, entorno, database, token, idFactura);
-            }
           } else {
             facturaId_BC = res.data.value[0]['id'];
             try {
@@ -111,14 +128,14 @@ export class salesFacturasService {
               throw deleteError;
             }
             facturaId_BC = await this.createInvoice(invoiceData, endpoint, x.ClientCodi, database, client_id, client_secret, token, tenant, entorno, companyID);
-            if (x.Total < 0 && x.ClientNif != '22222222J') {
-              await this.updateCorrectedInvoice(companyID, facturaId_BC, tenant, entorno, database, token, idFactura);
-            }
           }
-
+          if (x.Total < 0 && x.ClientNif != '22222222J') {
+            await this.updateCorrectedInvoice(companyID, facturaId_BC, tenant, entorno, database, token, idFactura);
+          }
           await this.updateSQLSale(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno, x.IdFactura, database);
         } catch (error) {
           await this.handleError(error, num, endpoint, token, companyID, tenant, entorno);
+          i++;
           continue;
         }
         console.log(`⏳ Sincronizando facturas... -> ${i}/${idFacturas.length} --- ${((i / idFacturas.length) * 100).toFixed(2)}% `);
@@ -134,38 +151,87 @@ export class salesFacturasService {
   async processInvoiceLines(salesInvoiceData, endpointline, companyID, database, tabFacturacioDATA, Hit_IdFactura, BC_facturaId, client_id: string, client_secret: string, tenant: string, entorno: string) {
     console.log(`📦 Procesando líneas de la factura...`);
     try {
-      const sqlQ = `SELECT SUM(CASE WHEN f.Servit = 0 THEN f.Tornat * -1 ELSE f.Servit END) AS Quantitat, round(f.preu,3) AS UnitPrice, CAST(f.Producte AS VARCHAR) AS Plu , f.desconte as Descuento, f.iva as Iva, f.ProducteNom as Nombre FROM ${tabFacturacioDATA} f WHERE f.idFactura = '${Hit_IdFactura}' GROUP BY f.Producte,f.Desconte,f.Preu,f.Iva,f.ProducteNom;`;
-      const invoiceLines = await this.sql.runSql(sqlQ, database);
-      let lineData = {};
-      const limit = pLimit(15);
-      const promises = invoiceLines.recordset.map((line: any) =>
-        limit(async () => {
-          const itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
+      const sqlQ = `SELECT CASE WHEN CHARINDEX('IdAlbara:', f.referencia) > 0 THEN 
+                      SUBSTRING(f.referencia, CHARINDEX('IdAlbara:', f.referencia) + 9, 
+                      CHARINDEX(']', f.referencia, CHARINDEX('IdAlbara:', f.referencia)) - CHARINDEX('IdAlbara:', f.referencia) - 9)
+                      ELSE NULL END AS IdAlbara, 
+                      c.Nom as Client, FORMAT(f.Data, 'dd/MM/yyyy') AS Data,
+                      SUM(CASE WHEN f.Servit = 0 THEN f.Tornat ELSE f.Servit END) AS Quantitat, 
+                      ROUND(f.preu, 3) AS UnitPrice, CAST(f.Producte AS VARCHAR) AS Plu, 
+                      f.desconte as Descuento, f.iva as Iva, f.ProducteNom as Nombre,  
+                      LEFT(RIGHT(f.Referencia, CHARINDEX(']', REVERSE(f.Referencia)) - 1), 100) AS Comentario 
+                  FROM ${tabFacturacioDATA} f
+                  LEFT JOIN clients c ON f.client = c.codi
+                  WHERE f.idFactura = '${Hit_IdFactura}' 
+                  GROUP BY f.Producte, f.Desconte, f.Preu, f.Iva, f.ProducteNom, referencia, c.Nom, f.Data
+                  ORDER BY f.Data, f.Producte;`;
 
-          if (itemAPI) {
-            lineData = {
-              itemId: itemAPI,
-              lineType: 'Item',
-              quantity: line.Quantitat,
-              unitPrice: line.UnitPrice,
-              discountPercent: line.Descuento,
-              taxCode: `IVA${line.Iva}`,
-            };
-          } else {
-            lineData = {
-              lineObjectNumber: line.Quantitat > 0 ? '7000001' : '7090001',
-              description: line.Nombre,
-              lineType: 'Account',
-              quantity: line.Quantitat,
-              unitPrice: line.UnitPrice,
-              discountPercent: line.Descuento,
-              taxCode: `IVA${line.Iva}`,
-            };
-          }
-          salesInvoiceData[endpointline].push(lineData);
-        }),
-      );
-      await Promise.all(promises);
+      const invoiceLines = await this.sql.runSql(sqlQ, database);
+      if (invoiceLines.recordset.length === 0) {
+        console.warn(`⚠️ La factura ${Hit_IdFactura} no tiene líneas.`);
+        return salesInvoiceData;
+      }
+
+      const groupedByDate = invoiceLines.recordset.reduce((acc, line) => {
+        if (!acc[line.Data]) acc[line.Data] = [];
+        acc[line.Data].push(line);
+        return acc;
+      }, {});
+
+      const limit = pLimit(15);
+
+      for (const date in groupedByDate) {
+        const lines = groupedByDate[date];
+        const firstLine = lines[0];
+        let lineData = {};
+
+        if (firstLine.IdAlbara) {
+          lineData = {
+            lineType: 'Comment',
+            description: `ALBARÀ: ${firstLine.IdAlbara} - (${firstLine.Client}) - ${date}`,
+          };
+        } else {
+          lineData = {
+            lineType: 'Comment',
+            description: `(${firstLine.Client}) - ${date}`,
+          };
+        }
+        salesInvoiceData[endpointline].push(lineData);
+
+        const promises = lines.map((line) =>
+          limit(async () => {
+            const itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
+            if (itemAPI == 'error') return;
+            if (itemAPI) {
+              salesInvoiceData[endpointline].push({
+                itemId: itemAPI,
+                lineType: 'Item',
+                quantity: line.Quantitat,
+                unitPrice: line.UnitPrice,
+                discountPercent: line.Descuento,
+                taxCode: `IVA${line.Iva}`,
+              });
+              if (line.Comentario) {
+                salesInvoiceData[endpointline].push({
+                  lineType: 'Comment',
+                  description: line.Comentario,
+                });
+              }
+            } else {
+              salesInvoiceData[endpointline].push({
+                lineObjectNumber: line.Quantitat > 0 ? '7000001' : '7090001',
+                description: line.Nombre,
+                lineType: 'Account',
+                quantity: line.Quantitat,
+                unitPrice: line.UnitPrice,
+                discountPercent: line.Descuento,
+                taxCode: `IVA${line.Iva}`,
+              });
+            }
+          }),
+        );
+        await Promise.all(promises);
+      }
       console.log(`✅ Todas las líneas de la factura procesadas`);
       return salesInvoiceData;
     } catch (error) {
@@ -190,6 +256,12 @@ export class salesFacturasService {
           LocationCode: `${clientCodi}`,
         };
         await this.locations.getLocationFromAPI(companyID, database, clientCodi, client_id, client_secret, tenant, entorno);
+        if (errores.length > 0) {
+          for (const errorMsg of errores) {
+            await this.logBCError(salesInvoiceData.externalDocumentNumber, errorMsg, client_id, client_secret, tenant, entorno, companyID);
+          }
+          throw error;
+        }
         await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/salesHeader(${factura.data.id})`, salesInvoiceData2, {
           headers: {
             Authorization: 'Bearer ' + token,
@@ -220,6 +292,8 @@ export class salesFacturasService {
       });
       const updateData = {
         CorrectedInvoiceNo: correctedInvoice.data.value[0].number,
+        AppliesToDocType: 'Invoice',
+        AppliesToDocNo: correctedInvoice.data.value[0].number,
       };
       //Esto solo funciona si la factura a la que corrige ya está registrada en BC
       await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/salesHeader(${facturaId_BC})`, updateData, {
@@ -302,8 +376,47 @@ export class salesFacturasService {
     }
   }
 
+  async updateRegistro(companyID: string, database: string, idFactura: string, client_id: string, client_secret: string, tenant: string, entorno: string, endpoint: string) {
+    try {
+      const salesData = await this.getSaleFromAPI(companyID, idFactura, endpoint, client_id, client_secret, tenant, entorno);
+
+      if (!salesData.data) {
+        console.warn(`⚠️ No se encontró información para la factura ${idFactura}`);
+        return false;
+      }
+      const year = salesData.data.postingDate.split('-')[0];
+
+      const updateSql = `UPDATE [BC_SyncSales_${year}] 
+                         SET Registrada = 'Si'
+                         WHERE BC_IdSale = '${idFactura}'`;
+
+      await this.sql.runSql(updateSql, database);
+    } catch (error) {
+      this.logError(`❌ Error al actualizar la factura con id ${idFactura} en BC_SyncSales`, error);
+      throw error;
+    }
+    return true;
+  }
   private logError(message: string, error: any) {
     this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
     console.error(message, error.response?.data || error.message);
+  }
+  private async logBCError(factura: string, error: any, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string) {
+    const token = await this.token.getToken2(client_id, client_secret, tenant);
+    const logData = {
+      dateTime: new Date().toISOString(),
+      invoice: factura,
+      error: error,
+    };
+    await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/Silema/v2.0/companies(${companyID})/LogsInvoices`, logData, {
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  async addError(error: string) {
+    errores.push(error);
   }
 }
