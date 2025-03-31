@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { getTokenService } from '../connection/getToken.service';
 import { runSqlService } from 'src/connection/sqlConection.service';
 import axios from 'axios';
 import * as mqtt from 'mqtt';
+import { salesFacturasService } from 'src/sales/salesFacturas.service';
 
 @Injectable()
 export class locationsService {
@@ -15,9 +16,12 @@ export class locationsService {
   constructor(
     private tokenService: getTokenService,
     private sqlService: runSqlService,
+    @Inject(forwardRef(() => salesFacturasService))
+    private salesFacturas: salesFacturasService,
   ) {}
 
   async syncLocations(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, codiHIT?: string) {
+    if (tenant === process.env.blockedTenant) return;
     let locations;
     try {
       if (codiHIT) {
@@ -119,24 +123,55 @@ export class locationsService {
     let locationCode = '';
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
-    try {
-      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/locations?$filter=code eq '${codiHIT}'`, {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
-      });
-    } catch (error) {
-      this.logError(`❌ Error consultando almacén con código ${codiHIT}`, error);
-      throw error;
-    }
+    if (tenant === process.env.blockedTenant) {
+      const getBCcode = await this.sqlService.runSql(`select IdBc from BC_SincroIds where TipoDato = 'customer' and IdHit = ${codiHIT}`, database);
+      if (getBCcode.recordset.length === 0) {
+        console.log(`❌ Almacén con código ${codiHIT} no encontrado en la tabla de mapeo`);
+        this.salesFacturas.addError(`Almacén con código ${codiHIT} no encontrado en la tabla de mapeo, el almacén no existe en BC`);
+        return;
+      } else {
+        codiHIT = getBCcode.recordset[0].IdBc;
+        console.log('📘 Código HIT convertido a ID BC:', codiHIT);
+      }
+      try {
+        res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/locations?$filter=code eq '${codiHIT}'`, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (error) {
+        this.logError(`❌ Error consultando almacén con código ${codiHIT}`, error);
+        throw error;
+      }
+      if (res.data.value.length > 0) {
+        locationCode = res.data.value[0].code;
+        return true;
+      } else {
+        console.log(`❌ Almacén con código ${codiHIT} no encontrado en BC pero si en la tabla de mapeo, seguramente se haya eliminado`);
+        this.salesFacturas.addError(`Almacén con código ${codiHIT} no encontrado en BC pero si en la tabla de mapeo, seguramente se haya eliminado`);
+        return;
+      }
+    } else {
+      try {
+        res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/locations?$filter=code eq '${codiHIT}'`, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (error) {
+        this.logError(`❌ Error consultando almacén con código ${codiHIT}`, error);
+        throw error;
+      }
 
-    if (res.data.value.length > 0) {
-      locationCode = res.data.value[0].code;
+      if (res.data.value.length > 0) {
+        locationCode = res.data.value[0].code;
+        return true;
+      }
+      await this.syncLocations(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
       return true;
     }
-    await this.syncLocations(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-    return true;
   }
 
   private logError(message: string, error: any) {

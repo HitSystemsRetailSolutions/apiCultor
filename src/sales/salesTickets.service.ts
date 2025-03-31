@@ -25,6 +25,7 @@ export class salesTicketsService {
   ) {}
 
   async syncVentas(dayStart, dayEnd, month, year, companyID, database, botiga, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    if (tenant === process.env.blockedTenant) return;
     try {
       for (let day = dayStart; day <= dayEnd; day++) {
         console.log(`📅 Procesando ventas para el día ${day}/${month}/${year}...`);
