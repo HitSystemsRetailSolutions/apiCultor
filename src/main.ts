@@ -133,7 +133,7 @@ client.on('message', async function (topic, message) {
     if (msgJson.hasOwnProperty('nif')) nif = msgJson.nif;
 
     let turno = 0;
-    if (msgJson.hasOwnProperty('turno')) nif = msgJson.turno;
+    if (msgJson.hasOwnProperty('turno')) turno = msgJson.turno;
 
     if (!test) {
       switch (msgJson.msg) {

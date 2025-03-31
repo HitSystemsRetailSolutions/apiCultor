@@ -173,10 +173,10 @@ export class salesSilemaService {
     if (queryHora.recordset.length > 1)
       importTurno2 = queryHora.recordset[1].Import
 
-    // Formatear en "hh:mm:ss"
+    // Formatear en "hh:mm:ss"    
     let formattedHora = `${String(hora.getUTCHours()).padStart(2, '0')}:${String(hora.getMinutes()).padStart(2, '0')}:${String(hora.getSeconds()).padStart(2, '0')}`;
     //console.log(formattedHora)
-    switch (turno) {
+    switch (Number(turno)) {
       case 1:
         await this.processTurnoSalesSilema(1, "<", importTurno1, botiga, day, month, year, formattedHora, database, tipo, tenant, entorno, companyID, token);
         break
@@ -206,7 +206,7 @@ export class salesSilemaService {
     // Formatear en "hh:mm:ss"
     let formattedHora = `${String(hora.getUTCHours()).padStart(2, '0')}:${String(hora.getMinutes()).padStart(2, '0')}:${String(hora.getSeconds()).padStart(2, '0')}`;
     //console.log(formattedHora); // Debería mostrar "14:31:43"
-    switch (turno) {
+    switch (Number(turno)) {
       case 1:
         await this.processTurnoSalesSilemaAbono(1, "<", botiga, day, month, year, queryHora, formattedHora, database, tipo, tenant, entorno, companyID, token);
         break
@@ -237,7 +237,7 @@ export class salesSilemaService {
     // Formatear en "hh:mm:ss"
     let formattedHora = `${String(hora.getUTCHours()).padStart(2, '0')}:${String(hora.getMinutes()).padStart(2, '0')}:${String(hora.getSeconds()).padStart(2, '0')}`;
     //console.log(formattedHora); // Debería mostrar "14:31:43"
-    switch (turno) {
+    switch (Number(turno)) {
       case 1:
         await this.processTurnoSalesSilemaCierre(1, "<", botiga, day, month, year, formattedHora, database, tipo, tenant, entorno, companyID, token);
         break
