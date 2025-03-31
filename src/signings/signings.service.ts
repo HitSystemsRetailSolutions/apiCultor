@@ -4,6 +4,7 @@ import { runSqlService } from 'src/connection/sqlConection.service';
 import axios from 'axios';
 import { response } from 'express';
 import * as mqtt from 'mqtt';
+import * as moment from 'moment-timezone';
 
 @Injectable()
 export class signingsService {
@@ -37,10 +38,11 @@ export class signingsService {
     const token = await this.token.getToken2(client_id, client_secret, tenant);
     let i = 1;
     for (const signing of signings.recordset) {
+      let timestamp = moment.utc(signing.tmst).tz("Europe/Madrid", true).format("YYYY-MM-DDTHH:mm:ss.SSSZ");
       try {
         const data = {
           idr: signing.idr,
-          tmst: signing.tmst,
+          tmst: timestamp,
           accio: signing.accio,
           usuari: signing.usuari,
           nombre: signing.nombre,
