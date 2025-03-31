@@ -339,7 +339,7 @@ async function syncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, dat
 
 async function syncSalesSilemaDateTurno(dayStart, dayEnd, month, year, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno) {
   try {
-    await axios.get('http://localhost:3333/syncSalesSilemaDate', {
+    await axios.get('http://localhost:3333/syncSalesSilemaDateTurno', {
       params: {
         dayStart: dayStart,
         dayEnd: dayEnd,
