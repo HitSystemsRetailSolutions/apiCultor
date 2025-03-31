@@ -1148,7 +1148,7 @@ export class salesSilemaService {
         let salesLine = {
           documentNo: `${salesData.no}`,
           type: `G_x002F_L_x0020_Account`,
-          no: `7000001`,
+          no: `700000000`,
           lineNo: i + 1,
           //description: `${x.producte}`,
           quantity: 1,
@@ -1219,7 +1219,7 @@ export class salesSilemaService {
         let salesLine = {
           documentNo: `${salesData.no}`,
           type: `G_x002F_L_x0020_Account`,
-          no: `7000001`,
+          no: `700000000`,
           lineNo: i + 1,
           //description: `${x.producte}`,
           quantity: 1,
