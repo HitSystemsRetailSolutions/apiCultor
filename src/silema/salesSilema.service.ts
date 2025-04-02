@@ -1148,8 +1148,8 @@ export class salesSilemaService {
       };
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
-        x.Iva = `IVA${String(x.Iva).replace(/\D/g, '').padStart(2, '0')}`;
-        if(x.Iva === 'IVA00') x.Iva = 'IVA0';
+        x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
+        if(x.IVA === 'IVA00') x.IVA = 'IVA0';
         let salesLine = {
           documentNo: `${salesData.no}`,
           type: `G_x002F_L_x0020_Account`,
