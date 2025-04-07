@@ -486,6 +486,8 @@ export class salesSilemaService {
       };
       countLines++
       salesData.salesLinesBuffer.push(salesLineAlbaran);
+      x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
+      if(x.IVA === 'IVA00') x.IVA = 'IVA0';
       let salesLine = {
         documentNo: `${salesData.no}`,
         type: `Item`,
@@ -503,7 +505,7 @@ export class salesSilemaService {
       importTotal += parseFloat(x.PRECIO)
       salesData.salesLinesBuffer.push(salesLine);
     }
-    salesData.remainingAmount = importTotal;
+    salesData.remainingAmount = Number(importTotal.toFixed(2));
     //console.log(salesData)
 
     let urlExist = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_R') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd} and contains(vatRegistrationNo, '${x.NIF}') and remainingAmount eq ${importTotal}`;
@@ -629,7 +631,7 @@ export class salesSilemaService {
       importTotal += parseFloat(x.IMPORTE_TOTAL)
       salesData.salesLinesBuffer.push(salesLine);
     }
-    salesData.remainingAmount = importTotal;
+    salesData.remainingAmount = Number(importTotal.toFixed(2));
     //console.log(salesData)
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
@@ -750,7 +752,7 @@ export class salesSilemaService {
       importTotal += parseFloat(x.PRECIO)
       salesData.salesLinesBuffer.push(salesLine);
     }
-    salesData.remainingAmount = importTotal;
+    salesData.remainingAmount = Number(importTotal.toFixed(2));
     //console.log(salesData)
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
@@ -846,7 +848,7 @@ export class salesSilemaService {
       importTotal += parseFloat(x.IMPORTE_TOTAL)
       salesData.salesLinesBuffer.push(salesLine);
     }
-    salesData.remainingAmount = importTotal;
+    salesData.remainingAmount = Number(importTotal.toFixed(2));
     //console.log(salesData)
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
@@ -964,6 +966,8 @@ export class salesSilemaService {
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
         let isoDate = new Date(x.Data).toISOString().substring(0, 10);
+        x.Iva = `IVA${String(x.Iva).replace(/\D/g, '').padStart(2, '0')}`;
+        if(x.Iva === 'IVA00') x.Iva = 'IVA0';
         let salesLine = {
           documentNo: salesData.no,
           type: `Item`,
@@ -973,13 +977,12 @@ export class salesSilemaService {
           quantity: parseFloat(x.Quantitat),
           shipmentDate: isoDate,
           lineTotalAmount: parseFloat(x.Import),
-          vatProdPostingGroup: `IVA${x.Iva}`,
+          vatProdPostingGroup: `${x.Iva}`,
           unitPrice: parseFloat(x.precioUnitario),
           locationCode: `${this.extractNumber(x.Nom)}`
         };
         salesData.salesLinesBuffer.push(salesLine);
       }
-
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
     }
   }
@@ -1145,6 +1148,8 @@ export class salesSilemaService {
       };
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
+        x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
+        if(x.IVA === 'IVA00') x.IVA = 'IVA0';
         let salesLine = {
           documentNo: `${salesData.no}`,
           type: `G_x002F_L_x0020_Account`,
@@ -1153,16 +1158,16 @@ export class salesSilemaService {
           //description: `${x.producte}`,
           quantity: 1,
           lineTotalAmount: parseFloat(x.Importe),
-          vatProdPostingGroup: `IVA${x.IVA}`,
+          vatProdPostingGroup: `${x.IVA}`,
           unitPrice: parseFloat(x.Importe),
           locationCode: `${this.extractNumber(x.Nom)}`
         };
         importAmount += parseFloat(x.Importe)
         salesData.salesLinesBuffer.push(salesLine);
       }
-      salesData.remainingAmount = importAmount;
+      salesData.remainingAmount = Number(importAmount.toFixed(2));
 
-
+      
       //console.log(salesData)
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
@@ -1216,6 +1221,8 @@ export class salesSilemaService {
           importAmount = 0;
           salesData.remainingAmount = importAmount;
         }
+        x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
+        if(x.IVA === 'IVA00') x.IVA = 'IVA0';
         let salesLine = {
           documentNo: `${salesData.no}`,
           type: `G_x002F_L_x0020_Account`,
@@ -1224,15 +1231,17 @@ export class salesSilemaService {
           //description: `${x.producte}`,
           quantity: 1,
           lineTotalAmount: parseFloat(x.Importe),
-          vatProdPostingGroup: `IVA${x.IVA}`,
+          vatProdPostingGroup: `${x.IVA}`,
           unitPrice: parseFloat(x.Importe),
           locationCode: `${this.extractNumber(x.Nom)}`
         };
         salesData.salesLinesBuffer.push(salesLine);
-        salesData.remainingAmount += parseFloat(x.Importe);
+        // console.log("Importe a sumar: " + x.Importe)
+        salesData.remainingAmount = Number((salesData.remainingAmount + parseFloat(x.Importe)).toFixed(2));
         NifAnterior = x.NIF
       }
-      // ºconsole.log(`salesData Number: ${salesData.no}`)
+      // console.log(salesData.remainingAmount)
+      // console.log(`salesData Number: ${salesData.no}`)
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
       //console.log(salesData)
     }
