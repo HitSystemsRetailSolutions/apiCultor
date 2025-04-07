@@ -23,6 +23,7 @@ export class initConfigService {
     try {
       await this.paymentMethods(companyID, database, client_id, client_secret, tenant, entorno);
       await this.syncTaxGroups(companyID, database, client_id, client_secret, tenant, entorno);
+      await this.syncVATBusinessPostingGroup(companyID, database, client_id, client_secret, tenant, entorno);
       await this.syncVATPostingSetup(companyID, database, client_id, client_secret, tenant, entorno);
       await this.createClientesContado(companyID, database, client_id, client_secret, tenant, entorno);
       await this.createCatalanLanguage(companyID, client_id, client_secret, tenant, entorno);
@@ -94,45 +95,80 @@ export class initConfigService {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let i = 1;
     for (const iva of ivas.recordset) {
-      for (const suffix of ['', 'RE']) {
-        try {
-          const ivaCode = `IVA${iva.Iva}${suffix}`;
-          const ivaData = {
-            code: ivaCode,
-            displayName: `IVA ${iva.Iva}%${suffix ? ' + RE' : ''}`,
-          };
-          const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxGroups?$filter=code eq '${ivaCode}'`, {
+      try {
+        const ivaCode = `IVA${iva.Iva}`;
+        const ivaData = {
+          code: ivaCode,
+          displayName: `IVA ${iva.Iva}%`,
+        };
+        const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxGroups?$filter=code eq '${ivaCode}'`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (res.data.value.length === 0) {
+          await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxGroups`, ivaData, {
             headers: {
               Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json',
             },
           });
-          if (res.data.value.length === 0) {
-            await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxGroups`, ivaData, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-            });
-          } else {
-            const etag = res.data.value[0]['@odata.etag'];
-            await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxGroups(${res.data.value[0].id})`, ivaData, {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                'If-Match': etag,
-              },
-            });
-          }
-        } catch (error) {
-          this.logError(`❌ Error al crear el IVA ${iva.Iva}${suffix ? ' + RE' : ''}`, error);
+        } else {
+          const etag = res.data.value[0]['@odata.etag'];
+          await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/taxGroups(${res.data.value[0].id})`, ivaData, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'If-Match': etag,
+            },
+          });
         }
+      } catch (error) {
+        this.logError(`❌ Error al crear el IVA ${iva.Iva}`, error);
       }
       console.log(`⏳ Sincronizando IVA ${iva.Iva} ... -> ${i}/${ivas.recordset.length} --- ${((i / ivas.recordset.length) * 100).toFixed(2)}% `);
       i++;
     }
   }
 
+  async syncVATBusinessPostingGroup(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
+
+    try {
+      const groupData = {
+        code: 'NACRE',
+        description: `Clientes y proveedores nac. con RE`,
+      };
+      const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VATBusinessPostingGroup?$filter=code eq '${groupData.code}'`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (res.data.value.length === 0) {
+        await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VATBusinessPostingGroup`, groupData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } else {
+        const etag = res.data.value[0]['@odata.etag'];
+        await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VATBusinessPostingGroup(${res.data.value[0].id})`, groupData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'If-Match': etag,
+          },
+        });
+      }
+    } catch (error) {
+      this.logError(`❌ Error al crear el VAT Business Posting Group`, error);
+    }
+
+    console.log(`⏳ VAT Business Posting Group sincronizado `);
+  }
   async syncVATPostingSetup(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let ivas;
     try {
@@ -153,9 +189,9 @@ export class initConfigService {
     for (const iva of ivas.recordset) {
       for (const suffix of ['', 'RE']) {
         try {
-          const ivaCode = `IVA${iva.Iva}${suffix}`;
+          const ivaCode = `IVA${iva.Iva}`;
           const ivaData = {
-            vatBusPostingGroup: 'NAC',
+            vatBusPostingGroup: `NAC${suffix}`,
             vatProdPostingGroup: ivaCode,
             vatCalculationType: 'Normal_x0020_VAT',
             adjustForPaymentDiscount: false,
@@ -163,12 +199,12 @@ export class initConfigService {
             purchaseVATAccount: '4720001',
             vatIdentifier: ivaCode,
             taxCategory: 'S',
-            description: `NAC / ${ivaCode}`,
+            description: `NAC${suffix} / ${ivaCode}`,
             RE: suffix ? iva.RE : 0,
             vat: iva.Iva,
           };
           const resIva = await axios.get(
-            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VATPostingSetup?$filter=vatIdentifier eq '${ivaCode}' and vatBusPostingGroup eq 'NAC' and vatProdPostingGroup eq '${ivaCode}'`,
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VATPostingSetup?$filter=vatIdentifier eq '${ivaCode}' and vatBusPostingGroup eq 'NAC${suffix}' and vatProdPostingGroup eq '${ivaCode}'`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -219,21 +255,11 @@ export class initConfigService {
           'Content-Type': 'application/json',
         },
       });
-
       if (res.data.value.length == 0) {
         await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/language`, languageData, {
           headers: {
             Authorization: 'Bearer ' + token,
             'Content-Type': 'application/json',
-          },
-        });
-      } else {
-        const etag = res.data.value[0]['@odata.etag'];
-        await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/language(${res.data.value[0].id})`, languageData, {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-            'If-Match': etag,
           },
         });
       }
