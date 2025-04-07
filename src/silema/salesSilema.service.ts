@@ -505,7 +505,7 @@ export class salesSilemaService {
       importTotal += parseFloat(x.PRECIO)
       salesData.salesLinesBuffer.push(salesLine);
     }
-    salesData.remainingAmount = importTotal;
+    salesData.remainingAmount = Number(importTotal.toFixed(2));
     //console.log(salesData)
 
     let urlExist = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_R') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd} and contains(vatRegistrationNo, '${x.NIF}') and remainingAmount eq ${importTotal}`;
@@ -631,7 +631,7 @@ export class salesSilemaService {
       importTotal += parseFloat(x.IMPORTE_TOTAL)
       salesData.salesLinesBuffer.push(salesLine);
     }
-    salesData.remainingAmount = importTotal;
+    salesData.remainingAmount = Number(importTotal.toFixed(2));
     //console.log(salesData)
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
@@ -752,7 +752,7 @@ export class salesSilemaService {
       importTotal += parseFloat(x.PRECIO)
       salesData.salesLinesBuffer.push(salesLine);
     }
-    salesData.remainingAmount = importTotal;
+    salesData.remainingAmount = Number(importTotal.toFixed(2));
     //console.log(salesData)
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
@@ -848,7 +848,7 @@ export class salesSilemaService {
       importTotal += parseFloat(x.IMPORTE_TOTAL)
       salesData.salesLinesBuffer.push(salesLine);
     }
-    salesData.remainingAmount = importTotal;
+    salesData.remainingAmount = Number(importTotal.toFixed(2));
     //console.log(salesData)
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
@@ -1165,9 +1165,9 @@ export class salesSilemaService {
         importAmount += parseFloat(x.Importe)
         salesData.salesLinesBuffer.push(salesLine);
       }
-      salesData.remainingAmount = importAmount;
+      salesData.remainingAmount = Number(importAmount.toFixed(2));
 
-
+      
       //console.log(salesData)
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
@@ -1236,10 +1236,12 @@ export class salesSilemaService {
           locationCode: `${this.extractNumber(x.Nom)}`
         };
         salesData.salesLinesBuffer.push(salesLine);
-        salesData.remainingAmount += parseFloat(x.Importe);
+        // console.log("Importe a sumar: " + x.Importe)
+        salesData.remainingAmount = Number((salesData.remainingAmount + parseFloat(x.Importe)).toFixed(2));
         NifAnterior = x.NIF
       }
-      // ºconsole.log(`salesData Number: ${salesData.no}`)
+      // console.log(salesData.remainingAmount)
+      // console.log(`salesData Number: ${salesData.no}`)
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
       //console.log(salesData)
     }
