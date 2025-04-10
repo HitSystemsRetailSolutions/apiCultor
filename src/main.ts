@@ -202,7 +202,7 @@ client.on('message', async function (topic, message) {
           await syncSalesSilemaRecap(msgJson.periodoRecap, msgJson.month, msgJson.year, companyID, database, client_id, client_secret, tenant, entorno);
           break;
         case 'silemaRecapManual':
-          await syncSalesSilemaRecapManual(msgJson.tickets, msgJson.client, msgJson.botiga, msgJson.month, msgJson.year, companyID, database, client_id, client_secret, tenant, entorno);
+          await syncSalesSilemaRecapManual(msgJson.tickets, msgJson.client, msgJson.month, msgJson.year, companyID, database, client_id, client_secret, tenant, entorno);
           break;
         case 'silemaItems':
           await syncItemsSilema(companyID, database, client_id, client_secret, tenant, entorno);
@@ -454,13 +454,12 @@ async function syncSalesSilemaRecap(periodoRecap, month, year, companyID, databa
   }
 }
 
-async function syncSalesSilemaRecapManual(TicketsArray, client, botiga, month, year, companyID, database, client_id, client_secret, tenant, entorno) {
+async function syncSalesSilemaRecapManual(TicketsArray, client, month, year, companyID, database, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/syncSalesSilemaRecapManual', {
       params: {
         TicketsArray: TicketsArray,
         client: client,
-        botiga: botiga,
         month: month,
         year: year,
         companyID: companyID,
