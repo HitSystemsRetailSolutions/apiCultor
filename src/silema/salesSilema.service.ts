@@ -1397,7 +1397,7 @@ export class salesSilemaService {
           documentType: `${x.documentType}`,
           documentNo: `${formattedTittle}`,
           lineNo: i + 1,
-          amount: parseFloat(x.Import).toFixed(2), //Float
+          amount: parseFloat(parseFloat(x.Import).toFixed(2)), //Float
           description: `${x.description}`,
           externalDocumentNo: `${formattedTittle}`,
           postingDate: `${formattedDate2}`,
