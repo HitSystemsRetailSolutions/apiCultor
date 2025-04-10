@@ -638,7 +638,7 @@ export class salesSilemaService {
     return true;
   }
 
-  async syncSalesSilemaRecapitulativaManual(TicketsArray: Array<String>, client, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async syncSalesSilemaRecapitulativaManual(TicketsArray: Array<String>, client, monthInicial, mesFinal, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let tipo = 'syncSalesSilemaRecapitulativaManual';
     let importTotal: number = 0;
@@ -651,7 +651,7 @@ export class salesSilemaService {
     DECLARE @Cliente INT = ${parseInt(client, 10)};
 
     select v.num_tick as TICKET, V.PLU AS PLU,a.nom as ARTICULO, V.Quantitat AS CANTIDAD, v.data as FECHA, V.Import AS PRECIO, CONCAT('IVA',i.Iva) as IVA, cb.nom as TIENDA, C.NIF AS NIF, SUM(v.Import) OVER () AS TOTAL, round(V.Import / NULLIF(V.Quantitat, 0),5) AS precioUnitario
-    from [v_venut_${year}-${month}] v
+    from [v_venut_${year}-${monthInicial}] v
     left join articles a on a.codi=v.plu
     left join TipusIva i on i.Tipus=a.TipoIva
     left join ConstantsClient cc on @Cliente= cc.Codi and variable='CFINAL' and valor != ''
