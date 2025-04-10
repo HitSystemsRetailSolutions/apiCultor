@@ -678,7 +678,7 @@ export class salesSilemaService {
 
     // Extraer día, mes y año en el formato adecuado
     let shortYear = String(year).slice(-2);
-    let monthFormatted = `${month}-${shortYear}`;
+    let monthFormatted = `${monthInicial}-${shortYear}`;
 
     let formattedDate = `${fechaMasAntigua.getDate()}-${monthFormatted}`; // Factura más antigua (para externalDocumentNo)
     let formattedDateDayStart = fechaMasAntigua.toISOString().substring(0, 10); // Factura más antigua (YYYY-MM-DD)
@@ -761,7 +761,7 @@ export class salesSilemaService {
     DECLARE @Cliente INT = ${parseInt(client, 10)};
                     
     SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, CB.Nif AS NIFTIENDA, C.NIF AS NIF, round(V.Import / NULLIF(V.Quantitat, 0),5) AS precioUnitario
-    FROM [v_venut_${year}-${month}] V
+    FROM [v_venut_${year}-${monthInicial}] V
     LEFT JOIN articles A ON A.codi = V.plu
     LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
     LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' and valor != ''
@@ -792,7 +792,7 @@ export class salesSilemaService {
 
     // Extraer día, mes y año en el formato adecuado
     shortYear = String(year).slice(-2);
-    monthFormatted = `${month}-${shortYear}`;
+    monthFormatted = `${monthInicial}-${shortYear}`;
 
     formattedDate = `${fechaMasAntigua.getDate()}-${monthFormatted}`; // Factura más antigua (para externalDocumentNo)
     formattedDateDayStart = fechaMasAntigua.toISOString().substring(0, 10); // Factura más antigua (YYYY-MM-DD)
