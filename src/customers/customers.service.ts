@@ -268,8 +268,9 @@ export class customersService {
     let i = 1;
     for (const customer of customers.recordset) {
       try {
+        const taxArea= customer.recargo === 'si' ? 'NACRE' : 'NAC';
         const payMethodId = await this.getPaymentMethodId(customer.FORMAPAGO, companyID, client_id, client_secret, tenant, entorno);
-        const taxId = await this.getTaxAreaId('NAC', companyID, client_id, client_secret, tenant, entorno);
+        const taxId = await this.getTaxAreaId(taxArea, companyID, client_id, client_secret, tenant, entorno);
         const payTermId = await this.getPaymentTermId(customer.TERMINOPAGO, companyID, client_id, client_secret, tenant, entorno);
 
         const customerData1 = {
