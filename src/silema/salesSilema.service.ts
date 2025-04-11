@@ -239,13 +239,13 @@ export class salesSilemaService {
     //console.log(formattedHora); // Debería mostrar "14:31:43"
     switch (Number(turno)) {
       case 1:
-        await this.processTurnoSalesSilemaCierre(1, "<", botiga, day, month, year, formattedHora, database, tipo, tenant, entorno, companyID, token);
+        await this.processTurnoSalesSilemaCierre(1, "<=", botiga, day, month, year, formattedHora, database, tipo, tenant, entorno, companyID, token);
         break
       case 2:
         await this.processTurnoSalesSilemaCierre(2, ">", botiga, day, month, year, formattedHora, database, tipo, tenant, entorno, companyID, token);
         break
       default:
-        await this.processTurnoSalesSilemaCierre(1, "<", botiga, day, month, year, formattedHora, database, tipo, tenant, entorno, companyID, token);
+        await this.processTurnoSalesSilemaCierre(1, "<=", botiga, day, month, year, formattedHora, database, tipo, tenant, entorno, companyID, token);
         await this.processTurnoSalesSilemaCierre(2, ">", botiga, day, month, year, formattedHora, database, tipo, tenant, entorno, companyID, token);
         break
     }
@@ -487,7 +487,7 @@ export class salesSilemaService {
       countLines++
       salesData.salesLinesBuffer.push(salesLineAlbaran);
       x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
-      if(x.IVA === 'IVA00') x.IVA = 'IVA0';
+      if (x.IVA === 'IVA00') x.IVA = 'IVA0';
       let salesLine = {
         documentNo: `${salesData.no}`,
         type: `Item`,
@@ -638,20 +638,20 @@ export class salesSilemaService {
     return true;
   }
 
-  async syncSalesSilemaRecapitulativaManual(TicketsArray: Array<String>, client, botiga, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async syncSalesSilemaRecapitulativaManual(TicketsArray: Array<String>, client, monthInicial, mesFinal, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let tipo = 'syncSalesSilemaRecapitulativaManual';
     let importTotal: number = 0;
-    let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
-    let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
-    if (queryFranquicia.recordset.length >= 1) return;
+    // let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
+    // let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
+    // if (queryFranquicia.recordset.length >= 1) return;
     const TicketsString = TicketsArray.join(",");
 
     let sqlQ = `
     DECLARE @Cliente INT = ${parseInt(client, 10)};
 
     select v.num_tick as TICKET, V.PLU AS PLU,a.nom as ARTICULO, V.Quantitat AS CANTIDAD, v.data as FECHA, V.Import AS PRECIO, CONCAT('IVA',i.Iva) as IVA, cb.nom as TIENDA, C.NIF AS NIF, SUM(v.Import) OVER () AS TOTAL, round(V.Import / NULLIF(V.Quantitat, 0),5) AS precioUnitario
-    from [v_venut_${year}-${month}] v
+    from [v_venut_${year}-${monthInicial}] v
     left join articles a on a.codi=v.plu
     left join TipusIva i on i.Tipus=a.TipoIva
     left join ConstantsClient cc on @Cliente= cc.Codi and variable='CFINAL' and valor != ''
@@ -678,7 +678,7 @@ export class salesSilemaService {
 
     // Extraer día, mes y año en el formato adecuado
     let shortYear = String(year).slice(-2);
-    let monthFormatted = `${month}-${shortYear}`;
+    let monthFormatted = `${monthInicial}-${shortYear}`;
 
     let formattedDate = `${fechaMasAntigua.getDate()}-${monthFormatted}`; // Factura más antigua (para externalDocumentNo)
     let formattedDateDayStart = fechaMasAntigua.toISOString().substring(0, 10); // Factura más antigua (YYYY-MM-DD)
@@ -761,7 +761,7 @@ export class salesSilemaService {
     DECLARE @Cliente INT = ${parseInt(client, 10)};
                     
     SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, CB.Nif AS NIFTIENDA, C.NIF AS NIF, round(V.Import / NULLIF(V.Quantitat, 0),5) AS precioUnitario
-    FROM [v_venut_${year}-${month}] V
+    FROM [v_venut_${year}-${monthInicial}] V
     LEFT JOIN articles A ON A.codi = V.plu
     LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
     LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' and valor != ''
@@ -792,7 +792,7 @@ export class salesSilemaService {
 
     // Extraer día, mes y año en el formato adecuado
     shortYear = String(year).slice(-2);
-    monthFormatted = `${month}-${shortYear}`;
+    monthFormatted = `${monthInicial}-${shortYear}`;
 
     formattedDate = `${fechaMasAntigua.getDate()}-${monthFormatted}`; // Factura más antigua (para externalDocumentNo)
     formattedDateDayStart = fechaMasAntigua.toISOString().substring(0, 10); // Factura más antigua (YYYY-MM-DD)
@@ -911,7 +911,7 @@ export class salesSilemaService {
     DECLARE @Dia INT = ${day};
     DECLARE @Hora TIME = '${formattedHora}';
 
-    SELECT LTRIM(RTRIM(c.Nom)) AS Nom, LTRIM(RTRIM(c.Nif)) AS Nif, MIN(CONVERT(DATE, v.data)) AS Data, LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))) AS Codi, LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, round(v.Import / NULLIF(v.Quantitat, 0),5) AS precioUnitario,
+    SELECT LTRIM(RTRIM(c.Nom)) AS Nom, LTRIM(RTRIM(c.Nif)) AS Nif, MIN(CONVERT(DATE, v.data)) AS Data, LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))) AS Codi, LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, round(v.Import / NULLIF(v.Quantitat, 0),5) AS precioUnitario, SUM(SUM(import)) OVER () AS Total,
     (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga AND DAY(data) = @Dia AND CONVERT(TIME, data) ${operador} @Hora) AS MinNumTick, 
     (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga AND DAY(data) = @Dia AND CONVERT(TIME, data) ${operador} @Hora) AS MaxNumTick
     FROM [v_venut_${year}-${month}] v 
@@ -967,7 +967,7 @@ export class salesSilemaService {
         x = data.recordset[i];
         let isoDate = new Date(x.Data).toISOString().substring(0, 10);
         x.Iva = `IVA${String(x.Iva).replace(/\D/g, '').padStart(2, '0')}`;
-        if(x.Iva === 'IVA00') x.Iva = 'IVA0';
+        if (x.Iva === 'IVA00') x.Iva = 'IVA0';
         let salesLine = {
           documentNo: salesData.no,
           type: `Item`,
@@ -983,6 +983,7 @@ export class salesSilemaService {
         };
         salesData.salesLinesBuffer.push(salesLine);
       }
+      salesData.remainingAmount = parseFloat(Number(x.Total).toFixed(2));
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
     }
   }
@@ -1112,7 +1113,7 @@ export class salesSilemaService {
     //console.log("Data lenght: " + data.recordset.length)
     //console.log(sqlQ);
     if (data.recordset.length > 0) {
-      
+
       let x = data.recordset[0];
       let shortYear = year.slice(-2);
 
@@ -1149,7 +1150,7 @@ export class salesSilemaService {
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
         x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
-        if(x.IVA === 'IVA00') x.IVA = 'IVA0';
+        if (x.IVA === 'IVA00') x.IVA = 'IVA0';
         let salesLine = {
           documentNo: `${salesData.no}`,
           type: `G_x002F_L_x0020_Account`,
@@ -1167,7 +1168,7 @@ export class salesSilemaService {
       }
       salesData.remainingAmount = Number(importAmount.toFixed(2));
 
-      
+
       //console.log(salesData)
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
@@ -1222,7 +1223,7 @@ export class salesSilemaService {
           salesData.remainingAmount = importAmount;
         }
         x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
-        if(x.IVA === 'IVA00') x.IVA = 'IVA0';
+        if (x.IVA === 'IVA00') x.IVA = 'IVA0';
         let salesLine = {
           documentNo: `${salesData.no}`,
           type: `G_x002F_L_x0020_Account`,
@@ -1249,123 +1250,149 @@ export class salesSilemaService {
 
   private getSQLQuerySalesSilemaCierre(botiga: number, day: number, month: number, year: number, formattedHora: string, operador: string) {
     return `
-      DECLARE @botiga INT = ${botiga};
-      DECLARE @day INT = ${day};
-      DECLARE @Hora TIME = '${formattedHora}';
-      ;WITH Totales AS (
-          SELECT 
-              LEFT(c.nom, 6) AS Botiga,
-              MIN(m.Data) AS Data,
-              SUM(CASE WHEN m.Tipus_moviment = 'Z' THEN m.Import ELSE 0 END) AS TotalVentas,
-              SUM(CASE WHEN m.Tipus_moviment = 'DATAFONO' THEN m.Import ELSE 0 END) AS Tarjeta,
-              SUM(CASE WHEN m.Tipus_moviment = 'DATAFONO_3G' THEN m.Import ELSE 0 END) AS Tarjeta3G,
-              SUM(CASE WHEN m.Tipus_moviment = 'Wi' THEN m.Import ELSE 0 END) AS CambioInicial,
-              SUM(CASE WHEN m.Tipus_moviment = 'W' THEN m.Import ELSE 0 END) AS CambioFinal,
-              SUM(CASE WHEN m.Tipus_moviment = 'J' THEN m.Import ELSE 0 END) AS Descuadre,
-              SUM(CASE WHEN m.Tipus_moviment = 'O' AND m.motiu LIKE 'Pagat TkRs:%' THEN m.Import ELSE 0 END) AS TicketRestaurante,
-          SUM(CASE WHEN m.Tipus_moviment = 'O' AND m.motiu LIKE 'Excs.TkRs:%' THEN m.Import ELSE 0 END) AS TicketRestauranteExcs
-          FROM [v_moviments_${year}-${month}] m
-          INNER JOIN clients c ON m.Botiga = c.codi
-          WHERE DAY(m.Data) = @day 
-            AND m.Botiga = @botiga
-            AND CONVERT(TIME, m.Data) ${operador}= @Hora
-          GROUP BY LEFT(c.nom, 6)
-      )
-          SELECT 
-              Botiga, CONVERT(Date, Data) as Data, 'Efectivo' AS Tipo_moviment, 
-              ((TotalVentas - ((Tarjeta * -1) + (Tarjeta3G * -1) + (COALESCE(TicketRestaurante, 0)* -1))) * -1) AS Import, 
-              'Payment' AS documentType, 'Efectivo' as description
-          FROM Totales
-          WHERE ((TotalVentas - ((Tarjeta * -1) + (Tarjeta3G * -1) + (COALESCE(TicketRestaurante, 0)* -1))) * -1) <> 0
-          
-          UNION ALL
-          SELECT 
-              Botiga, CONVERT(Date, Data), 'Tarjeta', Tarjeta, 'Payment', 'Tarjeta'
-          FROM Totales
-          WHERE Tarjeta <> 0
+    DECLARE @botiga INT = ${botiga};
+    DECLARE @day INT = ${day};
+    DECLARE @Hora TIME = '${formattedHora}';
 
-          UNION ALL
-          SELECT 
-              Botiga, CONVERT(Date, Data), 'Tarjeta 3G', Tarjeta3G, 'Payment', 'Tarjeta 3G'
-          FROM Totales
-          WHERE Tarjeta3G <> 0
-
-          UNION ALL
-          SELECT 
-              Botiga, CONVERT(Date, Data), 'Ticket Restaurante', TicketRestaurante, 'Payment', 'Ticket Restaurante'
-          FROM Totales
-          WHERE TicketRestaurante <> 0
-
-          UNION ALL
+    ;WITH Totales AS (
         SELECT 
-              Botiga, CONVERT(Date, Data), 'Ticket Restaurante Exceso', TicketRestauranteExcs, 'Payment', 'Exceso Ticket Restaurante'
-          FROM Totales
-          WHERE TicketRestaurante <> 0
-          
-          UNION ALL
-          SELECT 
-              LEFT(c.nom, 6) AS Botiga, CONVERT(Date, m.Data), 'Entrega diaria', (m.Import * -1), '', 'Entrega diaria'
-          FROM [v_moviments_${year}-${month}] m
-          INNER JOIN clients c ON m.Botiga = c.codi
-          WHERE m.Tipus_moviment = 'O'
-            AND DAY(m.Data) = @day 
-            AND m.Botiga = @botiga 
-            AND CONVERT(TIME, m.Data) ${operador}= @Hora
-            AND m.motiu = 'Entrega Diària'
-            AND m.Import <> 0
+            LEFT(c.nom, 6) AS Botiga,
+            MIN(m.Data) AS Data,
+            SUM(CASE WHEN m.Tipus_moviment = 'Z' THEN m.Import ELSE 0 END) AS TotalVentas,
+            SUM(CASE WHEN m.Tipus_moviment = 'DATAFONO' THEN m.Import ELSE 0 END) AS Tarjeta,
+            SUM(CASE WHEN m.Tipus_moviment = 'DATAFONO_3G' THEN m.Import ELSE 0 END) AS Tarjeta3G,
+            SUM(CASE WHEN m.Tipus_moviment = 'Wi' THEN m.Import ELSE 0 END) AS CambioInicial,
+            SUM(CASE WHEN m.Tipus_moviment = 'W' THEN m.Import ELSE 0 END) AS CambioFinal,
+            SUM(CASE WHEN m.Tipus_moviment = 'J' THEN m.Import ELSE 0 END) AS Descuadre,
+            SUM(CASE WHEN m.Tipus_moviment = 'O' AND m.motiu LIKE 'Pagat TkRs:%' THEN m.Import ELSE 0 END) AS TicketRestaurante,
+            SUM(CASE WHEN m.Tipus_moviment = 'O' AND m.motiu LIKE 'Excs.TkRs:%' THEN m.Import ELSE 0 END) AS TicketRestauranteExcs,
+            SUM(CASE WHEN m.Tipus_moviment = 'O' AND m.motiu LIKE '%Deute client:%' THEN m.Import ELSE 0 END) AS TotalDeudas
+        FROM [v_moviments_${year}-${month}] m
+        INNER JOIN clients c ON m.Botiga = c.codi
+        WHERE DAY(m.Data) = @day 
+          AND m.Botiga = @botiga
+          AND CONVERT(TIME, m.Data) ${operador} @Hora
+        GROUP BY LEFT(c.nom, 6)
+    )
 
-          UNION ALL
-          SELECT 
-              LEFT(c.nom, 6) AS Botiga, CONVERT(Date, m.Data), 'Salida gastos', (m.Import * -1), '', m.motiu
-          FROM [v_moviments_${year}-${month}] m
-          INNER JOIN clients c ON m.Botiga = c.codi
-          WHERE m.Tipus_moviment = 'O'
-            AND DAY(m.Data) = @day 
-            AND m.Botiga = @botiga 
-            AND CONVERT(TIME, m.Data) ${operador}= @Hora
-            AND m.motiu <> '' 
-            AND m.motiu NOT LIKE '%pagat%' 
-            AND m.motiu NOT LIKE 'Entrega Diària%' 
-            AND m.motiu NOT LIKE '%deute client%'
-            AND m.motiu NOT LIKE '%tkrs%'
-            AND m.motiu NOT LIKE '%dejaACuenta%'
-            AND m.Import <> 0
+    SELECT 
+        Botiga, CONVERT(Date, Data) AS Data, 'Total' AS Tipo_moviment,
+        ((TotalVentas + TotalDeudas) * -1) AS Import,
+        '' AS documentType, 'Total' AS description, 1 AS Orden
+    FROM Totales
+    WHERE CambioInicial <> 0
 
-          UNION ALL
-          SELECT 
-              LEFT(c.nom, 6) AS Botiga, CONVERT(Date, m.Data), 'Entrada', (m.Import * -1), '', m.motiu
-          FROM [v_moviments_${year}-${month}] m
-          INNER JOIN clients c ON m.Botiga = c.codi
-          WHERE m.Tipus_moviment = 'A'
-            AND DAY(m.Data) = @day 
-            AND m.Botiga = @botiga 
-            AND CONVERT(TIME, m.Data) ${operador}= @Hora
-            AND m.motiu <> '' 
-            AND m.motiu NOT LIKE '%dev t%'
-            AND m.motiu NOT LIKE '%dejaACuenta%'
-            AND m.Import <> 0
-          UNION ALL
-          SELECT 
-              Botiga, CONVERT(Date, Data), 'Descuadre', (Descuadre * -1), '', 'Descuadre'
-          FROM Totales
-          WHERE Descuadre <> 0
+    UNION ALL
 
-          UNION ALL
-          SELECT 
-              Botiga, CONVERT(Date, Data), 'Cambio Inicial', (CambioInicial * -1), '', 'Cambio Inicial'
-          FROM Totales
-          WHERE CambioInicial <> 0
+    SELECT 
+        Botiga, CONVERT(Date, Data), 'Efectivo',
+        (TotalVentas - ((TotalDeudas * -1) + (Tarjeta * -1) + (Tarjeta3G * -1) + (COALESCE(TicketRestaurante, 0) * -1))),
+        'Payment', 'Efectivo', 2
+    FROM Totales
+    WHERE (TotalVentas - ((TotalDeudas * -1) + (Tarjeta * -1) + (Tarjeta3G * -1) + (COALESCE(TicketRestaurante, 0) * -1))) <> 0
 
-          UNION ALL
-          SELECT 
-              Botiga, CONVERT(Date, Data), 'Cambio Final', CambioFinal, '', 'Cambio Final'
-          FROM Totales
-          WHERE CambioFinal <> 0;`;
+    UNION ALL
+
+    SELECT 
+        Botiga, CONVERT(Date, Data), 'Tarjeta', (Tarjeta * -1), 'Payment', 'Tarjeta', 3
+    FROM Totales
+    WHERE Tarjeta <> 0
+
+    UNION ALL
+
+    SELECT 
+        Botiga, CONVERT(Date, Data), 'Tarjeta 3G', (Tarjeta3G * -1), 'Payment', 'Tarjeta 3G', 4
+    FROM Totales
+    WHERE Tarjeta3G <> 0
+
+    UNION ALL
+
+    SELECT 
+        Botiga, CONVERT(Date, Data), 'Ticket Restaurante', (TicketRestaurante * -1), 'Payment', 'Ticket Restaurante', 5
+    FROM Totales
+    WHERE TicketRestaurante <> 0
+
+    UNION ALL
+
+    SELECT 
+        Botiga, CONVERT(Date, Data), 'Ticket Restaurante Exceso', TicketRestauranteExcs, 'Payment', 'Exceso Ticket Restaurante', 6
+    FROM Totales
+    WHERE TicketRestaurante <> 0
+
+    UNION ALL
+
+    SELECT 
+        Botiga, CONVERT(Date, Data), 'Descuadre', (Descuadre * -1), '', 'Descuadre', 7
+    FROM Totales
+    WHERE Descuadre <> 0
+
+    UNION ALL
+
+    SELECT 
+        LEFT(c.nom, 6), CONVERT(Date, m.Data), 'Entrega diaria', (m.Import * -1), '', 'Entrega diaria', 8
+    FROM [v_moviments_${year}-${month}] m
+    INNER JOIN clients c ON m.Botiga = c.codi
+    WHERE m.Tipus_moviment = 'O'
+      AND DAY(m.Data) = @day 
+      AND m.Botiga = @botiga 
+      AND CONVERT(TIME, m.Data) ${operador} @Hora
+      AND m.motiu = 'Entrega Diària'
+      AND m.Import <> 0
+
+    UNION ALL
+
+    SELECT 
+        LEFT(c.nom, 6), CONVERT(Date, m.Data), 'Salida gastos', (m.Import * -1), '', m.motiu, 9
+    FROM [v_moviments_${year}-${month}] m
+    INNER JOIN clients c ON m.Botiga = c.codi
+    WHERE m.Tipus_moviment = 'O'
+      AND DAY(m.Data) = @day 
+      AND m.Botiga = @botiga 
+      AND CONVERT(TIME, m.Data) ${operador} @Hora
+      AND m.motiu <> '' 
+      AND m.motiu NOT LIKE '%pagat%' 
+      AND m.motiu NOT LIKE 'Entrega Diària%' 
+      AND m.motiu NOT LIKE '%deute client%' 
+      AND m.motiu NOT LIKE '%tkrs%' 
+      AND m.motiu NOT LIKE '%dejaACuenta%' 
+      AND m.Import <> 0
+
+    UNION ALL
+
+    SELECT 
+        LEFT(c.nom, 6), CONVERT(Date, m.Data), 'Entrada', m.Import, '', m.motiu, 10
+    FROM [v_moviments_${year}-${month}] m
+    INNER JOIN clients c ON m.Botiga = c.codi
+    WHERE m.Tipus_moviment = 'A'
+      AND DAY(m.Data) = @day 
+      AND m.Botiga = @botiga 
+      AND CONVERT(TIME, m.Data) ${operador} @Hora
+      AND m.motiu <> '' 
+      AND m.motiu NOT LIKE '%dev t%' 
+      AND m.motiu NOT LIKE '%dejaACuenta%' 
+      AND m.Import <> 0
+
+    UNION ALL
+
+    SELECT 
+        Botiga, CONVERT(Date, Data), 'Cambio Inicial', (CambioInicial * -1), '', 'Cambio Inicial', 11
+    FROM Totales
+    WHERE CambioInicial <> 0
+
+    UNION ALL
+
+    SELECT 
+        Botiga, CONVERT(Date, Data), 'Cambio Final', CambioFinal, '', 'Cambio Final', 12
+    FROM Totales
+    WHERE CambioFinal <> 0
+
+    ORDER BY Orden;`;
   }
 
   async processTurnoSalesSilemaCierre(turno, operador, botiga, day, month, year, formattedHora, database, tipo, tenant, entorno, companyID, token) {
     let sqlQ = await this.getSQLQuerySalesSilemaCierre(botiga, day, month, year, formattedHora, operador);
     let data = await this.sql.runSql(sqlQ, database);
+    // console.log(sqlQ);
     if (data.recordset.length > 0) {
       let x = data.recordset[0];
       let date = new Date(x.Data);
@@ -1388,60 +1415,53 @@ export class salesSilemaService {
           documentType: `${x.documentType}`,
           documentNo: `${formattedTittle}`,
           lineNo: i + 1,
-          accountType: `Customer`,
-          amount: parseFloat(x.Import), //Float
+          amount: parseFloat(parseFloat(x.Import).toFixed(2)), //Float
           description: `${x.description}`,
           externalDocumentNo: `${formattedTittle}`,
           postingDate: `${formattedDate2}`,
-          card3G: false,
-          card: false,
-          cash: false,
-          cashWithdrawals: false,
-          discrepancy: false,
-          drawerClosing: false,
-          drawerOpening: false,
-          restaurantTicket: false,
           shift: `Shift_x0020_${turno}`,
-          withdrawalsForExpenses: false,
           dueDate: `${formattedDate2}`,
           locationCode: `${this.extractNumber(x.Botiga)}`,
-          drawerEntries: false,
-          excessCheckCashing: false
+          closingStoreType: '',
+
         };
 
         switch (x.Tipo_moviment) {
           case 'Efectivo':
-            salesCierre.cash = true;
+            salesCierre.closingStoreType = 'Cash';
             break;
           case 'Tarjeta':
-            salesCierre.card = true;
+            salesCierre.closingStoreType = 'Card';
             break;
           case 'Tarjeta 3G':
-            salesCierre.card3G = true;
+            salesCierre.closingStoreType = '3G Card';
             break;
           case 'Ticket Restaurante':
-            salesCierre.restaurantTicket = true;
+            salesCierre.closingStoreType = 'Restaurant Ticket';
             break;
           case 'Ticket Restaurante Exceso':
-            salesCierre.excessCheckCashing = true;
+            salesCierre.closingStoreType = 'Excess Restaurant Ticket';
             break;
           case 'Cambio Inicial':
-            salesCierre.drawerOpening = true;
+            salesCierre.closingStoreType = 'Drawer Opening';
             break;
           case 'Cambio Final':
-            salesCierre.drawerClosing = true;
+            salesCierre.closingStoreType = 'Drawer Closing';
             break;
           case 'Descuadre':
-            salesCierre.discrepancy = true;
+            salesCierre.closingStoreType = 'Discrepancy';
             break;
           case 'Entrega diaria':
-            salesCierre.cashWithdrawals = true;
+            salesCierre.closingStoreType = 'Cash Withdrawals';
             break;
           case 'Salida gastos':
-            salesCierre.withdrawalsForExpenses = true;
+            salesCierre.closingStoreType = 'Withdrawals for Expenses';
             break;
           case 'Entrada':
-            salesCierre.drawerEntries = true;
+            salesCierre.closingStoreType = 'Entries in Drawer';
+            break;
+          case 'Total':
+            salesCierre.closingStoreType = 'Total invoice';
             break;
           default:
             //no se
@@ -1450,9 +1470,10 @@ export class salesSilemaService {
         //nLines++;
         //console.log(JSON.stringify(salesCierre, null, 2));
         await this.postToApiCierre(tipo, salesCierre, tenant, entorno, companyID, token);
+        // console.log(salesCierre)
       }
 
-      //console.log(salesData)
+      // console.log(salesCierre)
     }
     return true;
   }
