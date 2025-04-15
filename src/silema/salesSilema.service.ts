@@ -1286,10 +1286,10 @@ export class salesSilemaService {
 
     SELECT 
         Botiga, CONVERT(Date, Data), 'Efectivo',
-        (TotalVentas - ((TotalDeudas * -1) + (Tarjeta * -1) + (Tarjeta3G * -1) + (COALESCE(TicketRestaurante, 0) * -1))),
+        (TotalVentas - ((TotalDeudas * -1) + (Tarjeta * -1) + (Tarjeta3G * -1) + (COALESCE(TicketRestaurante, 0)* -1)) - (Descuadre * -1)),
         'Payment', 'Efectivo', 2
     FROM Totales
-    WHERE (TotalVentas - ((TotalDeudas * -1) + (Tarjeta * -1) + (Tarjeta3G * -1) + (COALESCE(TicketRestaurante, 0) * -1))) <> 0
+    WHERE (TotalVentas - ((TotalDeudas * -1) + (Tarjeta * -1) + (Tarjeta3G * -1) + (COALESCE(TicketRestaurante, 0)* -1)) - (Descuadre * -1)) <> 0
 
     UNION ALL
 
@@ -1308,7 +1308,7 @@ export class salesSilemaService {
     UNION ALL
 
     SELECT 
-        Botiga, CONVERT(Date, Data), 'Ticket Restaurante', (TicketRestaurante * -1), 'Payment', 'Ticket Restaurante', 5
+        Botiga, CONVERT(Date, Data), 'Ticket Restaurante', ((TicketRestaurante + TicketRestauranteExcs)* -1), 'Payment', 'Ticket Restaurante', 5
     FROM Totales
     WHERE TicketRestaurante <> 0
 
