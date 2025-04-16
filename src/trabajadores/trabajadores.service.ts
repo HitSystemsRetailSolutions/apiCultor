@@ -49,7 +49,6 @@ export class trabajadoresService {
           .format("YYYY-MM-DDTHH:mm:ss.SSS[Z]");
 
         console.log(`Hora convertida (menos ${offsetNumber}h): ${filtro}`);
-        return;
         console.log(`Sincronizando empresa: ${empresa.nombre}`);
         await this.syncTrabajadores(filtro, empresa.empresaID, database, client_id, client_secret, tenant, entorno);
       } catch (error) {
@@ -57,7 +56,7 @@ export class trabajadoresService {
       }
       //Actualiza el timestamp de la base de datos
       let sqlUpdate = `UPDATE records SET timestamp = GETDATE() WHERE Concepte = 'BC_Dependentes_${empresa.empresaID}'`;
-      //await this.sql.runSql(sqlUpdate, database);
+      await this.sql.runSql(sqlUpdate, database);
       console.log(`Timestamp actualizado para la empresa ${empresa.nombre}\n............................\n`);
     }
     return true;
