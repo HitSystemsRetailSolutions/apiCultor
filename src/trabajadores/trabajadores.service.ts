@@ -36,16 +36,19 @@ export class trabajadoresService {
           console.log("No hay registros de sincronización de trabajadores en la base de datos");
           continue;
         }
+        console.log(query.recordset[0]);
         const timestampDB = query.recordset[0].TimeStamp;
-        const fechaOriginal = new Date(timestampDB);
-        
-        // Restar 2 horas
-        fechaOriginal.setHours(fechaOriginal.getHours() - 2);
-        
-        // Convertir a ISO y formatear
-        const fechaISO = fechaOriginal.toISOString().split('.')[0] + 'Z';
-        const filtro = fechaISO;
-        console.log(filtro)
+        console.log(`Timestamp de la base de datos: ${timestampDB}`);
+        const timestamp = new Date(timestampDB).toISOString();
+        console.log(`TimeStamp: ${timestamp}`);
+        const offsetNumber = moment.tz("Europe/Madrid").utcOffset() / 60;
+        // Si viene como Date, lo convertimos directamente a ISO con precisión
+        const filtro = moment(timestampDB)
+          .subtract(offsetNumber, 'hours')
+          .utc()
+          .format("YYYY-MM-DDTHH:mm:ss.SSS[Z]");
+
+        console.log(`Hora convertida (menos ${offsetNumber}h): ${filtro}`);
         console.log(`Sincronizando empresa: ${empresa.nombre}`);
         await this.syncTrabajadores(filtro, empresa.empresaID, database, client_id, client_secret, tenant, entorno);
       } catch (error) {
