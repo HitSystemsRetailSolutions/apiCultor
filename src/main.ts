@@ -142,6 +142,10 @@ client.on('message', async function (topic, message) {
         case 'employes':
           await employes(companyID, database, client_id, client_secret, tenant, entorno);
           break;
+        case 'SyncTrabajadores':
+        case 'trabajadores':
+          await trabajador(database, client_id, client_secret, tenant, entorno);
+          break;
         case 'SyncSignings':
         case 'signings':
           await signings(companyNAME, database, client_id, client_secret, tenant, entorno);
@@ -273,6 +277,23 @@ async function employes(companyID, database, client_id, client_secret, tenant, e
     console.log('Employee sync sent...');
   } catch (error) {
     console.error('Error al sincronizar empleados:', error);
+  }
+}
+
+async function trabajador(database, client_id, client_secret, tenant, entorno) {
+  try {
+    await axios.get('http://localhost:3333/synctrabajadores', {
+      params: {
+        database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+    });
+    console.log('Trabajador sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar trabajadores:', error);
   }
 }
 

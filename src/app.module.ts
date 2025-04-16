@@ -44,6 +44,8 @@ import { locationSilemaController } from './silema/locationSilema.controller';
 import { locationSilemaService } from './silema/locationSilema.service';
 import { locationsController } from './locations/locations.controller';
 import { locationsService } from './locations/locations.service';
+import { trabajadoresController } from './trabajadores/trabajadores.controller';
+import { trabajadoresService } from './trabajadores/trabajadores.service';
 
 
 @Module({
@@ -71,7 +73,7 @@ import { locationsService } from './locations/locations.service';
     locationSilemaController,
     initConfigController,
     locationsController,
-
+    trabajadoresController,
   ],
   providers: [
     employeesService,
@@ -98,6 +100,7 @@ import { locationsService } from './locations/locations.service';
     locationSilemaService,
     initConfigService,
     locationsService,
+    trabajadoresService,
   ],
 })
 export class AppModule {}
