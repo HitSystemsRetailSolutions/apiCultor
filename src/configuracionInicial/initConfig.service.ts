@@ -25,8 +25,8 @@ export class initConfigService {
       await this.syncTaxGroups(companyID, database, client_id, client_secret, tenant, entorno);
       await this.syncVATBusinessPostingGroup(companyID, database, client_id, client_secret, tenant, entorno);
       await this.syncVATPostingSetup(companyID, database, client_id, client_secret, tenant, entorno);
-      await this.createClientesContado(companyID, database, client_id, client_secret, tenant, entorno);
       await this.createCatalanLanguage(companyID, client_id, client_secret, tenant, entorno);
+      await this.createClientesContado(companyID, database, client_id, client_secret, tenant, entorno);
       console.log('✅ Configuración inicial completada');
       return true;
     } catch (error) {
