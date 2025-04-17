@@ -874,7 +874,7 @@ export class salesSilemaService {
     }
     salesData.remainingAmount = Number(importTotal.toFixed(2));
     console.log(salesData)
-    //await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
+    await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
     return true;
   }
