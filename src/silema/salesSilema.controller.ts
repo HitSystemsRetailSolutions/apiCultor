@@ -139,7 +139,7 @@ export class salesSilemaController {
   async salesSilemaRecapManual(
     @Query('TicketsArray') TicketsArray: Array<String>,
     @Query('client') client: string,
-    @Query('monthIncial') monthIncial: string,
+    @Query('monthInicial') monthIncial: string,
     @Query('monthFinal') monthFinal: string,
     @Query('year') year: string,
     @Query('companyID') companyID: string,
