@@ -439,6 +439,7 @@ export class salesSilemaService {
     let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_R') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd}`;
     //console.log(url);
     let n = await this.getNumberOfRecap(url, token);
+    if (n == undefined) n = 1;
     if (x.TIENDA.toLowerCase() == 'bot granollers') x.TIENDA = 'T--000';
     let salesData = {
       no: `${x.TIENDA}_${formattedDate}_R${n}`, // Nº factura
@@ -646,31 +647,47 @@ export class salesSilemaService {
     // let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
     // if (queryFranquicia.recordset.length >= 1) return;
     const TicketsString = TicketsArray.join(",");
+    let arrayDatos = [];
+    // Necesito ir haciendo la sql por cada mes inicial hasta llegar al mes final y ir guardando los datos en un array
+    console.log(`Mes inicial: ${monthInicial}, Mes final: ${mesFinal}`);
+    for (let i = parseInt(monthInicial, 10); i <= parseInt(mesFinal, 10); i++) {
+      const month = String(i).padStart(2, '0'); // Asegura que el mes tenga dos dígitos
+      let sqlQ = `
+      DECLARE @Cliente INT = ${parseInt(client, 10)};
 
-    let sqlQ = `
-    DECLARE @Cliente INT = ${parseInt(client, 10)};
-
-    select v.num_tick as TICKET, V.PLU AS PLU,a.nom as ARTICULO, V.Quantitat AS CANTIDAD, v.data as FECHA, V.Import AS PRECIO, CONCAT('IVA',i.Iva) as IVA, cb.nom as TIENDA, C.NIF AS NIF, SUM(v.Import) OVER () AS TOTAL, round(V.Import / NULLIF(V.Quantitat, 0),5) AS precioUnitario
-    from [v_venut_${year}-${monthInicial}] v
-    left join articles a on a.codi=v.plu
-    left join TipusIva i on i.Tipus=a.TipoIva
-    left join ConstantsClient cc on @Cliente= cc.Codi and variable='CFINAL' and valor != ''
-    left join Clients c on cc.codi=c.codi
-    left join clients cb on v.botiga=cb.codi
-    where v.otros like '%' + cc.valor + '%' and num_tick in (${TicketsString})
-    GROUP BY V.Num_tick,v.plu,a.nom,v.Quantitat, v.data,v.import,i.iva,cb.nom,c.nif
-    order by v.data`;
-    //console.log(sqlQT1);
-
-    let data = await this.sql.runSql(sqlQ, database);
-    let x = data.recordset[0];
-
-    if (data.recordset.length === 0) {
+      SELECT v.num_tick as TICKET, V.PLU AS PLU, a.nom as ARTICULO, 
+                V.Quantitat AS CANTIDAD, v.data as FECHA, 
+                V.Import AS PRECIO, CONCAT('IVA', i.Iva) as IVA, 
+                cb.nom as TIENDA, C.NIF AS NIF, 
+                SUM(v.Import) OVER () AS TOTAL, 
+                ROUND(v.Import / NULLIF(v.Quantitat, 0), 5) AS precioUnitario
+          FROM [v_venut_${year}-${month}] v
+          LEFT JOIN articles a ON a.codi = v.plu
+          LEFT JOIN TipusIva i ON i.Tipus = a.TipoIva
+          LEFT JOIN ConstantsClient cc ON @Cliente = cc.Codi 
+                                      AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' 
+                                      AND valor COLLATE Modern_Spanish_CI_AS != ''
+          LEFT JOIN Clients c ON cc.codi = c.codi
+          LEFT JOIN clients cb ON v.botiga = cb.codi
+          WHERE v.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + cc.valor COLLATE Modern_Spanish_CI_AS + '%'
+          AND num_tick in (${TicketsString})
+          GROUP BY V.Num_tick, v.plu, a.nom, v.Quantitat, v.data, v.import, i.iva, cb.nom, c.nif,
+                  ROUND(v.Import / NULLIF(v.Quantitat, 0), 5)
+          HAVING SUM(quantitat) > 0
+          ORDER BY v.data;`
+      //console.log(sqlQ);
+      let data = await this.sql.runSql(sqlQ, database);
+      arrayDatos.push(data.recordset);
+      console.log(`Mes ${month} - ${data.recordset.length} datos encontrados`);
+    }
+    if (arrayDatos.length === 0) {
       throw new Error("No se encontraron facturas en la base de datos.");
     }
+    let datosPlanos = arrayDatos.flat();
+    //console.log(datosPlanos.length);
 
-    // Extraer todas las fechas del dataset
-    let fechas = data.recordset.map(row => new Date(row.FECHA));
+    let x = datosPlanos[0];
+    let fechas = datosPlanos.map(item => new Date(item.FECHA));
 
     // Determinar la fecha más antigua y más reciente correctamente
     let fechaMasAntigua = new Date(Math.min(...fechas.map(f => f.getTime()))); // Fecha más antigua
@@ -687,6 +704,7 @@ export class salesSilemaService {
     // Calculamos `n` basado en las facturas recapitulativas existentes
     let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_RM') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd}`;
     let n = await this.getNumberOfRecap(url, token);
+    if (n == undefined) n = 1;
 
     let salesData = {
       no: `${x.TIENDA}_${formattedDate}_RM${n}`, // Nº factura
@@ -709,8 +727,8 @@ export class salesSilemaService {
 
     let countLines = 1;
     let changetLocationCode = false
-    for (let i = 0; i < data.recordset.length; i++) {
-      x = data.recordset[i];
+    for (let i = 0; i < datosPlanos.length; i++) {
+      x = datosPlanos[i];
       let date = new Date(x.FECHA);
       let day = date.getDate().toString().padStart(2, '0'); // Asegura dos dígitos
       let month = (date.getMonth() + 1).toString().padStart(2, '0'); // Meses van de 0 a 11
@@ -753,38 +771,44 @@ export class salesSilemaService {
       salesData.salesLinesBuffer.push(salesLine);
     }
     salesData.remainingAmount = Number(importTotal.toFixed(2));
-    //console.log(salesData)
+    console.log(salesData)
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
-    //Abono recap
-    sqlQ = `
-    DECLARE @Cliente INT = ${parseInt(client, 10)};
-                    
-    SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, CB.Nif AS NIFTIENDA, C.NIF AS NIF, round(V.Import / NULLIF(V.Quantitat, 0),5) AS precioUnitario
-    FROM [v_venut_${year}-${monthInicial}] V
-    LEFT JOIN articles A ON A.codi = V.plu
-    LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
-    LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' and valor != ''
-    LEFT JOIN Clients C ON CC.codi = C.codi
-    LEFT JOIN clients CB ON V.botiga = CB.codi
-    WHERE V.otros LIKE '%' + CC.valor + '%' and v.Num_tick in (${TicketsString})
-    GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, CB.Nif, C.NIF, round(V.Import / NULLIF(V.Quantitat, 0),5)
-    HAVING SUM(quantitat) > 0
-    ORDER BY MIN(V.data);`;
-    //console.log(sqlQT1);
-
-    data = await this.sql.runSql(sqlQ, database);
-    x = data.recordset[0];
-
-    if (data.recordset.length === 0) {
+    arrayDatos = [];
+    // Necesito ir haciendo la sql por cada mes inicial hasta llegar al mes final y ir guardando los datos en un array
+    console.log(`Mes inicial: ${monthInicial}, Mes final: ${mesFinal}`);
+    for (let i = parseInt(monthInicial, 10); i <= parseInt(mesFinal, 10); i++) {
+      const month = String(i).padStart(2, '0'); // Asegura que el mes tenga dos dígitos
+      let sqlQ = `
+      DECLARE @Cliente INT = ${parseInt(client, 10)};
+                      
+      SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, CB.Nif AS NIFTIENDA, C.NIF AS NIF, round(V.Import / NULLIF(V.Quantitat, 0),5) AS precioUnitario
+      FROM [v_venut_${year}-${month}] V
+      LEFT JOIN articles A ON A.codi = V.plu
+      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' and valor != ''
+      LEFT JOIN Clients C ON CC.codi = C.codi
+      LEFT JOIN clients CB ON V.botiga = CB.codi
+      WHERE V.otros LIKE '%' + CC.valor + '%' and v.Num_tick in (${TicketsString})
+      GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, CB.Nif, C.NIF, round(V.Import / NULLIF(V.Quantitat, 0),5)
+      HAVING SUM(quantitat) > 0
+      ORDER BY MIN(V.data);`;
+      //console.log(sqlQ);
+      let data = await this.sql.runSql(sqlQ, database);
+      arrayDatos.push(data.recordset);
+      console.log(`Mes ${month} - ${data.recordset.length} datos encontrados`);
+    }
+    if (arrayDatos.length === 0) {
       throw new Error("No se encontraron facturas en la base de datos.");
     }
+    datosPlanos = arrayDatos.flat();
+    //console.log(datosPlanos.length);
 
-    // Extraer todas las fechas del dataset
-    fechas = data.recordset.map(row => new Date(row.FECHA_PRIMERA_VENTA));
+    x = datosPlanos[0];
+    fechas = datosPlanos.map(item => new Date(item.FECHA_PRIMERA_VENTA));
 
     // Extraer todas las fechas de última venta
-    let fechasUltimaVenta = data.recordset.map(row => new Date(row.FECHA_ULTIMA_VENTA));
+    let fechasUltimaVenta = datosPlanos.map(row => new Date(row.FECHA_ULTIMA_VENTA));
 
     // Determinar la fecha más antigua y más reciente correctamente
     fechaMasAntigua = new Date(Math.min(...fechas.map(f => f.getTime()))); // Fecha más antigua
@@ -819,8 +843,8 @@ export class salesSilemaService {
     };
     countLines = 1;
     changetLocationCode = false;
-    for (let i = 0; i < data.recordset.length; i++) {
-      x = data.recordset[i];
+    for (let i = 0; i < datosPlanos.length; i++) {
+      x = datosPlanos[i];
       let date = new Date(x.FECHA_PRIMERA_VENTA);
       let isoDate = date.toISOString().substring(0, 10);
       if (x.TIENDA != salesData.locationCode && !changetLocationCode) {
@@ -849,8 +873,8 @@ export class salesSilemaService {
       salesData.salesLinesBuffer.push(salesLine);
     }
     salesData.remainingAmount = Number(importTotal.toFixed(2));
-    //console.log(salesData)
-    await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
+    console.log(salesData)
+    //await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
     return true;
   }
