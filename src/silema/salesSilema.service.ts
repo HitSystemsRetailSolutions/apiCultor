@@ -648,8 +648,7 @@ export class salesSilemaService {
     // if (queryFranquicia.recordset.length >= 1) return;
     const TicketsString = TicketsArray.join(",");
     let arrayDatos = [];
-    // Necesito ir haciendo la sql por cada mes inicial hasta llegar al mes final y ir guardando los datos en un array
-    console.log(`Mes inicial: ${monthInicial}, Mes final: ${mesFinal}`);
+    //console.log(`Mes inicial: ${monthInicial}, Mes final: ${mesFinal}`);
     for (let i = parseInt(monthInicial, 10); i <= parseInt(mesFinal, 10); i++) {
       const month = String(i).padStart(2, '0'); // Asegura que el mes tenga dos dígitos
       let sqlQ = `
@@ -771,12 +770,13 @@ export class salesSilemaService {
       salesData.salesLinesBuffer.push(salesLine);
     }
     salesData.remainingAmount = Number(importTotal.toFixed(2));
-    console.log(salesData)
+    //console.log(salesData)
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
+    // Abono recap manual
     arrayDatos = [];
-    // Necesito ir haciendo la sql por cada mes inicial hasta llegar al mes final y ir guardando los datos en un array
-    console.log(`Mes inicial: ${monthInicial}, Mes final: ${mesFinal}`);
+    
+    //console.log(`Mes inicial: ${monthInicial}, Mes final: ${mesFinal}`);
     for (let i = parseInt(monthInicial, 10); i <= parseInt(mesFinal, 10); i++) {
       const month = String(i).padStart(2, '0'); // Asegura que el mes tenga dos dígitos
       let sqlQ = `
@@ -873,7 +873,7 @@ export class salesSilemaService {
       salesData.salesLinesBuffer.push(salesLine);
     }
     salesData.remainingAmount = Number(importTotal.toFixed(2));
-    console.log(salesData)
+    //console.log(salesData)
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
     return true;
