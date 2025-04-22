@@ -442,10 +442,10 @@ export class salesSilemaService {
     if (n == undefined) n = 1;
     if (x.TIENDA.toLowerCase() == 'bot granollers') x.TIENDA = 'T--000';
     let salesData = {
-      no: `${this.extractNumber(x.TIENDA)}_${formattedDate}_R${n}`, // Nº factura
+      no: `${x.TIENDA.substring(0, 6)}_${formattedDate}_R${n}`, // Nº factura
       documentType: 'Invoice', // Tipo de documento+
       dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
-      externalDocumentNo: `${this.extractNumber(x.TIENDA)}_${formattedDate}_R${n}`, // Nº documento externo
+      externalDocumentNo: `${x.TIENDA.substring(0, 6)}_${formattedDate}_R${n}`, // Nº documento externo
       locationCode: `${this.extractNumber(x.TIENDA)}`, // Cód. almacén
       orderDate: `${formattedDateDayEnd}`, // Fecha pedido
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
@@ -585,10 +585,10 @@ export class salesSilemaService {
     importTotal = 0;
     if (x.TIENDA.toLowerCase() == 'bot granollers') x.TIENDA = 'T--000';
     salesData = {
-      no: `${this.extractNumber(x.TIENDA)}_${formattedDate}_AR${n}`, // Nº factura
+      no: `${x.TIENDA.substring(0, 6)}_${formattedDate}_AR${n}`, // Nº factura
       documentType: 'Credit_x0020_Memo', // Tipo de documento
       dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
-      externalDocumentNo: `${this.extractNumber(x.TIENDA)}_${formattedDate}_AR${n}`, // Nº documento externo
+      externalDocumentNo: `${x.TIENDA.substring(0, 6)}_${formattedDate}_AR${n}`, // Nº documento externo
       locationCode: `${this.extractNumber(x.TIENDA)}`, // Cód. almacén
       orderDate: `${formattedDateDayEnd}`, // Fecha pedido
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
@@ -706,10 +706,10 @@ export class salesSilemaService {
     if (n == undefined) n = 1;
 
     let salesData = {
-      no: `${this.extractNumber(x.TIENDA)}_${formattedDate}_RM${n}`, // Nº factura
+      no: `${x.TIENDA.substring(0, 6)}_${formattedDate}_RM${n}`, // Nº factura
       documentType: 'Invoice', // Tipo de documento
       dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
-      externalDocumentNo: `${this.extractNumber(x.TIENDA)}_${formattedDate}_RM${n}`, // Nº documento externo
+      externalDocumentNo: `${x.TIENDA.substring(0, 6)}_${formattedDate}_RM${n}`, // Nº documento externo
       locationCode: `${this.extractNumber(x.TIENDA)}`, // Cód. almacén
       orderDate: `${formattedDateDayEnd}`, // Fecha pedido
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
@@ -824,10 +824,10 @@ export class salesSilemaService {
 
     importTotal = 0;
     salesData = {
-      no: `${this.extractNumber(x.TIENDA)}_${formattedDate}_ARM${n}`, // Nº factura
+      no: `${x.TIENDA.substring(0, 6)}_${formattedDate}_ARM${n}`, // Nº factura
       documentType: 'Credit_x0020_Memo', // Tipo de documento
       dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
-      externalDocumentNo: `${this.extractNumber(x.TIENDA)}_${formattedDate}_ARM${n}`, // Nº documento externo
+      externalDocumentNo: `${x.TIENDA.substring(0, 6)}_${formattedDate}_ARM${n}`, // Nº documento externo
       locationCode: `${this.extractNumber(x.TIENDA)}`, // Cód. almacén
       orderDate: `${formattedDateDayEnd}`, // Fecha pedido
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
