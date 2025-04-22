@@ -469,7 +469,7 @@ export class salesSilemaService {
       let shortYear = date.getFullYear().toString().slice(-2); // Obtiene los últimos dos dígitos del año
       let isoDate = date.toISOString().substring(0, 10);
       let formattedDateAlbaran = `${day}/${month}/${shortYear}`;
-      if (x.TIENDA != salesData.locationCode && !changetLocationCode) {
+      if (this.extractNumber(x.TIENDA) != salesData.locationCode && !changetLocationCode) {
         salesData.no = `T--000_${formattedDate}_R${n}`
         salesData.externalDocumentNo = `T--000_${formattedDate}_R${n}`
         salesData.locationCode = '000';
@@ -607,7 +607,7 @@ export class salesSilemaService {
       x = data.recordset[i];
       let date = new Date(x.FECHA_PRIMERA_VENTA);
       let isoDate = date.toISOString().substring(0, 10);
-      if (x.TIENDA != salesData.locationCode && !changetLocationCode) {
+      if (this.extractNumber(x.TIENDA) != salesData.locationCode && !changetLocationCode) {
         salesData.no = `T--000_${formattedDate}_AR${n}`
         salesData.externalDocumentNo = `T--000_${formattedDate}_AR${n}`
         salesData.locationCode = '000';
@@ -734,7 +734,7 @@ export class salesSilemaService {
       let shortYear = date.getFullYear().toString().slice(-2); // Obtiene los últimos dos dígitos del año
       let isoDate = date.toISOString().substring(0, 10);
       let formattedDateAlbaran = `${day}/${month}/${shortYear}`;
-      if (x.TIENDA != salesData.locationCode && !changetLocationCode) {
+      if (this.extractNumber(x.TIENDA) != salesData.locationCode && !changetLocationCode) {
         salesData.no = `T--000_${formattedDate}_RM${n}`
         salesData.externalDocumentNo = `T--000_${formattedDate}_RM${n}`
         salesData.locationCode = '000';
@@ -847,7 +847,7 @@ export class salesSilemaService {
       x = datosPlanos[i];
       let date = new Date(x.FECHA_PRIMERA_VENTA);
       let isoDate = date.toISOString().substring(0, 10);
-      if (x.TIENDA != salesData.locationCode && !changetLocationCode) {
+      if (this.extractNumber(x.TIENDA) != salesData.locationCode && !changetLocationCode) {
         salesData.no = `T--000_${formattedDate}_ARM${n}`
         salesData.externalDocumentNo = `T--000_${formattedDate}_ARM${n}`
         salesData.locationCode = '000';
