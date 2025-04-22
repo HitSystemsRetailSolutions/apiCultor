@@ -102,6 +102,36 @@ export class salesFacturasService {
             };
           }
 
+          if (x.ClientLliure) {
+            console.log(`📜 Añadiendo comentario a la factura ${num}`);
+            const text = x.ClientLliure;
+            const maxLength = 100;
+            const words = text.split(' ');
+            let currentLine = '';
+            for (const word of words) {
+              // Si al agregar esta palabra, la línea se pasa de largo...
+              if ((currentLine + word).length > maxLength) {
+                // Guarda la línea actual
+                invoiceData[endpointline].push({
+                  lineType: 'Comment',
+                  description: currentLine.trim(),
+                });
+                // Comienza una nueva línea con la palabra actual
+                currentLine = word + ' ';
+              } else {
+                currentLine += word + ' ';
+              }
+            }
+
+            // Agrega la última línea si quedó algo
+            if (currentLine.trim().length > 0) {
+              invoiceData[endpointline].push({
+                lineType: 'Comment',
+                description: currentLine.trim(),
+              });
+            }
+          }
+
           invoiceData = await this.processInvoiceLines(invoiceData, endpointline, companyID, database, tabFacturacioDATA, x.IdFactura, facturaId_BC, client_id, client_secret, tenant, entorno);
           if (errores.length > 0) {
             console.log(`❌ Error en la factura ${num}, pasamos a la siguiente factura.`);
@@ -159,7 +189,7 @@ export class salesFacturasService {
                       SUM(CASE WHEN f.Servit = 0 THEN f.Tornat ELSE f.Servit END) AS Quantitat, 
                       ROUND(f.preu, 3) AS UnitPrice, CAST(f.Producte AS VARCHAR) AS Plu, 
                       f.desconte as Descuento, f.iva as Iva, f.ProducteNom as Nombre,  
-                      LEFT(RIGHT(f.Referencia, CHARINDEX(']', REVERSE(f.Referencia)) - 1), 100) AS Comentario 
+                      RIGHT(f.Referencia, CHARINDEX(']', REVERSE(f.Referencia)) - 1) AS Comentario 
                   FROM ${tabFacturacioDATA} f
                   LEFT JOIN clients c ON f.client = c.codi
                   WHERE f.idFactura = '${Hit_IdFactura}' 
@@ -212,10 +242,30 @@ export class salesFacturasService {
                 taxCode: `IVA${line.Iva}`,
               });
               if (line.Comentario) {
-                salesInvoiceData[endpointline].push({
-                  lineType: 'Comment',
-                  description: line.Comentario,
-                });
+                const text = line.Comentario;
+                const maxLength = 100;
+                const words = text.split(' ');
+                let currentLine = '';
+
+                for (const word of words) {
+                  if ((currentLine + word).length > maxLength) {
+                    salesInvoiceData[endpointline].push({
+                      lineType: 'Comment',
+                      description: currentLine.trim(),
+                    });
+                    currentLine = word + ' ';
+                  } else {
+                    currentLine += word + ' ';
+                  }
+                }
+
+                // Agrega la última línea si quedó algo
+                if (currentLine.trim().length > 0) {
+                  salesInvoiceData[endpointline].push({
+                    lineType: 'Comment',
+                    description: currentLine.trim(),
+                  });
+                }
               }
             } else {
               salesInvoiceData[endpointline].push({
