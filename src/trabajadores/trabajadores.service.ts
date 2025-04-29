@@ -16,24 +16,24 @@ export class trabajadoresService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) { }
+  ) {}
 
   async syncTrabajadoresAC(database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     const empresas: Array<{ empresaID: string; nombre: string }> = [
-      { empresaID: "84290dc4-6e90-ef11-8a6b-7c1e5236b0db", nombre: "Arrazaos S.L.U" },
-      { empresaID: "86ee4d52-801e-ef11-9f88-0022489dfd5d", nombre: "Filapeña S.L.U" },
-      { empresaID: "fb77685d-6f90-ef11-8a6b-7c1e5236b0db", nombre: "Horreols S.L.U" },
-      { empresaID: "d2a97ec2-654e-ef11-bfe4-7c1e5234e806", nombre: "IME Mil S.L.U" },
-      { empresaID: "e60b9619-6f90-ef11-8a6b-7c1e5236b0db", nombre: "Pomposo S.L.U" },
-      { empresaID: "f81d2993-7e1e-ef11-9f88-000d3ab5a7ff", nombre: "Silema S.L.U" },
+      { empresaID: '84290dc4-6e90-ef11-8a6b-7c1e5236b0db', nombre: 'Arrazaos S.L.U' },
+      { empresaID: '86ee4d52-801e-ef11-9f88-0022489dfd5d', nombre: 'Filapeña S.L.U' },
+      { empresaID: 'fb77685d-6f90-ef11-8a6b-7c1e5236b0db', nombre: 'Horreols S.L.U' },
+      { empresaID: 'd2a97ec2-654e-ef11-bfe4-7c1e5234e806', nombre: 'IME Mil S.L.U' },
+      { empresaID: 'e60b9619-6f90-ef11-8a6b-7c1e5236b0db', nombre: 'Pomposo S.L.U' },
+      { empresaID: 'f81d2993-7e1e-ef11-9f88-000d3ab5a7ff', nombre: 'Silema S.L.U' },
     ];
-
+    let error = false;
     for (const empresa of empresas) {
       try {
         let sql = `select * from records where Concepte = 'BC_Dependentes_${empresa.empresaID}'`;
         let query = await this.sql.runSql(sql, database);
         if (query.recordset.length == 0) {
-          console.log("No hay registros de sincronización de trabajadores en la base de datos");
+          console.log('No hay registros de sincronización de trabajadores en la base de datos');
           continue;
         }
         console.log(query.recordset[0]);
@@ -41,22 +41,20 @@ export class trabajadoresService {
         console.log(`Timestamp de la base de datos: ${timestampDB}`);
         const timestamp = new Date(timestampDB).toISOString();
         console.log(`TimeStamp: ${timestamp}`);
-        const offsetNumber = moment.tz("Europe/Madrid").utcOffset() / 60;
+        const offsetNumber = moment.tz('Europe/Madrid').utcOffset() / 60;
         // Si viene como Date, lo convertimos directamente a ISO con precisión
-        const filtro = moment(timestampDB)
-          .subtract(offsetNumber, 'hours')
-          .utc()
-          .format("YYYY-MM-DDTHH:mm:ss.SSS[Z]");
+        const filtro = moment(timestampDB).subtract(offsetNumber, 'hours').utc().format('YYYY-MM-DDTHH:mm:ss.SSS[Z]');
 
         console.log(`Hora convertida (menos ${offsetNumber}h): ${filtro}`);
         console.log(`Sincronizando empresa: ${empresa.nombre}`);
         await this.syncTrabajadores(filtro, empresa.empresaID, database, client_id, client_secret, tenant, entorno);
       } catch (error) {
         this.logError(`❌ Error al sincronizar empresa ${empresa.nombre}:`, error);
+        error = true;
       }
       //Actualiza el timestamp de la base de datos
       let sqlUpdate = `UPDATE records SET timestamp = GETDATE() WHERE Concepte = 'BC_Dependentes_${empresa.empresaID}'`;
-      await this.sql.runSql(sqlUpdate, database);
+      if (!error) await this.sql.runSql(sqlUpdate, database);
       console.log(`Timestamp actualizado para la empresa ${empresa.nombre}\n............................\n`);
     }
     return true;
@@ -78,51 +76,51 @@ export class trabajadoresService {
       return false;
     }
     const categoriaTipoGDTMap = {
-      AUXADM: "Ajudant gerent",
-      AUXCOM: "Contabilitat",
-      AUXCOMSIL: "Contabilitat",
-      AUXE: "Producció",
-      CADM: "Ajudant gerent",
-      CAPVENG: "Dependent",
-      CAPVENT: "Dependent",
-      CVENBCN: "Dependent",
-      CARR: "Dependent",
-      CPROD: "Producció",
-      EPROD: "Producció",
-      EVEN: "Ajudant gerent",
-      G1: "Dependent",
-      G2: "Dependent",
-      G4N1: "Dependent",
-      G4N2: "Dependent",
-      G6N3: "Dependent",
-      MEC: "Dependent",
-      NET: "Neteja",
-      NETSIL: "Neteja",
-      OF1A: "Admin",
-      OF1E: "Admin",
-      OF1F: "Repartidor",
-      OF2F: "Repartidor",
-      XOFR: "Repartidor",
-      XOFRSIL: "Repartidor",
-      REP: "Repartidor",
-      OF2A: "Admin",
-      OF2E: "Admin",
-      PR: "Dependent",
-      PRES: "Dependent",
-      VOCAL: "Dependent",
-      SUP: "Ajudant gerent",
-      VENBCN: "Dependent",
-      VENGI: "Dependent",
-      VENT: "Dependent",
-      VPRES: "Admin"
+      AUXADM: 'Ajudant gerent',
+      AUXCOM: 'Contabilitat',
+      AUXCOMSIL: 'Contabilitat',
+      AUXE: 'Producció',
+      CADM: 'Ajudant gerent',
+      CAPVENG: 'Dependent',
+      CAPVENT: 'Dependent',
+      CVENBCN: 'Dependent',
+      CARR: 'Dependent',
+      CPROD: 'Producció',
+      EPROD: 'Producció',
+      EVEN: 'Ajudant gerent',
+      G1: 'Dependent',
+      G2: 'Dependent',
+      G4N1: 'Dependent',
+      G4N2: 'Dependent',
+      G6N3: 'Dependent',
+      MEC: 'Dependent',
+      NET: 'Neteja',
+      NETSIL: 'Neteja',
+      OF1A: 'Admin',
+      OF1E: 'Admin',
+      OF1F: 'Repartidor',
+      OF2F: 'Repartidor',
+      XOFR: 'Repartidor',
+      XOFRSIL: 'Repartidor',
+      REP: 'Repartidor',
+      OF2A: 'Admin',
+      OF2E: 'Admin',
+      PR: 'Dependent',
+      PRES: 'Dependent',
+      VOCAL: 'Dependent',
+      SUP: 'Ajudant gerent',
+      VENBCN: 'Dependent',
+      VENGI: 'Dependent',
+      VENT: 'Dependent',
+      VPRES: 'Admin',
     };
     let i = 0;
     for (const trabajador of res.data.value) {
-      //let sql = `SELECT * FROM dependentes WHERE codi = '${codi}'`; 
+      //let sql = `SELECT * FROM dependentes WHERE codi = '${codi}'`;
       let sql = `SELECT * FROM dependentesextes WHERE nom = 'DNI' AND valor = '${trabajador.documento}'`;
       let query = await this.sql.runSql(sql, database);
       let sqlCodi = `SELECT MAX(t1.Codi + 1) AS codigo_disponible FROM dependentes t1 LEFT JOIN dependentes t2 ON t1.Codi + 1 = t2.Codi WHERE t2.Codi IS NULL;`;
-      let queryCodi = await this.sql.runSql(sqlCodi, database)
+      let queryCodi = await this.sql.runSql(sqlCodi, database);
       let codi = queryCodi.recordset[0].codigo_disponible || 0; //Codigo disponible
       let nom = trabajador.apellidosYNombre;
       let memo = trabajador.nombre;
@@ -132,7 +130,7 @@ export class trabajadoresService {
       let tid = '';
       let fechaAlta = trabajador.altaContrato || new Date().toISOString();
       let fechaAct = trabajador.altaContrato || new Date().toISOString();
-      const tipoGDT = categoriaTipoGDTMap[trabajador.categoria] || "Desconegut";
+      const tipoGDT = categoriaTipoGDTMap[trabajador.categoria] || 'Desconegut';
 
       const inserts = [
         { nom: 'ADRESA', valor: adreça },
@@ -147,12 +145,12 @@ export class trabajadoresService {
         { nom: 'PROVINCIA', valor: trabajador.auxiliaryIndex3 },
         { nom: 'TLF_MOBIL', valor: trabajador.noTelfMovilPersonal },
         { nom: 'hBase', valor: trabajador.horassemana },
-        { nom: 'TIPUSTREBALLADOR', valor: tipoGDT }
+        { nom: 'TIPUSTREBALLADOR', valor: tipoGDT },
       ];
       if (query.recordset.length == 0) {
         console.log(`Trabajador a procesar: ${trabajador.documento}`);
-        let sqlInsert = ` INSERT INTO dependentes ( CODI, NOM, MEMO, ADREÇA, Icona, [Hi Editem Horaris], Tid, FechaAlta, FechaAct ) 
-        VALUES ( '${codi}', '${nom}', '${memo}', '${adreça}', '${icona}', ${hiEditemHoraris}, '${tid}', '${fechaAlta}', '${fechaAct}' ); `;
+        let sqlInsert = ` INSERT INTO dependentes ( CODI, NOM, MEMO, ADREÇA, Icona, [Hi Editem Horaris], Tid) 
+        VALUES ( '${codi}', '${nom}', '${memo}', '${adreça}', '${icona}', ${hiEditemHoraris}, '${tid}'); `;
         await this.sql.runSql(sqlInsert, database);
         for (const { nom, valor } of inserts) {
           // Salta la inserción si el valor está vacío, null, undefined o solo espacios
@@ -168,12 +166,11 @@ export class trabajadoresService {
           await this.sql.runSql(sql, database);
         }
         console.log(`Trabajador creado con dni/codigo: ${trabajador.documento}/${codi}`);
-      }
-      else {
+      } else {
         console.log(`Trabajador ya existe, dni/codigo: ${trabajador.documento}`);
         codi = query.recordset[0].id;
         // Actualiza el trabajador existente
-        let sqlUpdate = ` UPDATE dependentes SET CODI = '${query.recordset[0].id}', NOM = '${nom}', MEMO = '${memo}', ADREÇA = '${adreça}', Icona = '${icona}', [Hi Editem Horaris] = ${hiEditemHoraris}, Tid = '${tid}', FechaAlta = '${fechaAlta}', FechaAct = '${fechaAct}' WHERE CODI = '${codi}' `;
+        let sqlUpdate = ` UPDATE dependentes SET CODI = '${query.recordset[0].id}', NOM = '${nom}', MEMO = '${memo}', ADREÇA = '${adreça}', Icona = '${icona}', [Hi Editem Horaris] = ${hiEditemHoraris}, Tid = '${tid}' WHERE CODI = '${codi}' `;
         await this.sql.runSql(sqlUpdate, database);
         for (const { nom, valor } of inserts) {
           // Salta la inserción si el valor está vacío, null, undefined o solo espacios
@@ -197,7 +194,7 @@ export class trabajadoresService {
         }
         console.log(`Trabajador actualizado con dni: ${trabajador.documento}`);
       }
-      console.log("Trabajador procesado\n--------------------");
+      console.log('Trabajador procesado\n--------------------');
       i++;
       if (i % 10 === 0) {
         console.log(`Procesados ${i} trabajadores`);

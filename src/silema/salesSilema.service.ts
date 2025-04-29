@@ -374,27 +374,49 @@ export class salesSilemaService {
     DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
     DECLARE @Fin INT = ${parseInt(dayEnd, 10)};
 
-    SELECT v.num_tick as TICKET, V.PLU AS PLU, a.nom as ARTICULO, 
-              V.Quantitat AS CANTIDAD, v.data as FECHA, 
-              V.Import AS PRECIO, CONCAT('IVA', i.Iva) as IVA, 
-              cb.nom as TIENDA, C.NIF AS NIF, 
-              SUM(v.Import) OVER () AS TOTAL, 
-              ROUND(v.Import / NULLIF(v.Quantitat, 0), 5) AS precioUnitario
-        FROM [v_venut_${year}-${month}] v
-        LEFT JOIN articles a ON a.codi = v.plu
-        LEFT JOIN TipusIva i ON i.Tipus = a.TipoIva
-        LEFT JOIN ConstantsClient cc ON @Cliente = cc.Codi 
-                                    AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' 
-                                    AND valor COLLATE Modern_Spanish_CI_AS != ''
-        LEFT JOIN Clients c ON cc.codi = c.codi
-        LEFT JOIN clients cb ON v.botiga = cb.codi
-        WHERE v.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + cc.valor COLLATE Modern_Spanish_CI_AS + '%'
-        AND DAY(data) BETWEEN @Inicio AND @Fin
-        AND cb.codi = '${botiga}'
-        GROUP BY V.Num_tick, v.plu, a.nom, v.Quantitat, v.data, v.import, i.iva, cb.nom, c.nif, 
-                ROUND(v.Import / NULLIF(v.Quantitat, 0), 5)
-        HAVING SUM(quantitat) > 0
-        ORDER BY v.data;`
+    DECLARE @TotalSinIVA DECIMAL(18, 2);
+
+    SELECT @TotalSinIVA = 
+        SUM(v.Import / (1 + (ISNULL(i.Iva, 10) / 100.0)))
+    FROM [v_venut_${year}-${month}] v
+    LEFT JOIN articles a ON a.codi = v.plu
+    LEFT JOIN TipusIva i ON i.Tipus = a.TipoIva
+    LEFT JOIN ConstantsClient cc ON @Cliente = cc.Codi 
+                                AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' 
+                                AND valor COLLATE Modern_Spanish_CI_AS != ''
+    WHERE v.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + cc.valor COLLATE Modern_Spanish_CI_AS + '%'
+    AND DAY(data) BETWEEN @Inicio AND @Fin
+    AND v.botiga = '${botiga}';
+
+    SELECT 
+        v.num_tick AS TICKET, 
+        V.PLU AS PLU, 
+        a.nom AS ARTICULO, 
+        V.Quantitat AS CANTIDAD, 
+        v.data AS FECHA, 
+        V.Import AS PRECIO, 
+        i.Iva AS IVA, 
+        cb.nom AS TIENDA, 
+        C.NIF AS NIF, 
+        SUM(v.Import) OVER () AS TOTAL, 
+        ROUND(v.Import / NULLIF(v.Quantitat, 0), 5) AS precioUnitario,
+        @TotalSinIVA AS TotalSinIVA
+    FROM [v_venut_${year}-${month}] v
+    LEFT JOIN articles a ON a.codi = v.plu
+    LEFT JOIN TipusIva i ON i.Tipus = a.TipoIva
+    LEFT JOIN ConstantsClient cc ON @Cliente = cc.Codi 
+                                AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' 
+                                AND valor COLLATE Modern_Spanish_CI_AS != ''
+    LEFT JOIN Clients c ON cc.codi = c.codi
+    LEFT JOIN clients cb ON v.botiga = cb.codi
+    WHERE v.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + cc.valor COLLATE Modern_Spanish_CI_AS + '%'
+    AND DAY(data) BETWEEN @Inicio AND @Fin
+    AND cb.codi = '${botiga}'
+    GROUP BY 
+        V.Num_tick, v.plu, a.nom, v.Quantitat, v.data, v.import, i.iva, cb.nom, c.nif, 
+        ROUND(v.Import / NULLIF(v.Quantitat, 0), 5)
+    HAVING SUM(quantitat) > 0
+    ORDER BY v.data;`
     if (dayStart > dayEnd) {
       let nextMonth = String(Number(month) + 1).padStart(2, "0");
       sqlQ = `
@@ -402,32 +424,49 @@ export class salesSilemaService {
       DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
       DECLARE @Fin INT = ${parseInt(dayEnd, 10)};
 
-      -- Consulta unificada
-      SELECT v.num_tick AS TICKET, V.PLU AS PLU, a.nom AS ARTICULO,
-            V.Quantitat AS CANTIDAD, v.data AS FECHA,
-            V.Import AS PRECIO, CONCAT('IVA', i.Iva) AS IVA,
-            cb.nom AS TIENDA, C.NIF AS NIF,
-            SUM(v.Import) OVER () AS TOTAL,
-            ROUND(v.Import / NULLIF(v.Quantitat, 0), 5) AS precioUnitario
-      FROM (
+      WITH Ventas AS (
           SELECT * FROM [v_venut_${year}-${month}] WHERE DAY(data) BETWEEN @Inicio AND 31
           UNION ALL
           SELECT * FROM [v_venut_${year}-${nextMonth}] WHERE DAY(data) BETWEEN 1 AND @Fin
-      ) v
-      LEFT JOIN articles a ON a.codi = v.plu
-      LEFT JOIN TipusIva i ON i.Tipus = a.TipoIva
-      LEFT JOIN ConstantsClient cc ON @Cliente = cc.Codi
-                                  AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL'
-                                  AND valor COLLATE Modern_Spanish_CI_AS != ''
-      LEFT JOIN Clients c ON cc.codi = c.codi
-      LEFT JOIN clients cb ON v.botiga = cb.codi
-      WHERE v.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + cc.valor COLLATE Modern_Spanish_CI_AS + '%'
-      AND cb.codi = '${botiga}'
-      GROUP BY V.Num_tick, v.plu, a.nom, v.Quantitat, v.data, v.import, i.iva, cb.nom, c.nif,
-              ROUND(v.Import / NULLIF(v.Quantitat, 0), 5)
-      HAVING SUM(quantitat) > 0
-      ORDER BY v.data;
-      `;
+      ),
+      VentasConJoin AS (
+          SELECT 
+              v.*, 
+              a.nom AS ARTICULO, 
+              i.Iva,
+              cb.nom AS TIENDA, 
+              c.NIF,
+              ROUND(v.Import / NULLIF(v.Quantitat, 0), 5) AS precioUnitario
+          FROM Ventas v
+          LEFT JOIN articles a ON a.codi = v.plu
+          LEFT JOIN TipusIva i ON i.Tipus = a.TipoIva
+          LEFT JOIN ConstantsClient cc ON @Cliente = cc.Codi
+                                      AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL'
+                                      AND valor COLLATE Modern_Spanish_CI_AS != ''
+          LEFT JOIN Clients c ON cc.codi = c.codi
+          LEFT JOIN clients cb ON v.botiga = cb.codi
+          WHERE v.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + cc.valor COLLATE Modern_Spanish_CI_AS + '%'
+          AND cb.codi = '${botiga}'
+      )
+
+      SELECT 
+          v.num_tick AS TICKET,
+          v.PLU,
+          v.ARTICULO,
+          v.Quantitat AS CANTIDAD,
+          v.data AS FECHA,
+          v.Import AS PRECIO,
+          v.Iva AS IVA,
+          v.TIENDA,
+          v.NIF,
+          SUM(v.Import) OVER () AS TOTAL,
+          v.precioUnitario,
+          ROUND((SELECT SUM(Import / (1 + (ISNULL(Iva, 10) / 100.0))) FROM VentasConJoin),2) AS TotalSinIVA
+      FROM VentasConJoin v
+      GROUP BY 
+          v.num_tick, v.PLU, v.ARTICULO, v.Quantitat, v.data, v.Import, v.Iva, v.TIENDA, v.NIF, v.precioUnitario
+      HAVING SUM(v.Quantitat) > 0
+      ORDER BY v.data;`;
       formattedDateDayEnd = new Date(Date.UTC(year, parseFloat(nextMonth) - 1, dayEnd)).toISOString().substring(0, 10);
     }
     //console.log(sqlQ);
@@ -535,18 +574,63 @@ export class salesSilemaService {
     DECLARE @Cliente INT = ${parseInt(client, 10)};
     DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
     DECLARE @Fin INT = ${parseInt(dayEnd, 10)};
-                    
-    SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, C.NIF AS NIF, round(v.Import / NULLIF(v.Quantitat, 0),5) AS precioUnitario
+    
+    DECLARE @TotalConIVA DECIMAL(18, 2);
+    DECLARE @TotalSinIVA DECIMAL(18, 2);
+
+    SELECT @TotalConIVA = SUM(V.Import)
     FROM [v_venut_${year}-${month}] V
     LEFT JOIN articles A ON A.codi = V.plu
     LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
     LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
     LEFT JOIN Clients C ON CC.codi = C.codi
     LEFT JOIN clients CB ON V.botiga = CB.codi
-    WHERE V.otros LIKE '%' + CC.valor + '%' AND DAY(data) BETWEEN @Inicio and @fin and cb.codi='${botiga}'
-    GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, C.NIF, round(v.Import / NULLIF(v.Quantitat, 0),5)
-    HAVING SUM(quantitat) > 0
-    ORDER BY MIN(V.data)`;
+    WHERE V.otros LIKE '%' + CC.valor + '%'
+      AND DAY(data) BETWEEN @Inicio AND @Fin
+      AND CB.codi = '${botiga}';
+
+    SELECT @TotalSinIVA = 
+        SUM(V.Import / (1 + (ISNULL(I.Iva, 10) / 100.0)))
+    FROM [v_venut_${year}-${month}] V
+    LEFT JOIN articles A ON A.codi = V.plu
+    LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+    LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
+    LEFT JOIN Clients C ON CC.codi = C.codi
+    LEFT JOIN clients CB ON V.botiga = CB.codi
+    WHERE V.otros LIKE '%' + CC.valor + '%'
+      AND DAY(data) BETWEEN @Inicio AND @Fin
+      AND CB.codi = '${botiga}';
+
+    SELECT 
+        V.PLU AS PLU, 
+        A.nom AS ARTICULO, 
+        SUM(V.Quantitat) AS CANTIDAD_TOTAL, 
+        SUM(V.Import) AS IMPORTE_TOTAL, 
+        MIN(V.data) AS FECHA_PRIMERA_VENTA, 
+        MAX(V.data) AS FECHA_ULTIMA_VENTA, 
+        I.Iva AS IVA, 
+        CB.nom AS TIENDA, 
+        C.NIF AS NIF, 
+        ROUND(SUM(V.Import) / NULLIF(SUM(V.Quantitat), 0), 5) AS precioUnitario,
+        @TotalSinIVA AS TotalSinIVA,
+        @TotalConIVA AS TotalConIVA
+    FROM [v_venut_${year}-${month}] V
+    LEFT JOIN articles A ON A.codi = V.plu
+    LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+    LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
+    LEFT JOIN Clients C ON CC.codi = C.codi
+    LEFT JOIN clients CB ON V.botiga = CB.codi
+    WHERE V.otros LIKE '%' + CC.valor + '%'
+      AND DAY(data) BETWEEN @Inicio AND @Fin
+      AND CB.codi = '${botiga}'
+    GROUP BY 
+        V.PLU, 
+        A.nom, 
+        I.Iva, 
+        CB.nom, 
+        C.NIF
+    HAVING SUM(V.Quantitat) > 0
+    ORDER BY MIN(V.data);`;
     if (dayStart > dayEnd) {
       let nextMonth = String(Number(month) + 1).padStart(2, "0");
       sqlQ = `
@@ -554,7 +638,10 @@ export class salesSilemaService {
       DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
       DECLARE @Fin INT = ${parseInt(dayEnd, 10)};
 
-      SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, C.NIF AS NIF, round(v.Import / NULLIF(v.Quantitat, 0),5) AS precioUnitario
+      DECLARE @TotalConIVA DECIMAL(18, 2);
+      DECLARE @TotalSinIVA DECIMAL(18, 2);
+
+      SELECT @TotalConIVA = SUM(V.Import)
       FROM (
           SELECT * FROM [v_venut_${year}-${month}] WHERE DAY(data) BETWEEN @Inicio AND 31
           UNION ALL
@@ -565,11 +652,57 @@ export class salesSilemaService {
       LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' AND valor COLLATE Modern_Spanish_CI_AS != ''
       LEFT JOIN Clients C ON CC.codi = C.codi
       LEFT JOIN clients CB ON V.botiga = CB.codi
-      WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%' and cb.codi='904'
-      GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, C.NIF, round(v.Import / NULLIF(v.Quantitat, 0),5)
-      HAVING SUM(quantitat) > 0
-      ORDER BY MIN(V.data)
-      `;
+      WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
+        AND CB.codi = '${botiga}';
+
+      SELECT @TotalSinIVA = 
+          SUM(V.Import / (1 + (ISNULL(I.Iva, 10) / 100.0)))
+      FROM (
+          SELECT * FROM [v_venut_${year}-${month}] WHERE DAY(data) BETWEEN @Inicio AND 31
+          UNION ALL
+          SELECT * FROM [v_venut_${year}-${nextMonth}] WHERE DAY(data) BETWEEN 1 AND @Fin
+      ) V
+      LEFT JOIN articles A ON A.codi = V.plu
+      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' AND valor COLLATE Modern_Spanish_CI_AS != ''
+      LEFT JOIN Clients C ON CC.codi = C.codi
+      LEFT JOIN clients CB ON V.botiga = CB.codi
+      WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
+        AND CB.codi = '${botiga}';
+
+      SELECT 
+          V.PLU AS PLU, 
+          A.nom AS ARTICULO, 
+          SUM(V.Quantitat) AS CANTIDAD_TOTAL, 
+          SUM(V.Import) AS IMPORTE_TOTAL, 
+          MIN(V.data) AS FECHA_PRIMERA_VENTA, 
+          MAX(V.data) AS FECHA_ULTIMA_VENTA, 
+          I.Iva AS IVA, 
+          CB.nom AS TIENDA, 
+          C.NIF AS NIF, 
+          ROUND(SUM(V.Import) / NULLIF(SUM(V.Quantitat), 0), 5) AS precioUnitario,
+          @TotalSinIVA AS TotalSinIVA,
+          @TotalConIVA AS TotalConIVA
+      FROM (
+          SELECT * FROM [v_venut_${year}-${month}] WHERE DAY(data) BETWEEN @Inicio AND 31
+          UNION ALL
+          SELECT * FROM [v_venut_${year}-${nextMonth}] WHERE DAY(data) BETWEEN 1 AND @Fin
+      ) V
+      LEFT JOIN articles A ON A.codi = V.plu
+      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' AND valor COLLATE Modern_Spanish_CI_AS != ''
+      LEFT JOIN Clients C ON CC.codi = C.codi
+      LEFT JOIN clients CB ON V.botiga = CB.codi
+      WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
+        AND CB.codi = '${botiga}'
+      GROUP BY 
+          V.PLU, 
+          A.nom, 
+          I.Iva, 
+          CB.nom, 
+          C.NIF
+      HAVING SUM(V.Quantitat) > 0
+      ORDER BY MIN(V.data);`;
     }
     //console.log(sqlQ);
 
@@ -654,26 +787,52 @@ export class salesSilemaService {
       let sqlQ = `
       DECLARE @Cliente INT = ${parseInt(client, 10)};
 
-      SELECT v.num_tick as TICKET, V.PLU AS PLU, a.nom as ARTICULO, 
-                V.Quantitat AS CANTIDAD, v.data as FECHA, 
-                V.Import AS PRECIO, CONCAT('IVA', i.Iva) as IVA, 
-                cb.nom as TIENDA, C.NIF AS NIF, 
-                SUM(v.Import) OVER () AS TOTAL, 
-                ROUND(v.Import / NULLIF(v.Quantitat, 0), 5) AS precioUnitario
-          FROM [v_venut_${year}-${month}] v
-          LEFT JOIN articles a ON a.codi = v.plu
-          LEFT JOIN TipusIva i ON i.Tipus = a.TipoIva
-          LEFT JOIN ConstantsClient cc ON @Cliente = cc.Codi 
-                                      AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' 
-                                      AND valor COLLATE Modern_Spanish_CI_AS != ''
-          LEFT JOIN Clients c ON cc.codi = c.codi
-          LEFT JOIN clients cb ON v.botiga = cb.codi
-          WHERE v.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + cc.valor COLLATE Modern_Spanish_CI_AS + '%'
-          AND num_tick in (${TicketsString})
-          GROUP BY V.Num_tick, v.plu, a.nom, v.Quantitat, v.data, v.import, i.iva, cb.nom, c.nif,
-                  ROUND(v.Import / NULLIF(v.Quantitat, 0), 5)
-          HAVING SUM(quantitat) > 0
-          ORDER BY v.data;`
+      DECLARE @TotalSinIVA DECIMAL(18, 2);
+      SELECT @TotalSinIVA = 
+          SUM(V.Import / (1 + (ISNULL(I.Iva, 10) / 100.0)))
+      FROM [v_venut_${year}-${month}] V
+      LEFT JOIN articles A ON A.codi = V.plu
+      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' AND valor COLLATE Modern_Spanish_CI_AS != ''
+      LEFT JOIN Clients C ON CC.codi = C.codi
+      LEFT JOIN clients CB ON V.botiga = CB.codi
+      WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
+        AND V.num_tick IN (${TicketsString});
+
+      SELECT 
+          V.num_tick AS TICKET,
+          V.PLU AS PLU,
+          A.nom AS ARTICULO,
+          V.Quantitat AS CANTIDAD,
+          V.data AS FECHA,
+          V.Import AS PRECIO,
+          I.Iva AS IVA,
+          CB.nom AS TIENDA,
+          C.NIF AS NIF,
+          SUM(V.Import) OVER () AS TOTAL,
+          ROUND(V.Import / NULLIF(V.Quantitat, 0), 5) AS precioUnitario,
+          @TotalSinIVA AS TotalSinIVA
+      FROM [v_venut_${year}-${month}] V
+      LEFT JOIN articles A ON A.codi = V.plu
+      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' AND valor COLLATE Modern_Spanish_CI_AS != ''
+      LEFT JOIN Clients C ON CC.codi = C.codi
+      LEFT JOIN clients CB ON V.botiga = CB.codi
+      WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
+        AND V.num_tick IN (${TicketsString})
+      GROUP BY 
+          V.num_tick, 
+          V.plu, 
+          A.nom, 
+          V.Quantitat, 
+          V.data, 
+          V.import, 
+          I.Iva, 
+          CB.nom, 
+          C.NIF,
+          ROUND(V.Import / NULLIF(V.Quantitat, 0), 5)
+      HAVING SUM(V.Quantitat) > 0
+      ORDER BY V.data;`
       //console.log(sqlQ);
       let data = await this.sql.runSql(sqlQ, database);
       arrayDatos.push(data.recordset);
@@ -694,11 +853,12 @@ export class salesSilemaService {
 
     // Extraer día, mes y año en el formato adecuado
     let shortYear = String(year).slice(-2);
+    let day = fechaMasAntigua.getDate().toString().padStart(2, '0'); // Asegura que el día tenga dos dígitos
+    monthInicial = monthInicial.padStart(2, '0'); // Asegura que el mes tenga dos dígitos
     let monthFormatted = `${monthInicial}-${shortYear}`;
-
-    let formattedDate = `${fechaMasAntigua.getDate()}-${monthFormatted}`; // Factura más antigua (para externalDocumentNo)
+    let formattedDate = `${day}-${monthFormatted}`; // Factura más antigua (para externalDocumentNo)
     let formattedDateDayStart = fechaMasAntigua.toISOString().substring(0, 10); // Factura más antigua (YYYY-MM-DD)
-    let formattedDateDayEnd = fechaMasNueva.toISOString().substring(0, 10); // Factura más reciente (YYYY-MM-DD)
+    let formattedDateDayEnd = fechaMasNueva.toISOString().substring(0, 10); // Factura más reciente (YYYY-MM-DD) // Factura más reciente (YYYY-MM-DD)
 
     // Calculamos `n` basado en las facturas recapitulativas existentes
     let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_RM') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd}`;
@@ -782,16 +942,61 @@ export class salesSilemaService {
       let sqlQ = `
       DECLARE @Cliente INT = ${parseInt(client, 10)};
                       
-      SELECT V.PLU AS PLU, A.nom AS ARTICULO, SUM(V.Quantitat) AS CANTIDAD_TOTAL, SUM(V.Import) AS IMPORTE_TOTAL, MIN(V.data) AS FECHA_PRIMERA_VENTA, MAX(V.data) AS FECHA_ULTIMA_VENTA, CONCAT('IVA', I.Iva) AS IVA, CB.nom AS TIENDA, CB.Nif AS NIFTIENDA, C.NIF AS NIF, round(V.Import / NULLIF(V.Quantitat, 0),5) AS precioUnitario
+      DECLARE @TotalConIVA DECIMAL(18, 2);
+      DECLARE @TotalSinIVA DECIMAL(18, 2);
+
+      -- Calcular total con IVA
+      SELECT @TotalConIVA = SUM(V.Import)
       FROM [v_venut_${year}-${month}] V
       LEFT JOIN articles A ON A.codi = V.plu
       LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
-      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' and valor != ''
+      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
       LEFT JOIN Clients C ON CC.codi = C.codi
       LEFT JOIN clients CB ON V.botiga = CB.codi
-      WHERE V.otros LIKE '%' + CC.valor + '%' and v.Num_tick in (${TicketsString})
-      GROUP BY V.PLU, A.nom, CONCAT('IVA', I.Iva), CB.nom, CB.Nif, C.NIF, round(V.Import / NULLIF(V.Quantitat, 0),5)
-      HAVING SUM(quantitat) > 0
+      WHERE V.otros LIKE '%' + CC.valor + '%'
+        AND V.Num_tick IN (${TicketsString});
+
+      SELECT @TotalSinIVA = 
+          SUM(V.Import / (1 + (ISNULL(I.Iva, 10) / 100.0)))
+      FROM [v_venut_${year}-${month}] V
+      LEFT JOIN articles A ON A.codi = V.plu
+      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
+      LEFT JOIN Clients C ON CC.codi = C.codi
+      LEFT JOIN clients CB ON V.botiga = CB.codi
+      WHERE V.otros LIKE '%' + CC.valor + '%'
+        AND V.Num_tick IN (${TicketsString});
+
+      SELECT 
+          V.PLU AS PLU, 
+          A.nom AS ARTICULO, 
+          SUM(V.Quantitat) AS CANTIDAD_TOTAL, 
+          SUM(V.Import) AS IMPORTE_TOTAL, 
+          MIN(V.data) AS FECHA_PRIMERA_VENTA, 
+          MAX(V.data) AS FECHA_ULTIMA_VENTA, 
+          I.Iva AS IVA, 
+          CB.nom AS TIENDA, 
+          CB.Nif AS NIFTIENDA, 
+          C.NIF AS NIF, 
+          ROUND(SUM(V.Import) / NULLIF(SUM(V.Quantitat), 0), 5) AS precioUnitario,
+          @TotalSinIVA AS TotalSinIVA,
+          @TotalConIVA AS TotalConIVA
+      FROM [v_venut_${year}-${month}] V
+      LEFT JOIN articles A ON A.codi = V.plu
+      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
+      LEFT JOIN Clients C ON CC.codi = C.codi
+      LEFT JOIN clients CB ON V.botiga = CB.codi
+      WHERE V.otros LIKE '%' + CC.valor + '%'
+        AND V.Num_tick IN (${TicketsString})
+      GROUP BY 
+          V.PLU, 
+          A.nom, 
+          I.Iva, 
+          CB.nom, 
+          CB.Nif, 
+          C.NIF
+      HAVING SUM(V.Quantitat) > 0
       ORDER BY MIN(V.data);`;
       //console.log(sqlQ);
       let data = await this.sql.runSql(sqlQ, database);
@@ -817,8 +1022,9 @@ export class salesSilemaService {
     // Extraer día, mes y año en el formato adecuado
     shortYear = String(year).slice(-2);
     monthFormatted = `${monthInicial}-${shortYear}`;
-
-    formattedDate = `${fechaMasAntigua.getDate()}-${monthFormatted}`; // Factura más antigua (para externalDocumentNo)
+    day = fechaMasAntigua.getDate().toString().padStart(2, '0'); // Asegura que el día tenga dos dígitos
+    monthInicial = monthInicial.padStart(2, '0'); // Asegura que el mes tenga dos dígitos
+    formattedDate = `${day}-${monthFormatted}`; // Factura más antigua (para externalDocumentNo)
     formattedDateDayStart = fechaMasAntigua.toISOString().substring(0, 10); // Factura más antigua (YYYY-MM-DD)
     formattedDateDayEnd = fechaMasNueva.toISOString().substring(0, 10); // Factura más reciente (YYYY-MM-DD)
 
@@ -935,9 +1141,32 @@ export class salesSilemaService {
     DECLARE @Dia INT = ${day};
     DECLARE @Hora TIME = '${formattedHora}';
 
-    SELECT LTRIM(RTRIM(c.Nom)) AS Nom, LTRIM(RTRIM(c.Nif)) AS Nif, MIN(CONVERT(DATE, v.data)) AS Data, LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))) AS Codi, LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))) AS Producte, COALESCE(a.PREU, az.PREU) AS Preu, SUM(import) AS Import, SUM(quantitat) AS Quantitat, COALESCE(t.Iva, tz.Iva) AS Iva, round(v.Import / NULLIF(v.Quantitat, 0),5) AS precioUnitario, SUM(SUM(import)) OVER () AS Total,
-    (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga AND DAY(data) = @Dia AND CONVERT(TIME, data) ${operador} @Hora) AS MinNumTick, 
-    (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga AND DAY(data) = @Dia AND CONVERT(TIME, data) ${operador} @Hora) AS MaxNumTick
+    DECLARE @TotalSinIVA DECIMAL(18, 2);
+
+    SELECT @TotalSinIVA = SUM(v.import / (1 + (ISNULL(COALESCE(t.Iva, tz.Iva), 10) / 100.0)))
+    FROM [v_venut_${year}-${month}] v
+    LEFT JOIN articles a ON v.plu = a.codi 
+    LEFT JOIN articles_zombis az ON v.plu = az.codi AND a.codi IS NULL 
+    LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
+    LEFT JOIN TipusIva2012 tz ON az.TipoIva = tz.Tipus AND t.Tipus IS NULL 
+    WHERE v.botiga = @Botiga AND DAY(v.data) = @Dia AND CONVERT(TIME, v.data) ${operador} @Hora;
+
+    SELECT 
+        LTRIM(RTRIM(c.Nom)) AS Nom, 
+        LTRIM(RTRIM(c.Nif)) AS Nif, 
+        MIN(CONVERT(DATE, v.data)) AS Data, 
+        LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))) AS Codi, 
+        LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))) AS Producte, 
+        COALESCE(a.PREU, az.PREU) AS Preu, 
+        SUM(import) AS Import, 
+        SUM(quantitat) AS Quantitat, 
+        COALESCE(t.Iva, tz.Iva) AS Iva, 
+        ROUND(v.Import / NULLIF(v.Quantitat, 0), 5) AS precioUnitario, 
+        SUM(SUM(import)) OVER () AS Total,
+        ROUND(SUM(v.import) / (1 + (ISNULL(COALESCE(t.Iva, tz.Iva), 10) / 100)),5) AS SinIVA,
+        @TotalSinIVA AS TotalSinIVA,
+        (SELECT MIN(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga AND DAY(data) = @Dia AND CONVERT(TIME, data) ${operador} @Hora) AS MinNumTick, 
+        (SELECT MAX(num_tick) FROM [v_venut_${year}-${month}] WHERE botiga = @Botiga AND DAY(data) = @Dia AND CONVERT(TIME, data) ${operador} @Hora) AS MaxNumTick
     FROM [v_venut_${year}-${month}] v 
     LEFT JOIN articles a ON v.plu = a.codi 
     LEFT JOIN articles_zombis az ON v.plu = az.codi AND a.codi IS NULL 
@@ -945,7 +1174,14 @@ export class salesSilemaService {
     LEFT JOIN TipusIva2012 t ON a.TipoIva = t.Tipus 
     LEFT JOIN TipusIva2012 tz ON az.TipoIva = tz.Tipus AND t.Tipus IS NULL 
     WHERE v.botiga = @Botiga AND DAY(v.data) = @Dia AND CONVERT(TIME, v.data) ${operador} @Hora 
-    GROUP BY LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))), LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))), COALESCE(a.PREU, az.PREU), LTRIM(RTRIM(c.nom)), LTRIM(RTRIM(c.Nif)), COALESCE(t.Iva, tz.Iva), round(v.Import / NULLIF(v.Quantitat, 0),5)
+    GROUP BY 
+        LTRIM(RTRIM(c.nom)), 
+        LTRIM(RTRIM(c.Nif)), 
+        LTRIM(RTRIM(COALESCE(a.NOM, az.NOM))), 
+        LTRIM(RTRIM(COALESCE(a.Codi, az.Codi))), 
+        COALESCE(a.PREU, az.PREU), 
+        COALESCE(t.Iva, tz.Iva), 
+        ROUND(v.Import / NULLIF(v.Quantitat, 0), 5)
     HAVING SUM(quantitat) > 0;`;
   }
 
@@ -1058,14 +1294,39 @@ export class salesSilemaService {
           INNER JOIN clients cl ON cl.codi = c.codi
           INNER JOIN clients cl2 ON cl2.codi = d.botiga
       )
-      SELECT 
-          FilteredData.Nom AS Nom,
-          LTRIM(RTRIM(FilteredData.nifTienda)) AS NifTienda,
-          FilteredData.iva AS IVA,
-          SUM(FilteredData.import) AS Importe
-      FROM FilteredData
-      GROUP BY FilteredData.Nom, LTRIM(RTRIM(FilteredData.nifTienda)), FilteredData.iva
-      ORDER BY FilteredData.iva, LTRIM(RTRIM(FilteredData.nifTienda));`;
+      ,
+      Aggregated AS (
+          SELECT
+              fd.Nom,
+              LTRIM(RTRIM(fd.nifTienda)) AS NifTienda,
+              fd.iva AS IVA,
+              SUM(fd.import) AS Importe
+          FROM   FilteredData fd
+          GROUP  BY
+              fd.Nom,
+              LTRIM(RTRIM(fd.nifTienda)),
+              fd.iva
+      ),
+
+      Totals AS (                               
+          SELECT
+              SUM(import) AS TotalAmbIVA,
+              SUM(import / (1 + iva / 100.0)) AS TotalSenseIVA
+          FROM   FilteredData
+      )
+
+      SELECT
+          a.Nom,
+          a.NifTienda,
+          a.IVA,
+          a.Importe,
+          t.TotalAmbIVA,    
+          Round(t.TotalSenseIVA,2) 
+      FROM   Aggregated a
+      CROSS  JOIN Totals t
+      ORDER  BY
+          a.IVA,
+          a.NifTienda;`;
     }
     else {
       return `
@@ -1112,19 +1373,48 @@ export class salesSilemaService {
           INNER JOIN constantsclient c ON c.valor = d.ExtractedValue AND c.variable = 'CFINAL'
           INNER JOIN clients cl ON cl.codi = c.codi
           INNER JOIN clients cl2 ON cl2.codi = d.botiga
+      ),
+      Totals AS (
+          SELECT
+              SUM(import) AS TotalAmbIVA,
+              SUM(import / (1 + iva / 100.0)) AS TotalSenseIVA
+          FROM   FilteredData
       )
-      SELECT 
-        FilteredData.Nom AS Nom,
-        LTRIM(RTRIM(cl.Nom)) AS NomClient,
-        LTRIM(RTRIM(FilteredData.nifTienda)) AS NifTienda,
-        LTRIM(RTRIM(FilteredData.nif)) AS NIF,
-        FilteredData.codi AS CodigoCliente, -- Código del cliente desde ConstantsClient
-        SUM(FilteredData.import) AS Importe,
-        FilteredData.iva AS IVA
-      FROM FilteredData
-      INNER JOIN clients cl ON LTRIM(RTRIM(cl.nif)) = LTRIM(RTRIM(FilteredData.nif))
-      GROUP BY FilteredData.Nom, LTRIM(RTRIM(FilteredData.nif)), FilteredData.iva, LTRIM(RTRIM(cl.Nom)), LTRIM(RTRIM(FilteredData.nifTienda)), FilteredData.codi
-      ORDER BY LTRIM(RTRIM(FilteredData.nif)), FilteredData.iva;`;
+
+      SELECT
+          a.Nom,
+          a.NomClient,
+          a.NifTienda,
+          a.NIF,
+          a.CodigoCliente,
+          a.Importe,        
+          a.IVA,
+          t.TotalAmbIVA,
+          t.TotalSenseIVA 
+      FROM (
+          SELECT
+              fd.Nom AS Nom,
+              LTRIM(RTRIM(cl.Nom)) AS NomClient,
+              LTRIM(RTRIM(fd.nifTienda)) AS NifTienda,
+              LTRIM(RTRIM(fd.nif)) AS NIF,
+              fd.codi AS CodigoCliente,
+              SUM(fd.import) AS Importe,
+              fd.iva AS IVA
+          FROM   FilteredData fd
+          INNER  JOIN clients cl
+                ON LTRIM(RTRIM(cl.nif)) = LTRIM(RTRIM(fd.nif))
+          GROUP  BY
+              fd.Nom,
+              LTRIM(RTRIM(cl.Nom)),
+              LTRIM(RTRIM(fd.nifTienda)),
+              LTRIM(RTRIM(fd.nif)),
+              fd.codi,
+              fd.iva
+      ) a
+      CROSS JOIN Totals t
+      ORDER BY
+          a.NIF,
+          a.IVA;`;
     }
   }
 
