@@ -489,7 +489,8 @@ export class salesSilemaService {
       orderDate: `${formattedDateDayEnd}`, // Fecha pedido
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
       recapInvoice: true, // Factura recap //false
-      remainingAmount: importTotal, // Precio total incluyendo IVA por factura
+      remainingAmount: parseFloat(x.TOTAL.toFixed(2)), // Precio total incluyendo IVA por factura
+      amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)), // Precio total sin IVA por factura
       shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
@@ -545,7 +546,7 @@ export class salesSilemaService {
       importTotal += parseFloat(x.PRECIO)
       salesData.salesLinesBuffer.push(salesLine);
     }
-    salesData.remainingAmount = Number(importTotal.toFixed(2));
+    //salesData.remainingAmount = Number(importTotal.toFixed(2));
     //console.log(salesData)
 
     let urlExist = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_R') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd} and contains(vatRegistrationNo, '${x.NIF}') and remainingAmount eq ${importTotal}`;
@@ -726,7 +727,8 @@ export class salesSilemaService {
       orderDate: `${formattedDateDayEnd}`, // Fecha pedido
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
       recapInvoice: true, // Factura recap //false
-      remainingAmount: importTotal, // Precio total incluyendo IVA por factura
+      remainingAmount: parseFloat(x.TOTAL.toFixed(2)), // Precio total incluyendo IVA por factura
+      amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)), // Precio total sin IVA por factura
       shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
@@ -765,7 +767,7 @@ export class salesSilemaService {
       importTotal += parseFloat(x.IMPORTE_TOTAL)
       salesData.salesLinesBuffer.push(salesLine);
     }
-    salesData.remainingAmount = Number(importTotal.toFixed(2));
+    //salesData.remainingAmount = Number(importTotal.toFixed(2));
     //console.log(salesData)
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
@@ -875,7 +877,8 @@ export class salesSilemaService {
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
       recapInvoice: false, // Factura recap //false
       manualRecapInvoice: true, // Factura manual
-      remainingAmount: importTotal, // Precio total incluyendo IVA por factura
+      remainingAmount: parseFloat(x.TOTAL.toFixed(2)), // Precio total incluyendo IVA por factura
+      amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)), // Precio total sin IVA por factura
       shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
@@ -929,13 +932,13 @@ export class salesSilemaService {
       importTotal += parseFloat(x.PRECIO)
       salesData.salesLinesBuffer.push(salesLine);
     }
-    salesData.remainingAmount = Number(importTotal.toFixed(2));
+    //salesData.remainingAmount = Number(importTotal.toFixed(2));
     //console.log(salesData)
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
     // Abono recap manual
     arrayDatos = [];
-    
+
     //console.log(`Mes inicial: ${monthInicial}, Mes final: ${mesFinal}`);
     for (let i = parseInt(monthInicial, 10); i <= parseInt(mesFinal, 10); i++) {
       const month = String(i).padStart(2, '0'); // Asegura que el mes tenga dos dígitos
@@ -1039,7 +1042,8 @@ export class salesSilemaService {
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
       recapInvoice: false, // Factura recap //false
       manualRecapInvoice: true, // Factura manual
-      remainingAmount: importTotal, // Precio total incluyendo IVA por factura
+      remainingAmount: parseFloat(x.TOTAL.toFixed(2)), // Precio total incluyendo IVA por factura
+      amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)), // Precio total sin IVA por factura
       shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
@@ -1078,7 +1082,7 @@ export class salesSilemaService {
       importTotal += parseFloat(x.IMPORTE_TOTAL)
       salesData.salesLinesBuffer.push(salesLine);
     }
-    salesData.remainingAmount = Number(importTotal.toFixed(2));
+    //salesData.remainingAmount = Number(importTotal.toFixed(2));
     //console.log(salesData)
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
@@ -1211,7 +1215,8 @@ export class salesSilemaService {
         orderDate: formattedDate2,
         postingDate: formattedDate2,
         recapInvoice: false,
-        remainingAmount: parseFloat(importAmount), // Esto parece que debería ser diferente para cada turno, revísalo
+        remainingAmount: parseFloat(x.Total.toFixed(2)), // Esto parece que debería ser diferente para cada turno, revísalo
+        amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)),
         shift: `Shift_x0020_${turno}`,
         sellToCustomerNo: sellToCustomerNo,
         shipToCode: `${this.extractNumber(x.Nom).toUpperCase()}`,
@@ -1243,7 +1248,7 @@ export class salesSilemaService {
         };
         salesData.salesLinesBuffer.push(salesLine);
       }
-      salesData.remainingAmount = parseFloat(Number(x.Total).toFixed(2));
+      //salesData.remainingAmount = parseFloat(Number(x.Total).toFixed(2));
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
     }
   }
@@ -1320,8 +1325,8 @@ export class salesSilemaService {
           a.NifTienda,
           a.IVA,
           a.Importe,
-          t.TotalAmbIVA,    
-          Round(t.TotalSenseIVA,2) 
+          Round(t.TotalAmbIVA,2) as TotalAmbIVA,
+          Round(t.TotalSenseIVA,2) as TotalSenseIVA
       FROM   Aggregated a
       CROSS  JOIN Totals t
       ORDER  BY
@@ -1389,8 +1394,8 @@ export class salesSilemaService {
           a.CodigoCliente,
           a.Importe,        
           a.IVA,
-          t.TotalAmbIVA,
-          t.TotalSenseIVA 
+          Round(t.TotalAmbIVA,2) as TotalAmbIVA,
+          Round(t.TotalSenseIVA,2) as TotalSenseIVA
       FROM (
           SELECT
               fd.Nom AS Nom,
@@ -1451,7 +1456,8 @@ export class salesSilemaService {
         personalStoreInvoice: true,
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
-        remainingAmount: importAmount, // Precio total incluyendo IVA por factura
+        remainingAmount: parseFloat(x.TotalAmbIVA.toFixed(2)), // Precio total incluyendo IVA por factura
+        amountExclVat: parseFloat(x.TotalSenseIVA.toFixed(2)), // Precio total sin IVA por factura
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${this.extractNumber(x.Nom).toUpperCase()}`, // Cód. dirección envío cliente
@@ -1480,7 +1486,6 @@ export class salesSilemaService {
         importAmount += parseFloat(x.Importe)
         salesData.salesLinesBuffer.push(salesLine);
       }
-      salesData.remainingAmount = Number(importAmount.toFixed(2));
 
 
       //console.log(salesData)
@@ -1507,7 +1512,8 @@ export class salesSilemaService {
         personalStoreInvoice: true,
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
-        remainingAmount: importAmount, // Precio total incluyendo IVA por factura
+        remainingAmount: parseFloat(x.TotalAmbIVA.toFixed(2)), // Precio total incluyendo IVA por factura
+        amountExclVat: parseFloat(x.TotalSenseIVA.toFixed(2)), // Precio total sin IVA por factura
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${this.extractNumber(x.Nom).toUpperCase()}`, // Cód. dirección envío cliente
@@ -1534,7 +1540,8 @@ export class salesSilemaService {
           cliente = `C${nCliente}`
           salesData.no = `${x.Nom}_${turno}_${formattedDate}_${cliente}`
           importAmount = 0;
-          salesData.remainingAmount = importAmount;
+          salesData.remainingAmount = x.TotalAmbIVA;
+          salesData.amountExclVat = x.TotalSenseIVA;
         }
         x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
         if (x.IVA === 'IVA00') x.IVA = 'IVA0';
@@ -1552,7 +1559,6 @@ export class salesSilemaService {
         };
         salesData.salesLinesBuffer.push(salesLine);
         // console.log("Importe a sumar: " + x.Importe)
-        salesData.remainingAmount = Number((salesData.remainingAmount + parseFloat(x.Importe)).toFixed(2));
         NifAnterior = x.NIF
       }
       // console.log(salesData.remainingAmount)
