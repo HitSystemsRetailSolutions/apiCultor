@@ -74,7 +74,7 @@ export class salesSilemaService {
   async syncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, database, botigas: Array<String>, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
       let errorWhere = '';
-      let cierre = false;
+      let cierre = true;
       for (const botiga of botigas) {
         // Itera desde el día inicial hasta el día final
         for (let day = dayStart; day <= dayEnd; day++) {
@@ -123,7 +123,7 @@ export class salesSilemaService {
   async syncSalesSilemaDateTurno(dayStart, dayEnd, month, year, companyID, database, botigas: Array<String>, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
       let errorWhere = '';
-      let cierre = false;
+      let cierre = true;
       for (const botiga of botigas) {
         // Itera desde el día inicial hasta el día final
         for (let day = dayStart; day <= dayEnd; day++) {
