@@ -54,8 +54,10 @@ export class trabajadoresService {
       }
       //Actualiza el timestamp de la base de datos
       let sqlUpdate = `UPDATE records SET timestamp = GETDATE() WHERE Concepte = 'BC_Dependentes_${empresa.empresaID}'`;
-      if (!error) await this.sql.runSql(sqlUpdate, database);
-      console.log(`Timestamp actualizado para la empresa ${empresa.nombre}\n............................\n`);
+      if (!error) {
+        await this.sql.runSql(sqlUpdate, database);
+        console.log(`Timestamp actualizado para la empresa ${empresa.nombre}\n............................\n`);
+      }
     }
     return true;
   }
