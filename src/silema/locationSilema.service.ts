@@ -41,7 +41,7 @@ export class locationSilemaService {
         let queryCodi = await this.sql.runSql(sqlCodi, database);
         const location = {
           Codi: queryCodi.recordset[0].codigo_disponible || 0,
-          Nom: `T--${res.data.value[i].code || ''}`,
+          Nom: `T--${res.data.value[i].code} ${res.data.value[i].name}` || '',
           Adresa: res.data.value[i].address || '',
           Ciutat: res.data.value[i].city || '',
           Cp: res.data.value[i].postCode || 0,
@@ -53,7 +53,7 @@ export class locationSilemaService {
           Nif: res2.data.value[0].taxRegistrationNumber || '',
         };
 
-        let sqlSincroIds = `SELECT * FROM BC_SincroIds WHERE IdBc = '${res.data.value[i].number}'`;
+        let sqlSincroIds = `SELECT * FROM BC_SincroIds WHERE IdBc = '${location.numberBc}'`;
         let querySincro = await this.sql.runSql(sqlSincroIds, database);
         try {
           if (querySincro.recordset.length == 0) {
