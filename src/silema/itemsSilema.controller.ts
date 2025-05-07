@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Query, Res, Param } from '@nestjs/common';
 import { itemsSilemaService } from './itemsSilema.service';
 @Controller()
 export class itemsSilemaController {
-  constructor(private readonly itemsSilemaService: itemsSilemaService) { }
+  constructor(private readonly itemsSilemaService: itemsSilemaService) {}
   @Get('syncItemsSilema')
   async syncItemsSilema(
     @Query('companyID') companyID: string,

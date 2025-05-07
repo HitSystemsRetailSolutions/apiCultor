@@ -5,7 +5,7 @@ import fs = require('fs');
 // GET ---> SOLO ESPERAS RESPUESTA (LA HORA)
 @Controller()
 export class salesSilemaController {
-  constructor(private readonly salesSilemaService: salesSilemaService) { }
+  constructor(private readonly salesSilemaService: salesSilemaService) {}
 
   @Get('syncSalesSilemaRecords')
   async salesSilemaRecords(
@@ -130,7 +130,7 @@ export class salesSilemaController {
     @Query('tenant') tenant: string,
     @Query('entorno') entorno: string,
   ) {
-    let res = await this.salesSilemaService.syncRecapPeriodo(periodoRecap, month, year, companyID, database, client_id, client_secret, tenant, entorno)
+    let res = await this.salesSilemaService.syncRecapPeriodo(periodoRecap, month, year, companyID, database, client_id, client_secret, tenant, entorno);
     if (res == true) return 'Se han sincronizado los tickets correctamente';
     else return 'Ha habido un error al sincronizar los tickets';
   }
@@ -149,7 +149,7 @@ export class salesSilemaController {
     @Query('tenant') tenant: string,
     @Query('entorno') entorno: string,
   ) {
-    let res = await this.salesSilemaService.syncSalesSilemaRecapitulativaManual(TicketsArray, client, monthIncial, monthFinal, year, companyID, database, client_id, client_secret, tenant, entorno)
+    let res = await this.salesSilemaService.syncSalesSilemaRecapitulativaManual(TicketsArray, client, monthIncial, monthFinal, year, companyID, database, client_id, client_secret, tenant, entorno);
     if (res == true) return 'Se han sincronizado los tickets correctamente';
     else return 'Ha habido un error al sincronizar los tickets';
   }
