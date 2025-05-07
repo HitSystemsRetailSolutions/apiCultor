@@ -183,7 +183,7 @@ export class locationSilemaService {
     query = 5 //DELETE ALL from Codi
     */
     if (query == 1) {
-      let sql = `SELECT * FROM constantClient WHERE Codi = ${Codi} and Variable = ${Variable}`;
+      let sql = `SELECT * FROM constantClient WHERE Codi = ${Codi} and Variable = '${Variable}'`;
       console.log(sql);
       let sqlQuery = await this.sql.runSql(sql, database);
       return sqlQuery.length;
@@ -192,11 +192,11 @@ export class locationSilemaService {
       console.log(sql);
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 3) {
-      let sql = `UPDATE constantsclient SET Valor = '${Valor}' WHERE Codi = ${Codi} and Variable = ${Variable}`;
+      let sql = `UPDATE constantsclient SET Valor = '${Valor}' WHERE Codi = ${Codi} and Variable = '${Variable}'`;
       console.log(sql);
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 4) {
-      let sql = `DELETE FROM constantsclient WHERE Codi = ${Codi} and Variable = ${Variable}`;
+      let sql = `DELETE FROM constantsclient WHERE Codi = ${Codi} and Variable = '${Variable}'`;
       console.log(sql);
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 5) {
