@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { getTokenService } from '../connection/getToken.service';
 import { runSqlService } from 'src/connection/sqlConection.service';
+import { customersService } from 'src/customers/customers.service';
 import axios from 'axios';
 import * as mqtt from 'mqtt';
 
@@ -15,6 +16,7 @@ export class initConfigService {
   constructor(
     private tokenService: getTokenService,
     private sqlService: runSqlService,
+    private customers: customersService,
   ) {}
 
   async initConfig(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -272,15 +274,17 @@ export class initConfigService {
 
   async createClientesContado(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
+    const payMethodId = await this.customers.getPaymentMethodId('EFECTIVO', companyID, client_id, client_secret, tenant, entorno);
     const customerData = {
       number: `22222222T`,
       displayName: `CLIENTES CONTADO TIENDAS`,
       type: 'Company',
-      addressLine1: `.`,
-      city: `.`,
+      // addressLine1: `.`,
+      // city: `.`,
       country: 'ES',
       taxRegistrationNumber: `22222222T`,
       currencyCode: 'EUR',
+      paymentMethodId: `${payMethodId}`,
       formatRegion: 'es-ES_tradnl',
       languageCode: 'CAT',
       customerPostingGroup: 'NAC',

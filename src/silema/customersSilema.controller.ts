@@ -5,7 +5,7 @@ import fs = require('fs');
 // GET ---> SOLO ESPERAS RESPUESTA (LA HORA)
 @Controller()
 export class customersSilemaController {
-  constructor(private readonly customersSilemaService: customersSilemaService) { }
+  constructor(private readonly customersSilemaService: customersSilemaService) {}
 
   @Get('syncCustomersSilema')
   async syncCustomersSilema(

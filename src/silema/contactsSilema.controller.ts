@@ -5,7 +5,7 @@ import fs = require('fs');
 // GET ---> SOLO ESPERAS RESPUESTA (LA HORA)
 @Controller()
 export class contactsSilemaController {
-  constructor(private readonly contactsSilemaService: contactsSilemaService) { }
+  constructor(private readonly contactsSilemaService: contactsSilemaService) {}
 
   @Get('syncContactsSilema')
   async syncContactsSilema(
