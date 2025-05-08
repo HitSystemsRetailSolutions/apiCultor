@@ -46,6 +46,10 @@ import { locationsController } from './locations/locations.controller';
 import { locationsService } from './locations/locations.service';
 import { trabajadoresController } from './trabajadores/trabajadores.controller';
 import { trabajadoresService } from './trabajadores/trabajadores.service';
+import { salesSilemaRecapManualService } from './silema/salesSilemaRecapManual.service';  
+import { salesSilemaRecapManualController } from './silema/salesSilemaRecapManual.controller';
+import { salesSilemaRecapController } from './silema/salesSilemaRecap.controller';    
+import { salesSilemaRecapService } from './silema/salesSilemaRecap.service';
 
 
 @Module({
@@ -74,6 +78,8 @@ import { trabajadoresService } from './trabajadores/trabajadores.service';
     initConfigController,
     locationsController,
     trabajadoresController,
+    salesSilemaRecapManualController,
+    salesSilemaRecapController,
   ],
   providers: [
     employeesService,
@@ -101,6 +107,8 @@ import { trabajadoresService } from './trabajadores/trabajadores.service';
     initConfigService,
     locationsService,
     trabajadoresService,
+    salesSilemaRecapManualService,
+    salesSilemaRecapService,
   ],
 })
 export class AppModule {}
