@@ -172,11 +172,11 @@ export class trabajadoresService {
         console.log(`Trabajador ya existe, dni/codigo: ${trabajador.documento}`);
         codi = query.recordset[0].id;
         // Actualiza el trabajador existente
-        let sqlUpdate = ` UPDATE dependentes SET CODI = '${query.recordset[0].id}', NOM = '${nom}', MEMO = '${memo}', ADREÇA = '${adreça}', Icona = '${icona}', [Hi Editem Horaris] = ${hiEditemHoraris}, Tid = '${tid}' WHERE CODI = '${codi}' `;
+        let sqlUpdate = ` UPDATE dependentes SET CODI = '${query.recordset[0].id}', NOM = '${nom}', ADREÇA = '${adreça}', Icona = '${icona}', [Hi Editem Horaris] = ${hiEditemHoraris}, Tid = '${tid}' WHERE CODI = '${codi}' `;
         await this.sql.runSql(sqlUpdate, database);
         for (const { nom, valor } of inserts) {
           // Salta la inserción si el valor está vacío, null, undefined o solo espacios
-          if (valor == null || valor.toString().trim() === '') continue;
+          if (valor == null || valor.toString().trim() === '' || nom === 'TIPUSTREBALLADOR') continue;
 
           const safeNom = nom.replace(/'/g, "''");
           const safeValor = valor.toString().replace(/'/g, "''");
