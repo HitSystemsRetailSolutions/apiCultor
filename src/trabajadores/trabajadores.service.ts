@@ -152,7 +152,7 @@ export class trabajadoresService {
       if (query.recordset.length == 0) {
         console.log(`Trabajador a procesar: ${trabajador.documento}`);
         let sqlInsert = ` INSERT INTO dependentes ( CODI, NOM, MEMO, ADREÇA, Icona, [Hi Editem Horaris], Tid) 
-        VALUES ( '${codi}', '${nom}', '${memo}', '${adreça}', '${icona}', ${hiEditemHoraris}, '${tid}'); `;
+        VALUES ( '${codi}', '${this.escapeSqlString(nom)}', '${this.escapeSqlString(memo)}', '${this.escapeSqlString(adreça)}', '${icona}', ${hiEditemHoraris}, '${tid}'); `;
         await this.sql.runSql(sqlInsert, database);
         for (const { nom, valor } of inserts) {
           // Salta la inserción si el valor está vacío, null, undefined o solo espacios
@@ -172,7 +172,7 @@ export class trabajadoresService {
         console.log(`Trabajador ya existe, dni/codigo: ${trabajador.documento}`);
         codi = query.recordset[0].id;
         // Actualiza el trabajador existente
-        let sqlUpdate = ` UPDATE dependentes SET CODI = '${query.recordset[0].id}', NOM = '${nom}', ADREÇA = '${adreça}', Icona = '${icona}', [Hi Editem Horaris] = ${hiEditemHoraris}, Tid = '${tid}' WHERE CODI = '${codi}' `;
+        let sqlUpdate = ` UPDATE dependentes SET CODI = '${query.recordset[0].id}', NOM = '${this.escapeSqlString(nom)}', ADREÇA = '${this.escapeSqlString(adreça)}', Icona = '${icona}', [Hi Editem Horaris] = ${hiEditemHoraris}, Tid = '${tid}' WHERE CODI = '${codi}' `;
         await this.sql.runSql(sqlUpdate, database);
         for (const { nom, valor } of inserts) {
           // Salta la inserción si el valor está vacío, null, undefined o solo espacios
@@ -196,12 +196,8 @@ export class trabajadoresService {
         }
         console.log(`Trabajador actualizado con dni: ${trabajador.documento}`);
       }
-      console.log('Trabajador procesado\n--------------------');
       i++;
-      if (i % 10 === 0) {
-        console.log(`Procesados ${i} trabajadores`);
-        return true;
-      }
+      console.log(`Trabajador procesado (${i}/${res.data.value.length})\n--------------------`);
     }
     return true;
   }
@@ -209,5 +205,9 @@ export class trabajadoresService {
   private logError(message: string, error: any) {
     this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
     console.error(message, error.response?.data || error.message);
+  }
+  escapeSqlString(value) {
+    if (value == null) return '';
+    return String(value).replace(/'/g, "''");
   }
 }
