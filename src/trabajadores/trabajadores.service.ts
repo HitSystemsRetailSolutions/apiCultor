@@ -176,7 +176,7 @@ export class trabajadoresService {
         await this.sql.runSql(sqlUpdate, database);
         for (const { nom, valor } of inserts) {
           // Salta la inserción si el valor está vacío, null, undefined o solo espacios
-          if (valor == null || valor.toString().trim() === '' || nom === 'TIPUSTREBALLADOR') continue;
+          if (!valor?.toString().trim() || ['TIPUSTREBALLADOR', 'TLF_MOBIL', 'EMAIL'].includes(nom)) continue;
 
           const safeNom = nom.replace(/'/g, "''");
           const safeValor = valor.toString().replace(/'/g, "''");
@@ -208,6 +208,6 @@ export class trabajadoresService {
   }
   escapeSqlString(value) {
     if (value == null) return '';
-    return String(value).replace(/'/g, "''");
+    return String(value).replace(/'/g, '´');
   }
 }
