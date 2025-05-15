@@ -19,6 +19,8 @@ export class salesSilemaRecapManualService {
     // if (queryFranquicia.recordset.length >= 1) return;
     const TicketsString = TicketsArray.join(',');
     let arrayDatos = [];
+    let totalSinIVA = 0;
+    let totalConIVA = 0;
     //console.log(`Mes inicial: ${monthInicial}, Mes final: ${mesFinal}`);
     for (let i = parseInt(monthInicial, 10); i <= parseInt(mesFinal, 10); i++) {
       const month = String(i).padStart(2, '0'); // Asegura que el mes tenga dos dígitos
@@ -71,9 +73,13 @@ export class salesSilemaRecapManualService {
           ROUND(V.Import / NULLIF(V.Quantitat, 0), 5)
       HAVING SUM(V.Quantitat) > 0
       ORDER BY V.data;`;
-      //console.log(sqlQ);
+      // console.log(sqlQ);
       let data = await this.sql.runSql(sqlQ, database);
       arrayDatos.push(data.recordset);
+      if (data.recordset.length > 0) {
+      totalConIVA += data.recordset[0].TOTAL;
+      totalSinIVA += data.recordset[0].TotalSinIVA;
+      }
       console.log(`Mes ${month} - ${data.recordset.length} datos encontrados`);
     }
     if (arrayDatos.length === 0) {
@@ -103,19 +109,23 @@ export class salesSilemaRecapManualService {
     let n = await this.getNumberOfRecap(url, token);
     if (n == undefined) n = 1;
 
+    const codis = Array.from(new Set(datosPlanos.map((x) => this.extractNumber(x.TIENDA))));
+    const locationCode = codis.length > 1 ? '000' : codis[0];
+    const locationCodeDocNo = codis.length > 1 ? 'T--000' : x.TIENDA.substring(0, 6);
+
     let salesData = {
-      no: `${x.TIENDA.substring(0, 6)}_${formattedDate}_RM${n}`, // Nº factura
+      no: `${locationCodeDocNo}_${formattedDate}_RM${n}`, // Nº factura
       documentType: 'Invoice', // Tipo de documento
       dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
-      externalDocumentNo: `${x.TIENDA.substring(0, 6)}_${formattedDate}_RM${n}`, // Nº documento externo
-      locationCode: `${this.extractNumber(x.TIENDA)}`, // Cód. almacén
+      externalDocumentNo: `${locationCodeDocNo}_${formattedDate}_RM${n}`, // Nº documento externo
+      locationCode: `${locationCode}`, // Cód. almacén
       orderDate: `${formattedDateDayEnd}`, // Fecha pedido
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
       recapInvoice: false, // Factura recap //false
       manualRecapInvoice: true, // Factura manual
-      remainingAmount: parseFloat(x.TOTAL.toFixed(2)), // Precio total incluyendo IVA por factura
-      amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)), // Precio total sin IVA por factura
-      shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
+      remainingAmount: parseFloat(totalConIVA.toFixed(2)), // Precio total incluyendo IVA por factura
+      amountExclVat: parseFloat(totalSinIVA.toFixed(2)), // Precio total sin IVA por factura
+      shipToCode: `${locationCode}`, // Cód. dirección envío cliente
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
@@ -124,7 +134,7 @@ export class salesSilemaRecapManualService {
     };
 
     let countLines = 1;
-    let changetLocationCode = false;
+    let lastAlbaranDescription = '';
     for (let i = 0; i < datosPlanos.length; i++) {
       x = datosPlanos[i];
       let date = new Date(x.FECHA);
@@ -133,24 +143,22 @@ export class salesSilemaRecapManualService {
       let shortYear = date.getFullYear().toString().slice(-2); // Obtiene los últimos dos dígitos del año
       let isoDate = date.toISOString().substring(0, 10);
       let formattedDateAlbaran = `${day}/${month}/${shortYear}`;
-      if (this.extractNumber(x.TIENDA) != salesData.locationCode && !changetLocationCode) {
-        salesData.no = `T--000_${formattedDate}_RM${n}`;
-        salesData.externalDocumentNo = `T--000_${formattedDate}_RM${n}`;
-        salesData.locationCode = '000';
-        salesData.shipToCode = '000';
-        changetLocationCode = true;
+      let currentAlbaranDescription = `albaran nº ${x.TICKET} ${formattedDateAlbaran}`;
+
+      if (currentAlbaranDescription !== lastAlbaranDescription) {
+        let salesLineAlbaran = {
+          documentNo: `${salesData.no}`,
+          lineNo: countLines,
+          description: currentAlbaranDescription,
+          quantity: 1,
+          shipmentDate: `${isoDate}`,
+          lineTotalAmount: 0,
+          locationCode: `${this.extractNumber(x.TIENDA)}`,
+        };
+        countLines++;
+        salesData.salesLinesBuffer.push(salesLineAlbaran);
+        lastAlbaranDescription = currentAlbaranDescription;
       }
-      let salesLineAlbaran = {
-        documentNo: `${salesData.no}`,
-        lineNo: countLines,
-        description: `albaran nº ${x.TICKET} ${formattedDateAlbaran}`,
-        quantity: 1,
-        shipmentDate: `${isoDate}`,
-        lineTotalAmount: 0,
-        locationCode: `${this.extractNumber(x.TIENDA)}`,
-      };
-      countLines++;
-      salesData.salesLinesBuffer.push(salesLineAlbaran);
       let salesLine = {
         documentNo: `${salesData.no}`,
         type: `Item`,
@@ -169,7 +177,7 @@ export class salesSilemaRecapManualService {
       salesData.salesLinesBuffer.push(salesLine);
     }
     //salesData.remainingAmount = Number(importTotal.toFixed(2));
-    // console.log(salesData)
+    // console.log(salesData);
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
     // ---------------------------------Abono recap manual---------------------------------
@@ -237,9 +245,8 @@ export class salesSilemaRecapManualService {
           C.NIF
       HAVING SUM(V.Quantitat) > 0
       ORDER BY MIN(V.data);`;
-    //   console.log(sqlQ);
+      //   console.log(sqlQ);
       let data = await this.sql.runSql(sqlQ, database);
-      console.log(data.recordset);
       arrayDatos.push(data.recordset);
       console.log(`Mes ${month} - ${data.recordset.length} datos encontrados`);
     }
@@ -270,18 +277,18 @@ export class salesSilemaRecapManualService {
 
     importTotal = 0;
     salesData = {
-      no: `${x.TIENDA.substring(0, 6)}_${formattedDate}_ARM${n}`, // Nº factura
+      no: `${locationCodeDocNo}_${formattedDate}_ARM${n}`, // Nº factura
       documentType: 'Credit_x0020_Memo', // Tipo de documento
       dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
-      externalDocumentNo: `${x.TIENDA.substring(0, 6)}_${formattedDate}_ARM${n}`, // Nº documento externo
-      locationCode: `${this.extractNumber(x.TIENDA)}`, // Cód. almacén
+      externalDocumentNo: `${locationCodeDocNo}_${formattedDate}_ARM${n}`, // Nº documento externo
+      locationCode: `${locationCode}`, // Cód. almacén
       orderDate: `${formattedDateDayEnd}`, // Fecha pedido
       postingDate: `${formattedDateDayEnd}`, // Fecha registro
       recapInvoice: false, // Factura recap //false
       manualRecapInvoice: true, // Factura manual
-      remainingAmount: parseFloat(x.TOTAL.toFixed(2)), // Precio total incluyendo IVA por factura
-      amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)), // Precio total sin IVA por factura
-      shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
+      remainingAmount: parseFloat(totalConIVA.toFixed(2)), // Precio total incluyendo IVA por factura
+      amountExclVat: parseFloat(totalSinIVA.toFixed(2)), // Precio total sin IVA por factura
+      shipToCode: `${locationCode}`, // Cód. dirección envío cliente
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
@@ -289,18 +296,12 @@ export class salesSilemaRecapManualService {
       salesLinesBuffer: [], // Array vacío para las líneas de ventas
     };
     countLines = 1;
-    changetLocationCode = false;
+
     for (let i = 0; i < datosPlanos.length; i++) {
       x = datosPlanos[i];
       let date = new Date(x.FECHA_PRIMERA_VENTA);
       let isoDate = date.toISOString().substring(0, 10);
-      if (this.extractNumber(x.TIENDA) != salesData.locationCode && !changetLocationCode) {
-        salesData.no = `T--000_${formattedDate}_ARM${n}`;
-        salesData.externalDocumentNo = `T--000_${formattedDate}_ARM${n}`;
-        salesData.locationCode = '000';
-        salesData.shipToCode = '000';
-        changetLocationCode = true;
-      }
+
       let salesLine = {
         documentNo: `${salesData.no}`,
         type: `Item`,
@@ -320,7 +321,7 @@ export class salesSilemaRecapManualService {
       salesData.salesLinesBuffer.push(salesLine);
     }
     //salesData.remainingAmount = Number(importTotal.toFixed(2));
-    // console.log(salesData)
+    // console.log('salesdata', salesData);
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
     return true;
