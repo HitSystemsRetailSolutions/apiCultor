@@ -208,6 +208,6 @@ export class trabajadoresService {
   }
   escapeSqlString(value) {
     if (value == null) return '';
-    return String(value).replace(/'/g, "''");
+    return String(value).replace(/'/g, '´');
   }
 }
