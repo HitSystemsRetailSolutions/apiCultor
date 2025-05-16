@@ -53,7 +53,7 @@ export class locationSilemaService {
           Nif: res2.data.value[0].taxRegistrationNumber || '',
         };
 
-        let sqlSincroIds = `SELECT * FROM BC_SincroIds WHERE IdBc = '${location.numberBc}'`;
+        let sqlSincroIds = `SELECT * FROM BC_SincroIds WHERE IdBc = '${location.numberBc}' AND IdEmpresaBc = '${companyID}' AND IdEmpresaHit = '${database}' AND TipoDato = 'location'`;
         let querySincro = await this.sql.runSql(sqlSincroIds, database);
         try {
           if (querySincro.recordset.length == 0) {
@@ -67,7 +67,6 @@ export class locationSilemaService {
               }
             }
             if (!sqlInserted) {
-              console.log('El cliente ya existe en la base de datos');
 
               // Intentamos obtener el Codi real del cliente en clients
               let sqlGetCodi = `
@@ -80,7 +79,6 @@ export class locationSilemaService {
 
               if (resultCodi.recordset.length > 0) {
                 location.Codi = resultCodi.recordset[0].Codi;
-                console.log(`Codi encontrado: ${location.Codi}`);
               } else {
                 console.warn(`No se pudo encontrar el Codi del cliente para actualizar: ${location.Nom}`);
                 continue;
@@ -107,20 +105,17 @@ export class locationSilemaService {
     (${location.Codi}, '${this.escapeSqlString(location.Nom)}', '${this.escapeSqlString(location.Nif)}', '${this.escapeSqlString(location.Adresa)}', '${this.escapeSqlString(location.Ciutat)}', '${location.Cp}', '${this.escapeSqlString(
       location.NomLlarg,
     )}')`;
-    console.log(sqlInsert);
 
     let tipoDato = 'location';
 
     let sqlSincroIds = `INSERT INTO BC_SincroIds (TmSt, TipoDato, IdBc, IdHit, IdEmpresaBc, IdEmpresaHit)
       VALUES (GETDATE(), '${tipoDato}', '${location.numberBc}', '${location.Codi}', '${companyID}', '${database}')`;
-    console.log(sqlSincroIds);
     try {
       await this.sql.runSql(sqlInsert, database);
       await this.sql.runSql(sqlSincroIds, database);
       if (location.eMail != '') await this.sqlConstantClient(location.Codi, 'eMail', location.eMail, 2, database);
       if (location.phone != '') await this.sqlConstantClient(location.Codi, 'Tel', location.phone, 2, database);
       await this.marcarProcesado(location.idBc, token, companyID, tenant, entorno);
-      console.log('Location procesado');
     } catch (error) {
       console.error(`Error insertar el location: ID=${location.idBc}, Nombre=${location.Nom}, CompanyID=${companyID}`);
       console.error(error);
@@ -129,8 +124,7 @@ export class locationSilemaService {
 
   async actualizarLocation(accion, location, token, database, companyID, tenant, entorno) {
     try {
-      if (accion == 1) {
-        let sqlUpdate = `UPDATE clients SET 
+      let sqlUpdate = `UPDATE clients SET 
           Nom = '${this.escapeSqlString(location.Nom)}',
           Nif = '${this.escapeSqlString(location.Nif)}',
           Adresa = '${this.escapeSqlString(location.Adresa)}',
@@ -138,28 +132,17 @@ export class locationSilemaService {
           Cp = '${location.Cp}',
           [Nom Llarg] = '${this.escapeSqlString(location.NomLlarg)}'
           WHERE Codi = ${location.Codi};`;
-        console.log(sqlUpdate);
+      if (accion == 1) {
         await this.sqlConstantClient(location.Codi, 'eMail', '', 4, database);
         await this.sqlConstantClient(location.Codi, 'Tel', '', 4, database);
         await this.sql.runSql(sqlUpdate, database);
         if (location.eMail) await this.sqlConstantClient(location.Codi, 'eMail', location.eMail, 2, database);
         if (location.phone) await this.sqlConstantClient(location.Codi, 'Tel', location.phone, 2, database);
         await this.marcarProcesado(location.idBc, token, companyID, tenant, entorno);
-        console.log('Location actualizado');
       } else if (accion == 2) {
-        let sqlUpdate = `UPDATE clients SET 
-          Nom = '${this.escapeSqlString(location.Nom)}',
-          Nif = '${this.escapeSqlString(location.Nif)}',
-          Adresa = '${this.escapeSqlString(location.Adresa)}',
-          Ciutat = '${this.escapeSqlString(location.Ciutat)}',
-          Cp = '${location.Cp}',
-          [Nom Llarg] = '${this.escapeSqlString(location.NomLlarg)}'
-          WHERE Codi = ${location.Codi};`;
-        console.log(sqlUpdate);
         let tipoDato = 'location';
         let sqlSincroIds = `INSERT INTO BC_SincroIds (TmSt, TipoDato, IdBc, IdHit, IdEmpresaBc, IdEmpresaHit)
            VALUES (GETDATE(), '${tipoDato}', '${location.numberBc}', '${location.Codi}', '${companyID}', '${database}')`;
-        console.log(sqlSincroIds);
         await this.sql.runSql(sqlUpdate, database);
         await this.sql.runSql(sqlSincroIds, database);
         await this.sqlConstantClient(location.Codi, 'eMail', '', 4, database);
@@ -167,7 +150,6 @@ export class locationSilemaService {
         if (location.eMail != '') await this.sqlConstantClient(location.Codi, 'eMail', location.eMail, 2, database);
         if (location.phone != '') await this.sqlConstantClient(location.Codi, 'Tel', location.phone, 2, database);
         await this.marcarProcesado(location.idBc, token, companyID, tenant, entorno);
-        console.log('Location actualizado');
       }
     } catch (error) {
       console.error(`Error al actualizar el location: ID=${location.idBc}, Nombre=${location.Nom}, CompanyID=${companyID}`);
@@ -184,24 +166,19 @@ export class locationSilemaService {
     */
     if (query == 1) {
       let sql = `SELECT * FROM constantClient WHERE Codi = ${Codi} and Variable = '${Variable}'`;
-      console.log(sql);
       let sqlQuery = await this.sql.runSql(sql, database);
       return sqlQuery.length;
     } else if (query == 2) {
       let sql = `INSERT INTO constantsclient (Codi, Variable, Valor) VALUES ('${Codi}', '${Variable}', '${Valor}')`;
-      console.log(sql);
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 3) {
       let sql = `UPDATE constantsclient SET Valor = '${Valor}' WHERE Codi = ${Codi} and Variable = '${Variable}'`;
-      console.log(sql);
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 4) {
       let sql = `DELETE FROM constantsclient WHERE Codi = ${Codi} and Variable = '${Variable}'`;
-      console.log(sql);
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 5) {
       let sql = `DELETE FROM constantsclient WHERE Codi = ${Codi}`;
-      console.log(sql);
       let sqlQuery = await this.sql.runSql(sql, database);
     }
   }
