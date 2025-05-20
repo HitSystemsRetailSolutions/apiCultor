@@ -51,6 +51,7 @@ export class locationSilemaService {
           idBc: res.data.value[i].id || '',
           numberBc: res.data.value[i].code || '',
           Nif: res2.data.value[0].taxRegistrationNumber || '',
+          franquicia: res.data.value[i].franchised || false,
         };
 
         let sqlSincroIds = `SELECT * FROM BC_SincroIds WHERE IdBc = '${location.numberBc}' AND IdEmpresaBc = '${companyID}' AND IdEmpresaHit = '${database}' AND TipoDato = 'location'`;
@@ -115,6 +116,7 @@ export class locationSilemaService {
       await this.sql.runSql(sqlSincroIds, database);
       if (location.eMail != '') await this.sqlConstantClient(location.Codi, 'eMail', location.eMail, 2, database);
       if (location.phone != '') await this.sqlConstantClient(location.Codi, 'Tel', location.phone, 2, database);
+      if (location.franquicia) await this.sqlConstantClient(location.Codi, 'Franquicia', 'Franquicia', 2, database);
       await this.marcarProcesado(location.idBc, token, companyID, tenant, entorno);
     } catch (error) {
       console.error(`Error insertar el location: ID=${location.idBc}, Nombre=${location.Nom}, CompanyID=${companyID}`);
@@ -135,9 +137,11 @@ export class locationSilemaService {
       if (accion == 1) {
         await this.sqlConstantClient(location.Codi, 'eMail', '', 4, database);
         await this.sqlConstantClient(location.Codi, 'Tel', '', 4, database);
+        await this.sqlConstantClient(location.Codi, 'Franquicia', '', 4, database);
         await this.sql.runSql(sqlUpdate, database);
         if (location.eMail) await this.sqlConstantClient(location.Codi, 'eMail', location.eMail, 2, database);
         if (location.phone) await this.sqlConstantClient(location.Codi, 'Tel', location.phone, 2, database);
+        if (location.franquicia) await this.sqlConstantClient(location.Codi, 'Franquicia', 'Franquicia', 2, database);
         await this.marcarProcesado(location.idBc, token, companyID, tenant, entorno);
       } else if (accion == 2) {
         let tipoDato = 'location';
@@ -147,8 +151,10 @@ export class locationSilemaService {
         await this.sql.runSql(sqlSincroIds, database);
         await this.sqlConstantClient(location.Codi, 'eMail', '', 4, database);
         await this.sqlConstantClient(location.Codi, 'Tel', '', 4, database);
+        await this.sqlConstantClient(location.Codi, 'Franquicia', '', 4, database);
         if (location.eMail != '') await this.sqlConstantClient(location.Codi, 'eMail', location.eMail, 2, database);
         if (location.phone != '') await this.sqlConstantClient(location.Codi, 'Tel', location.phone, 2, database);
+        if (location.franquicia) await this.sqlConstantClient(location.Codi, 'Franquicia', 'Franquicia', 2, database);
         await this.marcarProcesado(location.idBc, token, companyID, tenant, entorno);
       }
     } catch (error) {
