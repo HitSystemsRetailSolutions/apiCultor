@@ -126,7 +126,7 @@ export class trabajadoresService {
       let codi = queryCodi.recordset[0].codigo_disponible || 0; //Codigo disponible
       let nom = trabajador.apellidosYNombre;
       let memo = trabajador.nombre;
-      let adreça = `${trabajador.viaPublica} ${trabajador.numero} ${trabajador.piso}`;
+      let adreca = `${trabajador.viaPublica} ${trabajador.numero} ${trabajador.piso}`;
       let icona = '';
       let hiEditemHoraris = 1;
       let tid = '';
@@ -135,7 +135,7 @@ export class trabajadoresService {
       const tipoGDT = categoriaTipoGDTMap[trabajador.categoria] || 'Desconegut';
 
       const inserts = [
-        { nom: 'ADRESA', valor: adreça },
+        { nom: 'ADRESA', valor: adreca },
         { nom: 'CIUTAT', valor: trabajador.poblacion },
         { nom: 'CODIGO POSTAL', valor: trabajador.cp },
         { nom: 'numSS', valor: trabajador.noAfiliacion },
@@ -148,11 +148,12 @@ export class trabajadoresService {
         { nom: 'TLF_MOBIL', valor: trabajador.noTelfMovilPersonal },
         { nom: 'hBase', valor: trabajador.horassemana },
         { nom: 'TIPUSTREBALLADOR', valor: tipoGDT },
+        { nom: 'DATACONTRACTEINI0', valor: fechaAlta },
       ];
       if (query.recordset.length == 0) {
         console.log(`Trabajador a procesar: ${trabajador.documento}`);
         let sqlInsert = ` INSERT INTO dependentes ( CODI, NOM, MEMO, ADREÇA, Icona, [Hi Editem Horaris], Tid) 
-        VALUES ( '${codi}', '${this.escapeSqlString(nom)}', '${this.escapeSqlString(memo)}', '${this.escapeSqlString(adreça)}', '${icona}', ${hiEditemHoraris}, '${tid}'); `;
+        VALUES ( '${codi}', '${this.escapeSqlString(nom)}', '${this.escapeSqlString(memo)}', '${this.escapeSqlString(adreca)}', '${icona}', ${hiEditemHoraris}, '${tid}'); `;
         await this.sql.runSql(sqlInsert, database);
         for (const { nom, valor } of inserts) {
           // Salta la inserción si el valor está vacío, null, undefined o solo espacios
@@ -172,11 +173,12 @@ export class trabajadoresService {
         console.log(`Trabajador ya existe, dni/codigo: ${trabajador.documento}`);
         codi = query.recordset[0].id;
         // Actualiza el trabajador existente
-        let sqlUpdate = ` UPDATE dependentes SET CODI = '${query.recordset[0].id}', NOM = '${this.escapeSqlString(nom)}', ADREÇA = '${this.escapeSqlString(adreça)}', Icona = '${icona}', [Hi Editem Horaris] = ${hiEditemHoraris}, Tid = '${tid}' WHERE CODI = '${codi}' `;
+        let sqlUpdate = ` UPDATE dependentes SET CODI = '${query.recordset[0].id}', NOM = '${this.escapeSqlString(nom)}', 
+        ADREÇA = '${this.escapeSqlString(adreca)}', Icona = '${icona}', [Hi Editem Horaris] = ${hiEditemHoraris}, Tid = '${tid}' WHERE CODI = '${codi}' `;
         await this.sql.runSql(sqlUpdate, database);
         for (const { nom, valor } of inserts) {
           // Salta la inserción si el valor está vacío, null, undefined o solo espacios
-          if (!valor?.toString().trim() || ['TIPUSTREBALLADOR', 'TLF_MOBIL', 'EMAIL'].includes(nom)) continue;
+          if (!valor?.toString().trim() || ['TIPUSTREBALLADOR', 'TLF_MOBIL', 'EMAIL', 'DATACONTRACTEINI0'].includes(nom)) continue;
 
           const safeNom = nom.replace(/'/g, "''");
           const safeValor = valor.toString().replace(/'/g, "''");
