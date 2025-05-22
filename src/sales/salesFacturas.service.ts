@@ -195,7 +195,7 @@ export class salesFacturasService {
                 LEFT JOIN clients c ON f.client = c.codi
                 WHERE f.idFactura = '${Hit_IdFactura}' 
                 GROUP BY f.Producte, f.Desconte, f.Preu, f.Iva, f.ProducteNom, referencia, c.Nom, f.Data
-                ORDER BY f.Data, IdAlbara, Nombre;`;
+                ORDER BY f.Data, IdAlbara, Client, Nombre;`;
 
       const invoiceLines = await this.sql.runSql(sqlQ, database);
       if (invoiceLines.recordset.length === 0) {
