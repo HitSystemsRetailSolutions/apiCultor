@@ -268,7 +268,7 @@ export class customersService {
     let i = 1;
     for (const customer of customers.recordset) {
       try {
-        const taxArea= customer.recargo === 'si' ? 'NACRE' : 'NAC';
+        const taxArea = customer.recargo === 'si' ? 'NACRE' : 'NAC';
         const payMethodId = await this.getPaymentMethodId(customer.FORMAPAGO, companyID, client_id, client_secret, tenant, entorno);
         const taxId = await this.getTaxAreaId(taxArea, companyID, client_id, client_secret, tenant, entorno);
         const payTermId = await this.getPaymentTermId(customer.TERMINOPAGO, companyID, client_id, client_secret, tenant, entorno);
@@ -374,60 +374,28 @@ export class customersService {
     let customerId = '';
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
-    if (tenant === process.env.blockedTenant) {
-      const getBCcode = await this.sqlService.runSql(`select IdBc from BC_SincroIds where TipoDato = 'customer' and IdHit = ${codiHIT}`, database);
-      if (getBCcode.recordset.length === 0) {
-        console.log(`❌ Cliente con código ${codiHIT} no encontrado en la tabla de mapeo`);
-        this.salesFacturas.addError(`Cliente con código ${codiHIT} no encontrado en la tabla de mapeo, el cliente no existe en BC`);
-        return;
-      } else {
-        codiHIT = getBCcode.recordset[0].IdBc;
-        console.log('📘 Código HIT convertido a ID BC:', codiHIT);
-      }
-      try {
-        res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`, {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (error) {
-        this.logError(`❌ Error consultando cliente con código ${codiHIT}`, error);
-        throw error;
-      }
-      if (res.data.value.length > 0) {
-        customerId = res.data.value[0].id;
-        console.log('📘 Cliente existente en la API con ID:', customerId);
-        return customerId;
-      } else {
-        console.log(`❌ Cliente con código ${codiHIT} no encontrado en BC pero si en la tabla de mapeo, seguramente se haya eliminado`);
-        this.salesFacturas.addError(`Cliente con código ${codiHIT} no encontrado en BC pero si en la tabla de mapeo, seguramente se haya eliminado`);
-        return;
-      }
-    } else {
-      try {
-        res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`, {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (error) {
-        this.logError(`❌ Error consultando cliente con código ${codiHIT}`, error);
-        throw error;
-      }
+    try {
+      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      this.logError(`❌ Error consultando cliente con código ${codiHIT}`, error);
+      throw error;
+    }
 
-      if (res.data.value.length > 0) {
-        customerId = res.data.value[0].id;
-        console.log('📘 Cliente existente en la API con ID:', customerId);
-        return customerId;
-      }
-
-      const newCustomer = await this.syncCustomers(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-      console.log('📘 Nuevo cliente sincronizado con ID:', newCustomer);
-      customerId = String(newCustomer);
+    if (res.data.value.length > 0) {
+      customerId = res.data.value[0].id;
+      console.log('📘 Cliente existente en la API con ID:', customerId);
       return customerId;
     }
+
+    const newCustomer = await this.syncCustomers(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+    console.log('📘 Nuevo cliente sincronizado con ID:', newCustomer);
+    customerId = String(newCustomer);
+    return customerId;
   }
 
   private logError(message: string, error: any) {
