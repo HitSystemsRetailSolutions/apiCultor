@@ -30,11 +30,10 @@ export class salesSilemaCierreService {
     let records = queryTurnos.recordset;
     if (records.length === 0) return;
 
-    let turnos: { horaInicio: Date; horaFin: Date }[] = [];
+    const turnos: { horaInicio: Date; horaFin: Date }[] = [];
     let currentTurn: { horaInicio?: Date } = {};
 
-    for (let i = 0; i < records.length; i++) {
-      const row = records[i];
+    for (const row of records) {
       const horaDate = new Date(row.hora);
 
       if (row.Tipus_moviment === 'Wi') {
@@ -56,6 +55,24 @@ export class salesSilemaCierreService {
       turnosAEnviar = turnos;
     }
 
+    let prevFinalAmount: number | null = null;
+    if (Number(turno) === 2 && turnos.length >= 1) {
+      const first = turnos[0];
+      const hIni = `${String(first.horaInicio.getUTCHours()).padStart(2, '0')}:${String(first.horaInicio.getUTCMinutes()).padStart(2, '0')}:${String(first.horaInicio.getUTCSeconds()).padStart(2, '0')}`;
+      const hFin = `${String(first.horaFin.getUTCHours()).padStart(2, '0')}:${String(first.horaFin.getUTCMinutes()).padStart(2, '0')}:${String(first.horaFin.getUTCSeconds()).padStart(2, '0')}`;
+
+      const sqlFinal1 = `
+      SELECT SUM(CASE WHEN m.Tipus_moviment = 'W' THEN m.Import ELSE 0 END) AS CambioFinal
+      FROM [v_moviments_${year}-${month}] m
+      WHERE m.Botiga = ${botiga}
+        AND DAY(m.Data) = ${day}
+        AND CONVERT(TIME, m.Data) BETWEEN '${hIni}' AND '${hFin}'
+    `;
+      const res1 = await this.sql.runSql(sqlFinal1, database);
+      if (res1.recordset.length > 0) {
+        prevFinalAmount = parseFloat(res1.recordset[0].CambioFinal) || 0;
+      }
+    }
     for (let i = 0; i < turnosAEnviar.length; i++) {
       const { horaInicio, horaFin } = turnosAEnviar[i];
       const formattedHoraInicio = `${String(horaInicio.getUTCHours()).padStart(2, '0')}:${String(horaInicio.getUTCMinutes()).padStart(2, '0')}:${String(horaInicio.getUTCSeconds()).padStart(2, '0')}`;
@@ -76,7 +93,33 @@ export class salesSilemaCierreService {
         console.log(`Turno ${i + (Number(turno) === 2 ? 2 : 1)} omitido por cierre Z con importe 0 o inexistente`);
         continue;
       }
-      await this.processTurnoSalesSilemaCierre(i + (Number(turno) === 2 ? 2 : 1), botiga, day, month, year, formattedHoraInicio, formattedHoraFin, database, tipo, tenant, entorno, companyID, token);
+      const sqlQ = this.getSQLQuerySalesSilemaCierre(botiga, day, month, year, formattedHoraInicio, formattedHoraFin);
+      const data = await this.sql.runSql(sqlQ, database);
+      const rows = data.recordset;
+      if (!rows.length) continue;
+
+      const cambioInicialRow = rows.find((r) => r.Tipo_moviment === 'Cambio Inicial');
+      const cambioFinalRow = rows.find((r) => r.Tipo_moviment === 'Cambio Final');
+
+      const currentInicial = cambioInicialRow ? -parseFloat(cambioInicialRow.Import) : 0;
+      const currentFinal = cambioFinalRow ? parseFloat(cambioFinalRow.Import) : 0;
+
+      if (prevFinalAmount !== null && currentInicial !== prevFinalAmount) {
+        const diff = prevFinalAmount - currentInicial;
+        cambioInicialRow!.Import = String(-prevFinalAmount);
+
+        rows.push({
+          Botiga: cambioInicialRow!.Botiga,
+          Data: cambioInicialRow!.Data,
+          Tipo_moviment: 'Entrada',
+          Import: String(Math.abs(diff)),
+          documentType: '',
+          description: 'Ajuste cambio inicial',
+          Orden: 10,
+        });
+      }
+      await this.processTurnoSalesSilemaCierre(i + (Number(turno) === 2 ? 2 : 1), botiga, day, month, year, formattedHoraInicio, formattedHoraFin, database, tipo, tenant, entorno, companyID, token, rows);
+      prevFinalAmount = currentFinal;
     }
     return true;
   }
@@ -223,12 +266,9 @@ export class salesSilemaCierreService {
     ORDER BY Orden;`;
   }
 
-  async processTurnoSalesSilemaCierre(turno, botiga, day, month, year, horaInicio, horaFin, database, tipo, tenant, entorno, companyID, token) {
-    let sqlQ = await this.getSQLQuerySalesSilemaCierre(botiga, day, month, year, horaInicio, horaFin);
-    let data = await this.sql.runSql(sqlQ, database);
-    // console.log(sqlQ);
-    if (data.recordset.length > 0) {
-      let x = data.recordset[0];
+  async processTurnoSalesSilemaCierre(turno, botiga, day, month, year, horaInicio, horaFin, database, tipo, tenant, entorno, companyID, token, rows) {
+    if (rows.length > 0) {
+      let x = rows[0];
       let date = new Date(x.Data);
 
       // Extraemos el día, el mes y el año
@@ -241,8 +281,8 @@ export class salesSilemaCierreService {
       let formattedDate2 = new Date(x.Data).toISOString().substring(0, 10);
 
       //let nLines = await this.getJournalLinesCount(tenant, entorno, companyID, token);
-      for (let i = 0; i < data.recordset.length; i++) {
-        x = data.recordset[i];
+      for (let i = 0; i < rows.length; i++) {
+        x = rows[i];
         let formattedTittle = `${x.Botiga.toUpperCase()}_${turno}_${formattedDate}_CT`;
         let salesCierre = {
           documentType: `${x.documentType}`,
@@ -300,7 +340,7 @@ export class salesSilemaCierreService {
             break;
         }
         //nLines++;
-        // console.log(JSON.stringify(salesCierre, null, 2));
+        console.log(JSON.stringify(salesCierre, null, 2));
         await this.postToApiCierre(tipo, salesCierre, tenant, entorno, companyID, token);
         // console.log(salesCierre);
       }

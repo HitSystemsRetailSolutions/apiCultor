@@ -54,6 +54,8 @@ import { salesSilemaCierreController } from './silema/salesSilemaCierre.controll
 import { salesSilemaCierreService } from './silema/salesSilemaCierre.service';
 import { salesSilemaAbonoController } from './silema/salesSilemaAbono.controller';
 import { salesSilemaAbonoService } from './silema/salesSilemaAbono.service';
+import { intercompanySilemaService} from './silema/intercompanySilema.service';
+import { intercompanySilemaController} from './silema/intercompanySilema.controller';
 
 
 @Module({
@@ -86,6 +88,7 @@ import { salesSilemaAbonoService } from './silema/salesSilemaAbono.service';
     salesSilemaRecapController,
     salesSilemaCierreController,
     salesSilemaAbonoController,
+    intercompanySilemaController,
   ],
   providers: [
     employeesService,
@@ -117,6 +120,7 @@ import { salesSilemaAbonoService } from './silema/salesSilemaAbono.service';
     salesSilemaRecapService,
     salesSilemaCierreService,
     salesSilemaAbonoService,
+    intercompanySilemaService,
   ],
 })
 export class AppModule {}

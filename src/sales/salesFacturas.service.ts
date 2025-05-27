@@ -8,6 +8,7 @@ import { locationsService } from 'src/locations/locations.service';
 import * as mqtt from 'mqtt';
 import * as pLimit from 'p-limit';
 import { error } from 'console';
+import { intercompanySilemaService } from 'src/silema/intercompanySilema.service';
 
 let errores: string[] = [];
 @Injectable()
@@ -26,9 +27,14 @@ export class salesFacturasService {
     private items: itemsService,
     @Inject(forwardRef(() => locationsService))
     private locations: locationsService,
+    private intercompanySilema: intercompanySilemaService,
   ) {}
 
   async syncSalesFacturas(companyID: string, database: string, idFacturas: string[], tabla: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    if (tenant === process.env.blockedTenant) {
+      await this.intercompanySilema.syncIntercompany(companyID, database, idFacturas, tabla, client_id, client_secret, tenant, entorno);
+      return true;
+    }
     try {
       const token = await this.token.getToken2(client_id, client_secret, tenant);
       const tabFacturacioIVA = `[FACTURACIO_${tabla}_IVA]`;
@@ -57,11 +63,7 @@ export class salesFacturasService {
 
           console.log(`-------------------SINCRONIZANDO FACTURA NÚMERO ${num} -----------------------`);
           let customerId;
-          if (tenant === process.env.blockedTenant) {
-            customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientCodi, client_id, client_secret, tenant, entorno);
-          } else {
-            customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientNif, client_id, client_secret, tenant, entorno);
-          }
+          customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientNif, client_id, client_secret, tenant, entorno);
 
           let res;
           try {
@@ -259,17 +261,21 @@ export class salesFacturasService {
 
             const promises = clientLines.map((line) =>
               limit(async () => {
-                if (tenant === process.env.blockedTenant) {
-                  let account = '600000000';
-                  if (line.Plu === '7832') {
-                    account = '622000000';
-                  } else if (line.Plu === '6549' || line.Plu === '9392') {
-                    account = '621000000';
-                  }
-                  line.IVA = `IVA${String(line.IVA).replace(/\D/g, '').padStart(2, '0')}`;
-                  if (line.IVA === 'IVA00') line.IVA = 'IVA0';
+                const itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
+                if (itemAPI === 'error') return;
+
+                if (itemAPI) {
                   salesInvoiceData[endpointline].push({
-                    lineObjectNumber: account,
+                    itemId: itemAPI,
+                    lineType: 'Item',
+                    quantity: line.Quantitat,
+                    unitPrice: line.UnitPrice,
+                    discountPercent: line.Descuento,
+                    taxCode: `IVA${line.Iva}`,
+                  });
+                } else {
+                  salesInvoiceData[endpointline].push({
+                    lineObjectNumber: line.Quantitat > 0 ? '7000001' : '7090001',
                     description: line.Nombre,
                     lineType: 'Account',
                     quantity: line.Quantitat,
@@ -277,30 +283,6 @@ export class salesFacturasService {
                     discountPercent: line.Descuento,
                     taxCode: `IVA${line.Iva}`,
                   });
-                } else {
-                  const itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
-                  if (itemAPI === 'error') return;
-
-                  if (itemAPI) {
-                    salesInvoiceData[endpointline].push({
-                      itemId: itemAPI,
-                      lineType: 'Item',
-                      quantity: line.Quantitat,
-                      unitPrice: line.UnitPrice,
-                      discountPercent: line.Descuento,
-                      taxCode: `IVA${line.Iva}`,
-                    });
-                  } else {
-                    salesInvoiceData[endpointline].push({
-                      lineObjectNumber: line.Quantitat > 0 ? '7000001' : '7090001',
-                      description: line.Nombre,
-                      lineType: 'Account',
-                      quantity: line.Quantitat,
-                      unitPrice: line.UnitPrice,
-                      discountPercent: line.Descuento,
-                      taxCode: `IVA${line.Iva}`,
-                    });
-                  }
                 }
 
                 // Comentarios por línea (si existen y distintos)

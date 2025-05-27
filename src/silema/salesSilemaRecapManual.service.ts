@@ -10,19 +10,192 @@ export class salesSilemaRecapManualService {
     private sql: runSqlService,
   ) {}
 
-  async syncSalesSilemaRecapitulativaManual(TicketsArray: Array<String>, client, monthInicial, mesFinal, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async syncSalesSilemaRecapitulativaManual(TicketsArray: Array<String>, client, dataInici, dataFi, dataFactura, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let tipo = 'syncSalesSilemaRecapitulativaManual';
-    let importTotal: number = 0;
     // let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
     // let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
     // if (queryFranquicia.recordset.length >= 1) return;
     const TicketsString = TicketsArray.join(',');
     let arrayDatos = [];
-    let totalSinIVA = 0;
+    let totalBase = 0;
+    let totalCuota = 0;
     let totalConIVA = 0;
+    let monthInicial = dataInici.substring(5, 7);
+    let monthFinal = dataFi.substring(5, 7);
+    let year = dataInici.substring(0, 4);
+    //console.log(`Mes inicial: ${monthInicial}, Mes final: ${monthFinal}`);
+    for (let i = parseInt(monthInicial, 10); i <= parseInt(monthFinal, 10); i++) {
+      const month = String(i).padStart(2, '0'); // Asegura que el mes tenga dos dígitos
+      let sqlQ = `
+      DECLARE @Cliente INT = ${parseInt(client, 10)};
+
+      WITH CTE_Const AS (
+          SELECT
+              CC.valor COLLATE Modern_Spanish_CI_AS AS CFinal,
+              C.NIF
+          FROM ConstantsClient CC
+          JOIN Clients C
+            ON CC.Codi = C.Codi
+          WHERE CC.Codi = @Cliente
+            AND CC.variable COLLATE Modern_Spanish_CI_AS = 'CFINAL'
+            AND CC.valor COLLATE Modern_Spanish_CI_AS <> ''
+      ), CTE_Base AS (
+          SELECT
+              V.num_tick,
+              V.plu,
+              A.nom AS Articulo,
+              V.Quantitat AS Cantidad,
+              V.data AS Fecha,
+              V.Import AS Precio,
+              I.Iva AS IvaPct,
+              CB.nom AS Tienda,
+              CTE.NIF,
+              V.Import / (1.0 + I.Iva / 100.0) AS ImportSinIVA,
+              V.Import / NULLIF(V.Quantitat, 0) AS PrecioUnitario,
+              (V.Import / NULLIF(V.Quantitat, 0)) / (1.0 + I.Iva / 100.0) AS PrecioUnitarioSinIVA
+          FROM [v_venut_${year}-${month}] V
+          INNER JOIN CTE_Const CTE
+              ON V.otros COLLATE Modern_Spanish_CI_AS
+                LIKE '%' + CTE.CFinal + '%' COLLATE Modern_Spanish_CI_AS
+          LEFT JOIN articles A
+              ON A.codi = V.plu
+          LEFT JOIN TipusIva I
+              ON I.Tipus = A.TipoIva
+          LEFT JOIN clients CB
+              ON CB.codi = V.botiga
+          WHERE V.Quantitat > 0
+            AND V.num_tick IN (${TicketsString})
+      )
+      SELECT
+        Fecha,
+        Tienda AS TIENDA,
+        NIF,
+        num_tick AS TICKET,
+        plu AS PLU,
+        Articulo AS ARTICULO,
+        Cantidad,
+        IvaPct,
+        ROUND(PrecioUnitario, 3) AS unitPrice,
+        ROUND(PrecioUnitarioSinIVA, 3) AS unitPriceExcIVA,
+        ROUND(ImportSinIVA * IvaPct / 100.0, 3) AS IVA,
+        Precio AS importe,
+        ROUND(ImportSinIVA, 3) AS importeSinIVA,
+        ROUND(SUM(ImportSinIVA) OVER (), 3) AS TotalSinIVA,
+        ROUND(SUM(ImportSinIVA * IvaPct / 100.0) OVER (), 3) AS TotalIVA,
+        SUM(Precio) OVER () AS TOTAL
+      FROM CTE_Base
+      ORDER BY Fecha;`;
+      // console.log(sqlQ);
+      let data = await this.sql.runSql(sqlQ, database);
+      arrayDatos.push(data.recordset);
+      if (data.recordset.length > 0) {
+        const rawBase = data.recordset[0].TotalSinIVA;
+        const rawCuota = data.recordset[0].TotalIVA;
+
+        totalBase += rawBase;
+        totalCuota += rawCuota;
+        totalBase = Math.round(totalBase * 1000) / 1000;
+        totalCuota = Math.round(totalCuota * 1000) / 1000;
+      }
+
+      console.log(`Mes ${month} - ${data.recordset.length} datos encontrados`);
+    }
+    totalBase = Math.round(totalBase * 100) / 100;
+    totalCuota = Math.round(totalCuota * 100) / 100;
+    totalConIVA = totalBase + totalCuota;
+    if (arrayDatos.length === 0) {
+      throw new Error('No se encontraron facturas en la base de datos.');
+    }
+    let datosPlanos = arrayDatos.flat();
+    //console.log(datosPlanos.length);
+
+    let x = datosPlanos[0];
+
+    let partes = dataFactura.split('-');
+    let fechaFormateada = `${partes[2]}-${partes[1]}-${partes[0].toString().slice(-2)}`;
+    const codis = Array.from(new Set(datosPlanos.map((x) => this.extractNumber(x.TIENDA))));
+    const locationCode = codis.length > 1 ? '000' : codis[0];
+    const locationCodeDocNo = codis.length > 1 ? 'T--000' : x.TIENDA.substring(0, 6);
+
+    // Calculamos `n` basado en las facturas recapitulativas existentes
+    let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${locationCodeDocNo}_') and contains(no,'${fechaFormateada}_RM')`;
+    let n = (await this.getNumberOfRecap(url, token)) || 1;
+
+    let salesData = {
+      no: `${locationCodeDocNo}_${fechaFormateada}_RM${n}`, // Nº factura
+      documentType: 'Invoice', // Tipo de documento
+      dueDate: `${dataFi}`, // Fecha vencimiento
+      externalDocumentNo: `${locationCodeDocNo}_${fechaFormateada}_RM${n}`, // Nº documento externo
+      locationCode: `${locationCode}`, // Cód. almacén
+      orderDate: `${dataInici}`, // Fecha pedido
+      postingDate: `${dataFactura}`, // Fecha registro
+      recapInvoice: false, // Factura recap //false
+      manualRecapInvoice: true, // Factura manual
+      remainingAmount: totalConIVA, // Precio total incluyendo IVA por factura
+      amountExclVat: totalBase, // Precio total sin IVA por factura
+      vatAmount: totalCuota, // IVA total por factura
+      shipToCode: `${locationCode}`, // Cód. dirección envío cliente
+      storeInvoice: false, // Factura tienda
+      vatRegistrationNo: `${x.NIF}`, // CIF/NIF
+      invoiceStartDate: `${dataInici}`, // Fecha inicio facturación
+      invoiceEndDate: `${dataFi}`, // Fecha fin facturación
+      documentDate: `${dataInici}`, // Fecha de documento
+      salesLinesBuffer: [], // Array vacío para las líneas de ventas
+    };
+
+    let countLines = 1;
+    let lastAlbaranDescription = '';
+    for (let i = 0; i < datosPlanos.length; i++) {
+      x = datosPlanos[i];
+      let date = new Date(x.Fecha);
+      let isoDate = date.toISOString().substring(0, 10);
+      let partesAlbaran = isoDate.split('-');
+      let formattedDateAlbaran = `${partesAlbaran[2]}/${partesAlbaran[1]}/${partesAlbaran[0]}`;
+      let currentAlbaranDescription = `albaran nº ${x.TICKET} ${formattedDateAlbaran}`;
+
+      if (currentAlbaranDescription !== lastAlbaranDescription) {
+        let salesLineAlbaran = {
+          documentNo: `${salesData.no}`,
+          lineNo: countLines,
+          description: currentAlbaranDescription,
+          quantity: 1,
+          shipmentDate: `${isoDate}`,
+          lineTotalAmount: 0,
+          locationCode: `${this.extractNumber(x.TIENDA)}`,
+        };
+        countLines++;
+        salesData.salesLinesBuffer.push(salesLineAlbaran);
+        lastAlbaranDescription = currentAlbaranDescription;
+      }
+      x.IvaPct = `IVA${String(x.IvaPct).replace(/\D/g, '').padStart(2, '0')}`;
+      if (x.IvaPct === 'IVA00') x.IvaPct = 'IVA0';
+      let salesLine = {
+        documentNo: `${salesData.no}`,
+        type: `Item`,
+        no: `${x.PLU}`,
+        lineNo: countLines,
+        description: `${x.ARTICULO}`,
+        quantity: parseFloat(x.Cantidad),
+        shipmentDate: `${isoDate}`,
+        lineTotalAmount: parseFloat(x.importe),
+        lineAmountExclVat: parseFloat(x.importeSinIVA),
+        vatProdPostingGroup: `${x.IvaPct}`,
+        unitPrice: parseFloat(x.unitPrice),
+        unitPriceExclVat: parseFloat(x.unitPriceExcIVA),
+        locationCode: `${this.extractNumber(x.TIENDA)}`,
+      };
+      countLines++;
+      salesData.salesLinesBuffer.push(salesLine);
+    }
+    // console.log('factura:', salesData);
+    await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
+
+    // ---------------------------------Abono recap manual---------------------------------
+    arrayDatos = [];
+
     //console.log(`Mes inicial: ${monthInicial}, Mes final: ${mesFinal}`);
-    for (let i = parseInt(monthInicial, 10); i <= parseInt(mesFinal, 10); i++) {
+    for (let i = parseInt(monthInicial, 10); i <= parseInt(monthFinal, 10); i++) {
       const month = String(i).padStart(2, '0'); // Asegura que el mes tenga dos dígitos
       let sqlQ = `
       DECLARE @Cliente INT = ${parseInt(client, 10)};
@@ -40,7 +213,6 @@ export class salesSilemaRecapManualService {
         AND V.num_tick IN (${TicketsString});
 
       SELECT 
-          V.num_tick AS TICKET,
           V.PLU AS PLU,
           A.nom AS ARTICULO,
           V.Quantitat AS CANTIDAD,
@@ -61,7 +233,6 @@ export class salesSilemaRecapManualService {
       WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
         AND V.num_tick IN (${TicketsString})
       GROUP BY 
-          V.num_tick, 
           V.plu, 
           A.nom, 
           V.Quantitat, 
@@ -76,89 +247,45 @@ export class salesSilemaRecapManualService {
       // console.log(sqlQ);
       let data = await this.sql.runSql(sqlQ, database);
       arrayDatos.push(data.recordset);
-      if (data.recordset.length > 0) {
-      totalConIVA += data.recordset[0].TOTAL;
-      totalSinIVA += data.recordset[0].TotalSinIVA;
-      }
       console.log(`Mes ${month} - ${data.recordset.length} datos encontrados`);
     }
     if (arrayDatos.length === 0) {
       throw new Error('No se encontraron facturas en la base de datos.');
     }
-    let datosPlanos = arrayDatos.flat();
+    datosPlanos = arrayDatos.flat();
     //console.log(datosPlanos.length);
 
-    let x = datosPlanos[0];
-    let fechas = datosPlanos.map((item) => new Date(item.FECHA));
+    x = datosPlanos[0];
 
-    // Determinar la fecha más antigua y más reciente correctamente
-    let fechaMasAntigua = new Date(Math.min(...fechas.map((f) => f.getTime()))); // Fecha más antigua
-    let fechaMasNueva = new Date(Math.max(...fechas.map((f) => f.getTime()))); // Fecha más reciente
-
-    // Extraer día, mes y año en el formato adecuado
-    let shortYear = String(year).slice(-2);
-    let day = fechaMasAntigua.getDate().toString().padStart(2, '0'); // Asegura que el día tenga dos dígitos
-    monthInicial = monthInicial.padStart(2, '0'); // Asegura que el mes tenga dos dígitos
-    let monthFormatted = `${monthInicial}-${shortYear}`;
-    let formattedDate = `${day}-${monthFormatted}`; // Factura más antigua (para externalDocumentNo)
-    let formattedDateDayStart = fechaMasAntigua.toISOString().substring(0, 10); // Factura más antigua (YYYY-MM-DD)
-    let formattedDateDayEnd = fechaMasNueva.toISOString().substring(0, 10); // Factura más reciente (YYYY-MM-DD) // Factura más reciente (YYYY-MM-DD)
-
-    // Calculamos `n` basado en las facturas recapitulativas existentes
-    let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_RM') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd}`;
-    let n = await this.getNumberOfRecap(url, token);
-    if (n == undefined) n = 1;
-
-    const codis = Array.from(new Set(datosPlanos.map((x) => this.extractNumber(x.TIENDA))));
-    const locationCode = codis.length > 1 ? '000' : codis[0];
-    const locationCodeDocNo = codis.length > 1 ? 'T--000' : x.TIENDA.substring(0, 6);
-
-    let salesData = {
-      no: `${locationCodeDocNo}_${formattedDate}_RM${n}`, // Nº factura
-      documentType: 'Invoice', // Tipo de documento
-      dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
-      externalDocumentNo: `${locationCodeDocNo}_${formattedDate}_RM${n}`, // Nº documento externo
+    salesData = {
+      no: `${locationCodeDocNo}_${fechaFormateada}_ARM${n}`, // Nº factura
+      documentType: 'Credit_x0020_Memo', // Tipo de documento
+      dueDate: `${dataFi}`, // Fecha vencimiento
+      externalDocumentNo: `${locationCodeDocNo}_${fechaFormateada}_ARM${n}`, // Nº documento externo
       locationCode: `${locationCode}`, // Cód. almacén
-      orderDate: `${formattedDateDayEnd}`, // Fecha pedido
-      postingDate: `${formattedDateDayEnd}`, // Fecha registro
+      orderDate: `${dataInici}`, // Fecha pedido
+      postingDate: `${dataFactura}`, // Fecha registro
       recapInvoice: false, // Factura recap //false
       manualRecapInvoice: true, // Factura manual
-      remainingAmount: parseFloat(totalConIVA.toFixed(2)), // Precio total incluyendo IVA por factura
-      amountExclVat: parseFloat(totalSinIVA.toFixed(2)), // Precio total sin IVA por factura
+      remainingAmount: totalConIVA, // Precio total incluyendo IVA por factura
+      amountExclVat: totalBase, // Precio total sin IVA por factura
+      vatAmount: totalCuota, // IVA total por factura
       shipToCode: `${locationCode}`, // Cód. dirección envío cliente
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
-      invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
-      invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
+      invoiceStartDate: `${dataInici}`, // Fecha inicio facturación
+      invoiceEndDate: `${dataFi}`, // Fecha fin facturación
+      documentDate: `${dataInici}`, // Fecha de documento
       salesLinesBuffer: [], // Array vacío para las líneas de ventas
     };
+    countLines = 1;
 
-    let countLines = 1;
-    let lastAlbaranDescription = '';
     for (let i = 0; i < datosPlanos.length; i++) {
       x = datosPlanos[i];
       let date = new Date(x.FECHA);
-      let day = date.getDate().toString().padStart(2, '0'); // Asegura dos dígitos
-      let month = (date.getMonth() + 1).toString().padStart(2, '0'); // Meses van de 0 a 11
-      let shortYear = date.getFullYear().toString().slice(-2); // Obtiene los últimos dos dígitos del año
       let isoDate = date.toISOString().substring(0, 10);
-      let formattedDateAlbaran = `${day}/${month}/${shortYear}`;
-      let currentAlbaranDescription = `albaran nº ${x.TICKET} ${formattedDateAlbaran}`;
-
-      if (currentAlbaranDescription !== lastAlbaranDescription) {
-        let salesLineAlbaran = {
-          documentNo: `${salesData.no}`,
-          lineNo: countLines,
-          description: currentAlbaranDescription,
-          quantity: 1,
-          shipmentDate: `${isoDate}`,
-          lineTotalAmount: 0,
-          locationCode: `${this.extractNumber(x.TIENDA)}`,
-        };
-        countLines++;
-        salesData.salesLinesBuffer.push(salesLineAlbaran);
-        lastAlbaranDescription = currentAlbaranDescription;
-      }
+      x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
+      if (x.IVA === 'IVA00') x.IVA = 'IVA0';
       let salesLine = {
         documentNo: `${salesData.no}`,
         type: `Item`,
@@ -173,155 +300,9 @@ export class salesSilemaRecapManualService {
         locationCode: `${this.extractNumber(x.TIENDA)}`,
       };
       countLines++;
-      importTotal += parseFloat(x.PRECIO);
       salesData.salesLinesBuffer.push(salesLine);
     }
-    //salesData.remainingAmount = Number(importTotal.toFixed(2));
-    // console.log(salesData);
-    await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
-
-    // ---------------------------------Abono recap manual---------------------------------
-    arrayDatos = [];
-
-    //console.log(`Mes inicial: ${monthInicial}, Mes final: ${mesFinal}`);
-    for (let i = parseInt(monthInicial, 10); i <= parseInt(mesFinal, 10); i++) {
-      const month = String(i).padStart(2, '0'); // Asegura que el mes tenga dos dígitos
-      let sqlQ = `
-      DECLARE @Cliente INT = ${parseInt(client, 10)};
-                      
-      DECLARE @TotalConIVA DECIMAL(18, 2);
-      DECLARE @TotalSinIVA DECIMAL(18, 2);
-
-      -- Calcular total con IVA
-      SELECT @TotalConIVA = SUM(V.Import)
-      FROM [v_venut_${year}-${month}] V
-      LEFT JOIN articles A ON A.codi = V.plu
-      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
-      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
-      LEFT JOIN Clients C ON CC.codi = C.codi
-      LEFT JOIN clients CB ON V.botiga = CB.codi
-      WHERE V.otros LIKE '%' + CC.valor + '%'
-        AND V.Num_tick IN (${TicketsString});
-
-      SELECT @TotalSinIVA = 
-          SUM(V.Import / (1 + (ISNULL(I.Iva, 10) / 100.0)))
-      FROM [v_venut_${year}-${month}] V
-      LEFT JOIN articles A ON A.codi = V.plu
-      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
-      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
-      LEFT JOIN Clients C ON CC.codi = C.codi
-      LEFT JOIN clients CB ON V.botiga = CB.codi
-      WHERE V.otros LIKE '%' + CC.valor + '%'
-        AND V.Num_tick IN (${TicketsString});
-
-      SELECT 
-          V.PLU AS PLU, 
-          A.nom AS ARTICULO, 
-          SUM(V.Quantitat) AS CANTIDAD_TOTAL, 
-          SUM(V.Import) AS IMPORTE_TOTAL, 
-          MIN(V.data) AS FECHA_PRIMERA_VENTA, 
-          MAX(V.data) AS FECHA_ULTIMA_VENTA, 
-          I.Iva AS IVA, 
-          CB.nom AS TIENDA, 
-          CB.Nif AS NIFTIENDA, 
-          C.NIF AS NIF, 
-          ROUND(SUM(V.Import) / NULLIF(SUM(V.Quantitat), 0), 5) AS precioUnitario,
-          @TotalSinIVA AS TotalSinIVA,
-          @TotalConIVA AS TOTAL
-      FROM [v_venut_${year}-${month}] V
-      LEFT JOIN articles A ON A.codi = V.plu
-      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
-      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
-      LEFT JOIN Clients C ON CC.codi = C.codi
-      LEFT JOIN clients CB ON V.botiga = CB.codi
-      WHERE V.otros LIKE '%' + CC.valor + '%'
-        AND V.Num_tick IN (${TicketsString})
-      GROUP BY 
-          V.PLU, 
-          A.nom, 
-          I.Iva, 
-          CB.nom, 
-          CB.Nif, 
-          C.NIF
-      HAVING SUM(V.Quantitat) > 0
-      ORDER BY MIN(V.data);`;
-      //   console.log(sqlQ);
-      let data = await this.sql.runSql(sqlQ, database);
-      arrayDatos.push(data.recordset);
-      console.log(`Mes ${month} - ${data.recordset.length} datos encontrados`);
-    }
-    if (arrayDatos.length === 0) {
-      throw new Error('No se encontraron facturas en la base de datos.');
-    }
-    datosPlanos = arrayDatos.flat();
-    //console.log(datosPlanos.length);
-
-    x = datosPlanos[0];
-    fechas = datosPlanos.map((item) => new Date(item.FECHA_PRIMERA_VENTA));
-
-    // Extraer todas las fechas de última venta
-    let fechasUltimaVenta = datosPlanos.map((row) => new Date(row.FECHA_ULTIMA_VENTA));
-
-    // Determinar la fecha más antigua y más reciente correctamente
-    fechaMasAntigua = new Date(Math.min(...fechas.map((f) => f.getTime()))); // Fecha más antigua
-    fechaMasNueva = new Date(Math.max(...fechas.map((f) => f.getTime()))); // Fecha más reciente
-
-    // Extraer día, mes y año en el formato adecuado
-    shortYear = String(year).slice(-2);
-    monthFormatted = `${monthInicial}-${shortYear}`;
-    day = fechaMasAntigua.getDate().toString().padStart(2, '0'); // Asegura que el día tenga dos dígitos
-    monthInicial = monthInicial.padStart(2, '0'); // Asegura que el mes tenga dos dígitos
-    formattedDate = `${day}-${monthFormatted}`; // Factura más antigua (para externalDocumentNo)
-    formattedDateDayStart = fechaMasAntigua.toISOString().substring(0, 10); // Factura más antigua (YYYY-MM-DD)
-    formattedDateDayEnd = fechaMasNueva.toISOString().substring(0, 10); // Factura más reciente (YYYY-MM-DD)
-
-    importTotal = 0;
-    salesData = {
-      no: `${locationCodeDocNo}_${formattedDate}_ARM${n}`, // Nº factura
-      documentType: 'Credit_x0020_Memo', // Tipo de documento
-      dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
-      externalDocumentNo: `${locationCodeDocNo}_${formattedDate}_ARM${n}`, // Nº documento externo
-      locationCode: `${locationCode}`, // Cód. almacén
-      orderDate: `${formattedDateDayEnd}`, // Fecha pedido
-      postingDate: `${formattedDateDayEnd}`, // Fecha registro
-      recapInvoice: false, // Factura recap //false
-      manualRecapInvoice: true, // Factura manual
-      remainingAmount: parseFloat(totalConIVA.toFixed(2)), // Precio total incluyendo IVA por factura
-      amountExclVat: parseFloat(totalSinIVA.toFixed(2)), // Precio total sin IVA por factura
-      shipToCode: `${locationCode}`, // Cód. dirección envío cliente
-      storeInvoice: false, // Factura tienda
-      vatRegistrationNo: `${x.NIF}`, // CIF/NIF
-      invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
-      invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
-      salesLinesBuffer: [], // Array vacío para las líneas de ventas
-    };
-    countLines = 1;
-
-    for (let i = 0; i < datosPlanos.length; i++) {
-      x = datosPlanos[i];
-      let date = new Date(x.FECHA_PRIMERA_VENTA);
-      let isoDate = date.toISOString().substring(0, 10);
-
-      let salesLine = {
-        documentNo: `${salesData.no}`,
-        type: `Item`,
-        no: `${x.PLU}`,
-        lineNo: countLines,
-        description: `${x.ARTICULO}`,
-        quantity: parseFloat(x.CANTIDAD_TOTAL),
-        shipmentDate: `${isoDate}`,
-        lineTotalAmount: parseFloat(x.IMPORTE_TOTAL),
-        vatProdPostingGroup: `${x.IVA}`,
-        unitPrice: parseFloat(x.precioUnitario),
-        locationCode: `${this.extractNumber(x.TIENDA)}`,
-      };
-      countLines++;
-
-      importTotal += parseFloat(x.IMPORTE_TOTAL);
-      salesData.salesLinesBuffer.push(salesLine);
-    }
-    //salesData.remainingAmount = Number(importTotal.toFixed(2));
-    // console.log('salesdata', salesData);
+    // console.log('abono', salesData);
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
     return true;
@@ -348,7 +329,9 @@ export class salesSilemaRecapManualService {
     if (salesData.no.length > 20) salesData.no = salesData.no.slice(-20);
     if (salesData.locationCode.length > 10) salesData.locationCode = salesData.locationCode.slice(-10);
     if (salesData.shipToCode.length > 10) salesData.shipToCode = salesData.shipToCode.slice(-10);
-    let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${salesData.no}') and documentType eq '${salesData.documentType}'`;
+    let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'RM') and documentType eq '${salesData.documentType}' and 
+    vatRegistrationNo eq '${salesData.vatRegistrationNo}' and amountExclVat eq ${salesData.amountExclVat} and postingDate eq ${salesData.postingDate} and locationCode eq '${salesData.locationCode}'`;
+
     //console.log(url1);
     let resGet1 = await axios
       .get(url1, {

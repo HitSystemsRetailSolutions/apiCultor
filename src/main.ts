@@ -184,9 +184,9 @@ client.on('message', async function (topic, message) {
         case 'initConfig':
           await initConfig(companyID, database, client_id, client_secret, tenant, entorno);
           break;
-        case 'silemaRecords':
-          await syncSalesSilemaRecords(companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
-          break;
+        // case 'silemaRecords':
+        //   await syncSalesSilemaRecords(companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
+        //   break;
         case 'silemaDate':
           await syncSalesSilemaDate(msgJson.dayStart, msgJson.dayEnd, msgJson.month, msgJson.year, companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
           break;
@@ -206,7 +206,10 @@ client.on('message', async function (topic, message) {
           await syncSalesSilemaRecap(msgJson.periodoRecap, msgJson.month, msgJson.year, companyID, database, client_id, client_secret, tenant, entorno);
           break;
         case 'silemaRecapManual':
-          await syncSalesSilemaRecapManual(msgJson.tickets, msgJson.client, msgJson.monthInicial, msgJson.monthFinal, msgJson.year, companyID, database, client_id, client_secret, tenant, entorno);
+          await syncSalesSilemaRecapManual(msgJson.tickets, msgJson.client, msgJson.dataInici, msgJson.dataFi, msgJson.dataFactura, companyID, database, client_id, client_secret, tenant, entorno);
+          break;
+        case 'silemaIntercompany':
+          await syncIntercompanySilema(companyID, database, msgJson.idFactura, msgJson.tabla, client_id, client_secret, tenant, entorno);
           break;
         case 'silemaItems':
           await syncItemsSilema(companyID, database, client_id, client_secret, tenant, entorno);
@@ -475,15 +478,15 @@ async function syncSalesSilemaRecap(periodoRecap, month, year, companyID, databa
   }
 }
 
-async function syncSalesSilemaRecapManual(TicketsArray, client, monthInicial, monthFinal, year, companyID, database, client_id, client_secret, tenant, entorno) {
+async function syncSalesSilemaRecapManual(TicketsArray, client, dataInici, dataFi, dataFactura, companyID, database, client_id, client_secret, tenant, entorno) {
   try {
     await axios.get('http://localhost:3333/syncSalesSilemaRecapManual', {
       params: {
         TicketsArray: TicketsArray,
         client: client,
-        monthInicial: monthInicial,
-        monthFinal: monthFinal,
-        year: year,
+        dataInici: dataInici,
+        dataFi: dataFi,
+        dataFactura: dataFactura,
         companyID: companyID,
         database: database,
         client_id: client_id,
@@ -590,6 +593,27 @@ async function syncLocationsSilema(companyID, database, client_id, client_secret
     console.log('Locations Silema sync sent...');
   } catch (error) {
     console.error('Error al sincronizar Locations Silema:', error);
+  }
+}
+
+async function syncIntercompanySilema(companyID, database, idFactura, tabla, client_id, client_secret, tenant, entorno) {
+  try {
+    await axios.get('http://localhost:3333/syncIntercompanySilema', {
+      params: {
+        companyID: companyID,
+        database: database,
+        idFactura: idFactura,
+        tabla: tabla,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+      timeout: 30000,
+    });
+    console.log('Intercompany Silema sync sent...');
+  } catch (error) {
+    console.error('Error al sincronizar Intercompany Silema:', error);
   }
 }
 
