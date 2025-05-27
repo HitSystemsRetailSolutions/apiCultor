@@ -203,7 +203,7 @@ export class intercompanySilemaService {
       };
       countLines++;
       salesData.salesLinesBuffer.push(salesLine);
-      totalBase += parseFloat(line.ImporteTotalLinea);
+      totalBase += parseFloat(line.ImporteTotalLineaDesc);
       totalCuota += parseFloat(line.CuotaIVA);
       totalCuotaIBEE += parseFloat(line.CuotaIBEE);
       totalBaseIBEE += parseFloat(line.BaseIBEE);
