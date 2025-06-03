@@ -237,7 +237,7 @@ export class salesSilemaCierreService {
     UNION ALL
 
     SELECT 
-        LEFT(c.nom, 6), CONVERT(Date, m.Data), 'Entrada', m.Import, '', m.motiu, 10
+        LEFT(c.nom, 6), CONVERT(Date, m.Data), 'Entrada', (m.Import * -1), '', m.motiu, 10
     FROM [v_moviments_${year}-${month}] m
     INNER JOIN clients c ON m.Botiga = c.codi
     WHERE m.Tipus_moviment = 'A'
