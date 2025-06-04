@@ -107,16 +107,18 @@ export class salesSilemaCierreService {
       if (prevFinalAmount !== null && currentInicial !== prevFinalAmount) {
         const diff = prevFinalAmount - currentInicial;
         cambioInicialRow!.Import = String(-prevFinalAmount);
-
-        rows.push({
-          Botiga: cambioInicialRow!.Botiga,
-          Data: cambioInicialRow!.Data,
-          Tipo_moviment: 'Entrada',
-          Import: String(Math.abs(diff)* -1) ,
-          documentType: '',
-          description: 'Ajuste cambio inicial',
-          Orden: 10,
-        });
+        const importe = Math.abs(diff) * -1;
+        if (importe > 0) {
+          rows.push({
+            Botiga: cambioInicialRow!.Botiga,
+            Data: cambioInicialRow!.Data,
+            Tipo_moviment: 'Entrada',
+            Import: importe,
+            documentType: '',
+            description: 'Ajuste cambio inicial',
+            Orden: 10,
+          });
+        }
       }
       await this.processTurnoSalesSilemaCierre(i + (Number(turno) === 2 ? 2 : 1), botiga, day, month, year, formattedHoraInicio, formattedHoraFin, database, tipo, tenant, entorno, companyID, token, rows);
       prevFinalAmount = currentFinal;
