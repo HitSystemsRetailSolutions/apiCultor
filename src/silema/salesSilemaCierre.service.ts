@@ -112,7 +112,7 @@ export class salesSilemaCierreService {
           Botiga: cambioInicialRow!.Botiga,
           Data: cambioInicialRow!.Data,
           Tipo_moviment: 'Entrada',
-          Import: String(Math.abs(diff)),
+          Import: String(Math.abs(diff)* -1) ,
           documentType: '',
           description: 'Ajuste cambio inicial',
           Orden: 10,
@@ -340,7 +340,7 @@ export class salesSilemaCierreService {
             break;
         }
         //nLines++;
-        console.log(JSON.stringify(salesCierre, null, 2));
+        // console.log(JSON.stringify(salesCierre, null, 2));
         await this.postToApiCierre(tipo, salesCierre, tenant, entorno, companyID, token);
         // console.log(salesCierre);
       }
@@ -381,7 +381,7 @@ export class salesSilemaCierreService {
         console.log(`${tipo} subido con exito ${salesData.documentNo}`);
       } catch (error) {
         salesData.salesLinesBuffer = [];
-        console.log(JSON.stringify(salesData, null, 2));
+        // console.log(JSON.stringify(salesData, null, 2));
         console.error(`Error posting sales ${tipo} data:`, error.response?.data || error.message);
         return;
       }
