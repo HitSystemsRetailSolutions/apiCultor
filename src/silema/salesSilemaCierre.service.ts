@@ -107,8 +107,8 @@ export class salesSilemaCierreService {
       if (prevFinalAmount !== null && currentInicial !== prevFinalAmount) {
         const diff = prevFinalAmount - currentInicial;
         cambioInicialRow!.Import = String(-prevFinalAmount);
-        const importe = Math.abs(diff) * -1;
-        if (importe > 0) {
+        const importe = Math.round(Math.abs(diff) * -1 * 100) / 100;
+        if (importe != 0) {
           rows.push({
             Botiga: cambioInicialRow!.Botiga,
             Data: cambioInicialRow!.Data,
