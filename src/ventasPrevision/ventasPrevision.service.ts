@@ -34,7 +34,10 @@ export class ventasPrevisionService {
     }
     let ventasPrevision;
     try {
-      ventasPrevision = await this.sql.runSql(`SELECT Id, Fecha, c.Nom AS Lugar, Concepto, ROUND(Importe,2) AS Importe FROM PowerBIData pb LEFT JOIN clients c on c.Codi = pb.Lugar WHERE FechaSincro >= '${timestamp}' or FechaSincro IS NULL ORDER BY Fecha, Lugar`, database);
+      ventasPrevision = await this.sql.runSql(
+        `SELECT Id, Fecha, c.Nom AS Lugar, Concepto, ROUND(Importe,2) AS Importe FROM PowerBIData pb LEFT JOIN clients c on c.Codi = pb.Lugar WHERE FechaSincro >= '${timestamp}' or FechaSincro IS NULL ORDER BY Fecha, Lugar`,
+        database,
+      );
     } catch (error) {
       this.logError(`❌ Error al ejecutar la consulta SQL en la base de datos '${database}'`, error);
       return false;
@@ -46,8 +49,9 @@ export class ventasPrevisionService {
     }
     let i = 1;
     for (const record of ventasPrevision.recordset) {
+      let tmst = moment.utc(record.Fecha).tz('Europe/Madrid', true).format('YYYY-MM-DDTHH:mm:ss.SSSZ');
       const data = {
-        tmst: record.Fecha,
+        tmst: tmst,
         lloc: record.Lugar,
         concepte: record.Concepto,
         import: parseFloat(record.Importe),
