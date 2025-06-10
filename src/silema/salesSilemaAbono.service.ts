@@ -56,8 +56,8 @@ export class salesSilemaAbonoService {
     }
     for (let i = 0; i < turnosAEnviar.length; i++) {
       const { horaInicio, horaFin } = turnosAEnviar[i];
-      const formattedHoraInicio = `${String(horaInicio.getUTCHours()).padStart(2, '0')}:${String(horaInicio.getUTCMinutes()).padStart(2, '0')}:${String(horaInicio.getUTCSeconds()).padStart(2, '0')}`;
-      const formattedHoraFin = `${String(horaFin.getUTCHours()).padStart(2, '0')}:${String(horaFin.getUTCMinutes()).padStart(2, '0')}:${String(horaFin.getUTCSeconds()).padStart(2, '0')}`;
+      const formattedHoraInicio = horaInicio.toISOString().substr(11, 8); // Formato HH:mm:ss
+      const formattedHoraFin = horaFin.toISOString().substr(11, 8);
       console.log(`Turno ${i + (Number(turno) === 2 ? 2 : 1)}: ${formattedHoraInicio} - ${formattedHoraFin}`);
       const sqlCheckZ = `
       SELECT TOP 1 Import 
