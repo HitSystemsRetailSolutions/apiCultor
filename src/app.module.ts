@@ -46,17 +46,20 @@ import { locationsController } from './locations/locations.controller';
 import { locationsService } from './locations/locations.service';
 import { trabajadoresController } from './trabajadores/trabajadores.controller';
 import { trabajadoresService } from './trabajadores/trabajadores.service';
-import { salesSilemaRecapManualService } from './silema/salesSilemaRecapManual.service';  
+import { salesSilemaRecapManualService } from './silema/salesSilemaRecapManual.service';
 import { salesSilemaRecapManualController } from './silema/salesSilemaRecapManual.controller';
-import { salesSilemaRecapController } from './silema/salesSilemaRecap.controller';    
+import { salesSilemaRecapController } from './silema/salesSilemaRecap.controller';
 import { salesSilemaRecapService } from './silema/salesSilemaRecap.service';
 import { salesSilemaCierreController } from './silema/salesSilemaCierre.controller';
 import { salesSilemaCierreService } from './silema/salesSilemaCierre.service';
 import { salesSilemaAbonoController } from './silema/salesSilemaAbono.controller';
 import { salesSilemaAbonoService } from './silema/salesSilemaAbono.service';
-import { intercompanySilemaService} from './silema/intercompanySilema.service';
-import { intercompanySilemaController} from './silema/intercompanySilema.controller';
-
+import { intercompanySilemaService } from './silema/intercompanySilema.service';
+import { intercompanySilemaController } from './silema/intercompanySilema.controller';
+import { materiasPrimasSilemaService } from './silema/materiasPrimasSilema.service';
+import { materiasPrimasSilemaController } from './silema/materiasPrimasSilema.controller';
+import { ventasPrevisionController } from './ventasPrevision/ventasPrevision.controller';
+import { ventasPrevisionService } from './ventasPrevision/ventasPrevision.service';
 
 @Module({
   imports: [ConfigModule.forRoot()],
@@ -89,6 +92,8 @@ import { intercompanySilemaController} from './silema/intercompanySilema.control
     salesSilemaCierreController,
     salesSilemaAbonoController,
     intercompanySilemaController,
+    // materiasPrimasSilemaController,
+    ventasPrevisionController,
   ],
   providers: [
     employeesService,
@@ -121,6 +126,8 @@ import { intercompanySilemaController} from './silema/intercompanySilema.control
     salesSilemaCierreService,
     salesSilemaAbonoService,
     intercompanySilemaService,
+    // materiasPrimasSilemaService,
+    ventasPrevisionService,
   ],
 })
 export class AppModule {}

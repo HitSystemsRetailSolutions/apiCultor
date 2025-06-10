@@ -27,7 +27,7 @@ export class trabajadoresService {
       { empresaID: 'e60b9619-6f90-ef11-8a6b-7c1e5236b0db', nombre: 'Pomposo S.L.U' },
       { empresaID: 'f81d2993-7e1e-ef11-9f88-000d3ab5a7ff', nombre: 'Silema S.L.U' },
     ];
-    let error = false;
+
     for (const empresa of empresas) {
       try {
         let sql = `select * from records where Concepte = 'BC_Dependentes_${empresa.empresaID}'`;
@@ -48,15 +48,11 @@ export class trabajadoresService {
         console.log(`Hora convertida (menos ${offsetNumber}h): ${filtro}`);
         console.log(`Sincronizando empresa: ${empresa.nombre}`);
         await this.syncTrabajadores(filtro, empresa.empresaID, database, client_id, client_secret, tenant, entorno);
+        let sqlUpdate = `UPDATE records SET timestamp = GETDATE() WHERE Concepte = 'BC_Dependentes_${empresa.empresaID}'`;
+        await this.sql.runSql(sqlUpdate, database);
+        console.log(`✅ Timestamp actualizado para la empresa ${empresa.nombre}\n............................\n`);
       } catch (error) {
         this.logError(`❌ Error al sincronizar empresa ${empresa.nombre}:`, error);
-        error = true;
-      }
-      //Actualiza el timestamp de la base de datos
-      let sqlUpdate = `UPDATE records SET timestamp = GETDATE() WHERE Concepte = 'BC_Dependentes_${empresa.empresaID}'`;
-      if (!error) {
-        await this.sql.runSql(sqlUpdate, database);
-        console.log(`Timestamp actualizado para la empresa ${empresa.nombre}\n............................\n`);
       }
     }
     return true;
@@ -75,7 +71,7 @@ export class trabajadoresService {
       });
     } catch (error) {
       this.logError(`❌ Error consultando el trabajadores en BC`, error);
-      return false;
+      throw error;
     }
     const categoriaTipoGDTMap = {
       AUXADM: 'GERENT_2',

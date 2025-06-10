@@ -58,8 +58,8 @@ export class salesSilemaCierreService {
     let prevFinalAmount: number | null = null;
     if (Number(turno) === 2 && turnos.length >= 1) {
       const first = turnos[0];
-      const hIni = `${String(first.horaInicio.getUTCHours()).padStart(2, '0')}:${String(first.horaInicio.getUTCMinutes()).padStart(2, '0')}:${String(first.horaInicio.getUTCSeconds()).padStart(2, '0')}`;
-      const hFin = `${String(first.horaFin.getUTCHours()).padStart(2, '0')}:${String(first.horaFin.getUTCMinutes()).padStart(2, '0')}:${String(first.horaFin.getUTCSeconds()).padStart(2, '0')}`;
+      const hIni = first.horaInicio.toISOString().slice(11, 19);
+      const hFin = first.horaFin.toISOString().slice(11, 19);
 
       const sqlFinal1 = `
       SELECT SUM(CASE WHEN m.Tipus_moviment = 'W' THEN m.Import ELSE 0 END) AS CambioFinal
@@ -75,8 +75,8 @@ export class salesSilemaCierreService {
     }
     for (let i = 0; i < turnosAEnviar.length; i++) {
       const { horaInicio, horaFin } = turnosAEnviar[i];
-      const formattedHoraInicio = `${String(horaInicio.getUTCHours()).padStart(2, '0')}:${String(horaInicio.getUTCMinutes()).padStart(2, '0')}:${String(horaInicio.getUTCSeconds()).padStart(2, '0')}`;
-      const formattedHoraFin = `${String(horaFin.getUTCHours()).padStart(2, '0')}:${String(horaFin.getUTCMinutes()).padStart(2, '0')}:${String(horaFin.getUTCSeconds()).padStart(2, '0')}`;
+      const formattedHoraInicio = horaInicio.toISOString().substr(11, 8); // Formato HH:mm:ss
+      const formattedHoraFin = horaFin.toISOString().substr(11, 8); // Formato HH:mm:ss
       console.log(`Turno ${i + (Number(turno) === 2 ? 2 : 1)}: ${formattedHoraInicio} - ${formattedHoraFin}`);
       const sqlCheckZ = `
       SELECT TOP 1 Import 
