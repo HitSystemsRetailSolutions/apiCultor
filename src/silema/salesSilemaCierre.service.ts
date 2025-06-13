@@ -55,24 +55,7 @@ export class salesSilemaCierreService {
       turnosAEnviar = turnos;
     }
 
-    let prevFinalAmount: number | null = null;
-    if (Number(turno) === 2 && turnos.length >= 1) {
-      const first = turnos[0];
-      const hIni = first.horaInicio.toISOString().slice(11, 19);
-      const hFin = first.horaFin.toISOString().slice(11, 19);
-
-      const sqlFinal1 = `
-      SELECT SUM(CASE WHEN m.Tipus_moviment = 'W' THEN m.Import ELSE 0 END) AS CambioFinal
-      FROM [v_moviments_${year}-${month}] m
-      WHERE m.Botiga = ${botiga}
-        AND DAY(m.Data) = ${day}
-        AND CONVERT(TIME, m.Data) BETWEEN '${hIni}' AND '${hFin}'
-    `;
-      const res1 = await this.sql.runSql(sqlFinal1, database);
-      if (res1.recordset.length > 0) {
-        prevFinalAmount = parseFloat(res1.recordset[0].CambioFinal) || 0;
-      }
-    }
+    let prevFinalAmount = await this.getPrevFinalAmount(Number(turno), turnos, day, month, year, botiga, database);
     for (let i = 0; i < turnosAEnviar.length; i++) {
       const { horaInicio, horaFin } = turnosAEnviar[i];
       const formattedHoraInicio = horaInicio.toISOString().substr(11, 8); // Formato HH:mm:ss
@@ -103,19 +86,21 @@ export class salesSilemaCierreService {
 
       const currentInicial = cambioInicialRow ? -parseFloat(cambioInicialRow.Import) : 0;
       const currentFinal = cambioFinalRow ? parseFloat(cambioFinalRow.Import) : 0;
-
+      console.log(`Turno ${i + (Number(turno) === 2 ? 2 : 1)}: Cambio Inicial = ${currentInicial}, Cambio Final = ${currentFinal} (prevFinalAmount = ${prevFinalAmount})`);
       if (prevFinalAmount !== null && currentInicial !== prevFinalAmount) {
         const diff = prevFinalAmount - currentInicial;
+        console.log(`Diferencia de cambio inicial: ${diff}`);
         cambioInicialRow!.Import = String(-prevFinalAmount);
         const importe = Math.round(Math.abs(diff) * -1 * 100) / 100;
         if (importe != 0) {
+          console.log(`Ajuste de cambio inicial: ${importe}`);
           rows.push({
             Botiga: cambioInicialRow!.Botiga,
             Data: cambioInicialRow!.Data,
             Tipo_moviment: 'Entrada',
             Import: importe,
             documentType: '',
-            description: 'Ajuste cambio inicial',
+            description: 'Modificación caja',
             Orden: 10,
           });
         }
@@ -125,7 +110,116 @@ export class salesSilemaCierreService {
     }
     return true;
   }
+  private async getPrevFinalAmount(turno: number, turnos: { horaInicio: Date; horaFin: Date }[], day: number, month: number, year: number, botiga: number, database: string): Promise<number | null> {
+    if (turnos.length === 0) return null;
+    console.log(`Obteniendo importe final previo para el turno ${turno} en la botiga ${botiga} del día ${day}-${month}-${year}`);
 
+    if (Number(turno) === 2) {
+      // Comparar con cierre del primer turno del mismo día
+      const first = turnos[0];
+      const hIni = first.horaInicio.toISOString().slice(11, 19);
+      const hFin = first.horaFin.toISOString().slice(11, 19);
+
+      const sqlFinal1 = `
+      SELECT SUM(CASE WHEN m.Tipus_moviment = 'W' THEN m.Import ELSE 0 END) AS CambioFinal
+      FROM [v_moviments_${year}-${month.toString().padStart(2, '0')}] m
+      WHERE m.Botiga = ${botiga}
+        AND DAY(m.Data) = ${day}
+        AND CONVERT(TIME, m.Data) BETWEEN '${hIni}' AND '${hFin}'
+    `;
+      const res1 = await this.sql.runSql(sqlFinal1, database);
+      if (res1.recordset.length > 0) {
+        console.log(`Cambio final del primer turno: ${res1.recordset[0].CambioFinal}`);
+        return parseFloat(res1.recordset[0].CambioFinal) || 0;
+      }
+    } else {
+      console.log(`Obteniendo importe final previo de días anteriores para el turno ${turno} en la botiga ${botiga}, día ${day}, mes ${month}, año ${year}`);
+
+      let intentos = 0;
+      let fecha = new Date(year, month - 1, day);
+
+      while (intentos < 3) {
+        fecha.setDate(fecha.getDate() - 1);
+
+        const dayPrev = fecha.getDate();
+        const monthPrev = fecha.getMonth() + 1;
+        const yearPrev = fecha.getFullYear();
+        const monthPrevStr = monthPrev.toString().padStart(2, '0');
+        const dayPrevStr = dayPrev.toString().padStart(2, '0');
+
+        console.log(`Intento ${intentos + 1} - Revisando fecha: ${dayPrevStr}-${monthPrevStr}-${yearPrev}`);
+
+        const sqlTurnosPrev = `
+        SELECT CONVERT(varchar(8), Data, 108) as hora, Tipus_moviment
+        FROM [V_Moviments_${yearPrev}-${monthPrevStr}]
+        WHERE botiga = ${botiga} AND Tipus_moviment IN ('Wi', 'W') AND DAY(Data) = ${dayPrevStr}
+        GROUP BY Data, Tipus_moviment
+        ORDER BY Data
+      `;
+
+        const resTurnos = await this.sql.runSql(sqlTurnosPrev, database);
+        const rows = resTurnos.recordset;
+
+        const turnosPrev: { horaInicio: Date; horaFin: Date }[] = [];
+        let currentTurn: { horaInicio?: Date } = {};
+
+        for (const row of rows) {
+          if (!row.hora || typeof row.hora !== 'string') {
+            console.warn(`Hora inválida encontrada: ${row.hora}`);
+            continue;
+          }
+
+          const horaSolo = row.hora.split('.')[0];
+          const dateString = `${yearPrev}-${monthPrevStr}-${dayPrevStr}T${horaSolo}`;
+          const horaDate = new Date(dateString);
+
+          if (isNaN(horaDate.getTime())) {
+            console.warn(`Fecha inválida al parsear: ${dateString}`);
+            continue;
+          }
+
+          if (row.Tipus_moviment === 'Wi') {
+            currentTurn = { horaInicio: horaDate };
+          } else if (row.Tipus_moviment === 'W' && currentTurn.horaInicio) {
+            turnosPrev.push({ horaInicio: currentTurn.horaInicio, horaFin: horaDate });
+            currentTurn = {};
+          }
+        }
+
+        if (turnosPrev.length > 0) {
+          const last = turnosPrev[turnosPrev.length - 1];
+          const hIni = this.getHoraStr(last.horaInicio);
+          const hFin = this.getHoraStr(last.horaFin);
+          console.log(`Último turno encontrado: ${hIni} - ${hFin}`);
+
+          const sqlFinalPrev = `
+          SELECT SUM(CASE WHEN m.Tipus_moviment = 'W' THEN m.Import ELSE 0 END) AS CambioFinal
+          FROM [v_moviments_${yearPrev}-${monthPrevStr}] m
+          WHERE m.Botiga = ${botiga}
+            AND DAY(m.Data) = ${dayPrevStr}
+            AND CONVERT(TIME, m.Data) BETWEEN '${hIni}' AND '${hFin}'
+        `;
+          const resFinal = await this.sql.runSql(sqlFinalPrev, database);
+          if (resFinal.recordset.length > 0) {
+            console.log(`Cambio final del ${dayPrevStr}-${monthPrevStr}-${yearPrev}: ${resFinal.recordset[0].CambioFinal}`);
+            return parseFloat(resFinal.recordset[0].CambioFinal) || 0;
+          }
+        } else {
+          console.warn(`No se encontraron turnos el día ${dayPrevStr}-${monthPrevStr}-${yearPrev}`);
+        }
+
+        intentos++;
+        console.log(`Intento ${intentos} fallido, intentando con el día anterior...`);
+      }
+    }
+    return null;
+  }
+  private getHoraStr(date: Date): string {
+    const h = date.getHours().toString().padStart(2, '0');
+    const m = date.getMinutes().toString().padStart(2, '0');
+    const s = date.getSeconds().toString().padStart(2, '0');
+    return `${h}:${m}:${s}`;
+  }
   private getSQLQuerySalesSilemaCierre(botiga: number, day: number, month: number, year: number, horaInicio: string, horaFin: string) {
     return `
     DECLARE @botiga INT = ${botiga};
@@ -208,7 +302,7 @@ export class salesSilemaCierreService {
     UNION ALL
 
     SELECT 
-        LEFT(c.nom, 6), CONVERT(Date, m.Data), 'Entrega diaria', (m.Import * -1), '', 'Entrega diaria', 8
+        LEFT(c.nom, 6), CONVERT(Date, m.Data), 'Entrega diaria', (m.Import * -1), '', 'Salidas de dinero', 8
     FROM [v_moviments_${year}-${month}] m
     INNER JOIN clients c ON m.Botiga = c.codi
     WHERE m.Tipus_moviment = 'O'
@@ -216,6 +310,45 @@ export class salesSilemaCierreService {
       AND m.Botiga = @botiga 
       AND CONVERT(TIME, m.Data) BETWEEN @HoraInicio AND @HoraFin
       AND m.motiu = 'Entrega Diària'
+      AND m.Import <> 0
+
+    UNION ALL
+
+	  SELECT 
+        LEFT(c.nom, 6), CONVERT(Date, m.Data), 'Salida transporte', (m.Import * -1), '', 'Retirada para gastos de transporte', 8
+    FROM [v_moviments_${year}-${month}] m
+    INNER JOIN clients c ON m.Botiga = c.codi
+    WHERE m.Tipus_moviment = 'O'
+      AND DAY(m.Data) = @day 
+      AND m.Botiga = @botiga 
+      AND CONVERT(TIME, m.Data) BETWEEN @HoraInicio AND @HoraFin
+      AND m.motiu = 'TRANSPORTE'
+      AND m.Import <> 0
+
+    UNION ALL
+
+	  SELECT 
+        LEFT(c.nom, 6), CONVERT(Date, m.Data), 'Salida compras', (m.Import * -1), '', 'Retiradas para compra de mercancía', 8
+    FROM [v_moviments_${year}-${month}] m
+    INNER JOIN clients c ON m.Botiga = c.codi
+    WHERE m.Tipus_moviment = 'O'
+      AND DAY(m.Data) = @day 
+      AND m.Botiga = @botiga 
+      AND CONVERT(TIME, m.Data) BETWEEN @HoraInicio AND @HoraFin
+      AND m.motiu = 'COMPRAS DE MERCANCIAS'
+      AND m.Import <> 0
+
+    UNION ALL
+    
+    SELECT 
+        LEFT(c.nom, 6), CONVERT(Date, m.Data), 'Salida gastos', (m.Import * -1), '', 'Retiradas para gastos otros', 8
+    FROM [v_moviments_${year}-${month}] m
+    INNER JOIN clients c ON m.Botiga = c.codi
+    WHERE m.Tipus_moviment = 'O'
+      AND DAY(m.Data) = @day 
+      AND m.Botiga = @botiga 
+      AND CONVERT(TIME, m.Data) BETWEEN @HoraInicio AND @HoraFin
+      AND m.motiu = 'OTROS'
       AND m.Import <> 0
 
     UNION ALL
@@ -231,6 +364,9 @@ export class salesSilemaCierreService {
       AND m.motiu <> '' 
       AND m.motiu NOT LIKE '%pagat%' 
       AND m.motiu NOT LIKE 'Entrega Diària%' 
+	    AND m.motiu <> 'TRANSPORTE' 
+	    AND m.motiu <> 'COMPRAS DE MERCANCIAS'
+      AND m.motiu <> 'OTROS' 
       AND m.motiu NOT LIKE '%deute client%' 
       AND m.motiu NOT LIKE '%tkrs%' 
       AND m.motiu NOT LIKE '%dejaACuenta%' 
@@ -254,14 +390,14 @@ export class salesSilemaCierreService {
     UNION ALL
 
     SELECT 
-        Botiga, CONVERT(Date, Data), 'Cambio Inicial', (CambioInicial * -1), '', 'Cambio Inicial', 11
+        Botiga, CONVERT(Date, Data), 'Cambio Inicial', (CambioInicial * -1), '', 'Fondo caja inicial', 11
     FROM Totales
     WHERE CambioInicial <> 0
 
     UNION ALL
 
     SELECT 
-        Botiga, CONVERT(Date, Data), 'Cambio Final', CambioFinal, '', 'Cambio Final', 12
+        Botiga, CONVERT(Date, Data), 'Cambio Final', CambioFinal, '', 'Fondo caja final', 12
     FROM Totales
     WHERE CambioFinal <> 0
 
@@ -291,7 +427,7 @@ export class salesSilemaCierreService {
           documentNo: `${formattedTittle}`,
           lineNo: i + 1,
           amount: parseFloat(parseFloat(x.Import).toFixed(2)), //Float
-          description: `${x.description}`,
+          description: `${this.capitalizarPrimeraLetra(x.description)}`,
           externalDocumentNo: `${formattedTittle}`,
           postingDate: `${formattedDate2}`,
           shift: `Shift_x0020_${turno}`,
@@ -331,6 +467,12 @@ export class salesSilemaCierreService {
           case 'Salida gastos':
             salesCierre.closingStoreType = 'Withdrawals for Expenses';
             break;
+          case 'Salida transporte':
+            salesCierre.closingStoreType = 'Withdrawal for Transport Costs';
+            break;
+          case 'Salida compras':
+            salesCierre.closingStoreType = 'Withdrawals for Purchasing Merchandise';
+            break;
           case 'Entrada':
             salesCierre.closingStoreType = 'Entries in Drawer';
             break;
@@ -344,7 +486,6 @@ export class salesSilemaCierreService {
         //nLines++;
         // console.log(JSON.stringify(salesCierre, null, 2));
         await this.postToApiCierre(tipo, salesCierre, tenant, entorno, companyID, token);
-        // console.log(salesCierre);
       }
     }
     return true;
@@ -416,5 +557,10 @@ export class salesSilemaCierreService {
     input = input.toUpperCase();
     const match = input.match(/[TM]--(\d{3})/);
     return match ? match[1] : null;
+  }
+
+  private capitalizarPrimeraLetra(texto: string): string {
+    const textoEnMinusculas = texto.toLowerCase();
+    return textoEnMinusculas.charAt(0).toUpperCase() + textoEnMinusculas.slice(1);
   }
 }
