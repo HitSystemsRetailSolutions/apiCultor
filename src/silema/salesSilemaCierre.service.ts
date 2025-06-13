@@ -133,8 +133,7 @@ export class salesSilemaCierreService {
         return parseFloat(res1.recordset[0].CambioFinal) || 0;
       }
     } else {
-      console.log(`${day}-${month}-${year}`);
-      console.log(`Obteniendo importe final previo de días anteriores para el turno ${turno} en la botiga ${botiga}`);
+      console.log(`Obteniendo importe final previo de días anteriores para el turno ${turno} en la botiga ${botiga}, día ${day}, mes ${month}, año ${year}`);
 
       let intentos = 0;
       let fecha = new Date(year, month - 1, day);
@@ -179,7 +178,6 @@ export class salesSilemaCierreService {
             continue;
           }
 
-          console.log(`Hora: ${this.getHoraStr(horaDate)}`);
           if (row.Tipus_moviment === 'Wi') {
             currentTurn = { horaInicio: horaDate };
           } else if (row.Tipus_moviment === 'W' && currentTurn.horaInicio) {
@@ -488,7 +486,6 @@ export class salesSilemaCierreService {
         //nLines++;
         // console.log(JSON.stringify(salesCierre, null, 2));
         await this.postToApiCierre(tipo, salesCierre, tenant, entorno, companyID, token);
-        // console.log(salesCierre);
       }
     }
     return true;
