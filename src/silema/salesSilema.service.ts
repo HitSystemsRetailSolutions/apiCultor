@@ -17,43 +17,55 @@ export class salesSilemaService {
   // Funcion que pasandole un dia de inicio y otro de fin sincroniza los datos de ventas de silema
   async syncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, database, botigas: Array<String>, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
-      let errorWhere = '';
-      let cierre = true;
       for (const botiga of botigas) {
         // Itera desde el día inicial hasta el día final
         for (let day = dayStart; day <= dayEnd; day++) {
+          // Formatea el día y el mes para asegurarse de que tengan 2 dígitos
+          const formattedDay = String(day).padStart(2, '0');
+          const formattedMonth = String(month).padStart(2, '0');
+          const formattedYear = String(year);
+
+          console.log(`Procesando ventas para el día: ${formattedDay}/${formattedMonth}/${formattedYear} | Tienda: ${botiga}`);
+
+          let success = true;
+          let errorWhere = '';
+          const turno = 0;
+
           try {
-            // Formatea el día y el mes para asegurarse de que tengan 2 dígitos
-            const formattedDay = String(day).padStart(2, '0');
-            const formattedMonth = String(month).padStart(2, '0');
-            const formattedYear = String(year);
-
-            console.log(`Procesando ventas para el día: ${formattedDay}/${formattedMonth}/${formattedYear} | Tienda: ${botiga}`);
-
-            // Llama a tu función con el día formateado
-            let turno = 0;
             console.log('Iniciando syncSalesSilema...');
             await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
-
             console.log('syncSalesSilema completado.');
+          } catch (error) {
+            console.error(`Error en syncSalesSilema para ${formattedDay}/${formattedMonth}/${formattedYear}, tienda ${botiga}:`, error);
+            success = false;
+          }
 
-            errorWhere = 'syncSalesSilemaAbono';
-
+          try {
             console.log('Iniciando syncSalesSilemaAbono...');
             await this.salesSilemaAbono.syncSalesSilemaAbono(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
-
             console.log('syncSalesSilemaAbono completado.');
-            if (cierre) {
-              console.log('Iniciando syncSalesSilemaCierre...');
-
-              errorWhere = 'syncSalesSilemaCierre';
-              await this.salesSilemaCierre.syncSalesSilemaCierre(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
-
-              console.log('syncSalesSilemaCierre completado.');
-            }
           } catch (error) {
-            console.error(`Error ${errorWhere} para el día ${day}/${month}/${year} en la empresa ${companyID}, tienda ${botiga}:`, error);
-            console.error(error);
+            console.error(`Error en syncSalesSilemaAbono para ${formattedDay}/${formattedMonth}/${formattedYear}, tienda ${botiga}:`, error);
+            success = false;
+          }
+
+          try {
+            console.log('Iniciando syncSalesSilemaCierre...');
+            await this.salesSilemaCierre.syncSalesSilemaCierre(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
+            console.log('syncSalesSilemaCierre completado.');
+          } catch (error) {
+            console.error(`Error en syncSalesSilemaCierre para ${formattedDay}/${formattedMonth}/${formattedYear}, tienda ${botiga}:`, error);
+            success = false;
+          }
+
+          if (success) {
+            try {
+              console.log('Ejecutando DELETE en tabla de control...');
+              await this.deleteControlTableEntry(formattedDay, formattedMonth, formattedYear, botiga, database);
+              console.log('DELETE ejecutado correctamente.');
+            } catch (deleteError) {
+              console.error('Error al ejecutar el DELETE:', deleteError);
+            }
           }
         }
       }
@@ -66,37 +78,54 @@ export class salesSilemaService {
   // Funcion que pasandole un dia de inicio y otro de fin sincroniza los datos de ventas de silema
   async syncSalesSilemaDateTurno(dayStart, dayEnd, month, year, companyID, database, botigas: Array<String>, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
-      let errorWhere = '';
-      let cierre = true;
       for (const botiga of botigas) {
-        // Itera desde el día inicial hasta el día final
         for (let day = dayStart; day <= dayEnd; day++) {
+          const formattedDay = String(day).padStart(2, '0');
+          const formattedMonth = String(month).padStart(2, '0');
+          const formattedYear = String(year);
+
+          console.log(`Procesando ventas para el día: ${formattedDay}/${formattedMonth}/${formattedYear} | Tienda: ${botiga} | Turno: ${turno}`);
+
+          let success = true;
+          let errorWhere = '';
+
           try {
-            // Formatea el día y el mes para asegurarse de que tengan 2 dígitos
-            const formattedDay = String(day).padStart(2, '0');
-            const formattedMonth = String(month).padStart(2, '0');
-            const formattedYear = String(year);
-
-            console.log(`Procesando ventas para el día: ${formattedDay}/${formattedMonth}/${formattedYear} | Tienda: ${botiga}`);
-
-            // Llama a tu función con el día formateado
-
             errorWhere = 'syncSalesSilema';
             await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
+          } catch (error) {
+            console.error(`Error en ${errorWhere} para el día ${day}/${month}/${year}, tienda ${botiga}:`, error);
+            success = false;
+          }
+
+          try {
             errorWhere = 'syncSalesSilemaAbono';
             await this.salesSilemaAbono.syncSalesSilemaAbono(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
-            if (cierre) {
-              errorWhere = 'syncSalesSilemaCierre';
-              await this.salesSilemaCierre.syncSalesSilemaCierre(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
-            }
           } catch (error) {
-            console.error(`Error ${errorWhere} para el día ${day}/${month}/${year} en la empresa ${companyID}, tienda ${botiga}:`, error);
-            console.error(error);
+            console.error(`Error en ${errorWhere} para el día ${day}/${month}/${year}, tienda ${botiga}:`, error);
+            success = false;
+          }
+
+          try {
+            errorWhere = 'syncSalesSilemaCierre';
+            await this.salesSilemaCierre.syncSalesSilemaCierre(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
+          } catch (error) {
+            console.error(`Error en ${errorWhere} para el día ${day}/${month}/${year}, tienda ${botiga}:`, error);
+            success = false;
+          }
+
+          if (success) {
+            try {
+              console.log('Ejecutando DELETE en tabla de control...');
+              await this.deleteControlTableEntry(formattedDay, formattedMonth, formattedYear, botiga, database, turno);
+              console.log('DELETE ejecutado correctamente.');
+            } catch (deleteError) {
+              console.error('Error al ejecutar el DELETE:', deleteError);
+            }
           }
         }
       }
     } catch (error) {
-      console.error('Error general en syncSalesSilemaDate:', error);
+      console.error('Error general en syncSalesSilemaDateTurno:', error);
     }
     return true;
   }
@@ -331,7 +360,15 @@ export class salesSilemaService {
       console.log(`Ya existe la ${tipo}: ${salesData.no}`);
     }
   }
-
+  async deleteControlTableEntry(day: string, month: string, year: string, botiga, database, turno?: number) {
+    let sqlDelete = `
+    DELETE FROM RecordsBC 
+    WHERE day(TmStCaixa) = '${day}' AND month(TmStCaixa) = '${month}' AND year(TmStCaixa) = '${year}' AND Botiga = '${botiga}'`;
+    if (turno !== undefined) {
+      sqlDelete += ` AND Torn = ${turno}`;
+    }
+    await this.sql.runSql(sqlDelete, database);
+  }
   extractNumber(input: string): string | null {
     input = input.toUpperCase();
     const match = input.match(/[TM]--(\d{3})/);
