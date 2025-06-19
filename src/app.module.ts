@@ -20,8 +20,8 @@ import { companiesController } from './companies/companies.controller';
 import { companiesService } from './companies/companies.service';
 import { PdfController } from './pdf/pdf.controller';
 import { PdfService } from './pdf/pdf.service';
-// import { IncidenciaController } from './incidencias/incidencia.controller';
-// import { IncidenciaService } from './incidencias/incidencia.service';
+import { IncidenciaController } from './incidencias/incidencia.controller';
+import { IncidenciaService } from './incidencias/incidencia.service';
 // import { archivosController } from './archivos/archivos.controller';
 // import { archivosService } from './archivos/archivos.service';
 import { empresasController } from './empresas/empresas.controller';
@@ -73,7 +73,7 @@ import { ventasPrevisionService } from './ventasPrevision/ventasPrevision.servic
     salesFacturasController,
     companiesController,
     PdfController,
-    // IncidenciaController,
+    IncidenciaController,
     // archivosController,
     empresasController,
     // traspasosController,
@@ -107,7 +107,7 @@ import { ventasPrevisionService } from './ventasPrevision/ventasPrevision.servic
     salesFacturasService,
     companiesService,
     PdfService,
-    // IncidenciaService,
+    IncidenciaService,
     // archivosService,
     empresasService,
     // traspasosService,

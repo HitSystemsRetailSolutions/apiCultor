@@ -184,6 +184,9 @@ client.on('message', async function (topic, message) {
         case 'initConfig':
           await initConfig(companyID, database, client_id, client_secret, tenant, entorno);
           break;
+        case 'incidencias':
+          await syncIncidencias(companyID, database, client_id, client_secret, tenant, entorno);
+          break;
         // case 'silemaRecords':
         //   await syncSalesSilemaRecords(companyID, database, msgJson.botiga, client_id, client_secret, tenant, entorno);
         //   break;
@@ -837,7 +840,6 @@ async function empresa(name, displayName, client_id, client_secret, tenant, ento
 
 async function initConfig(companyID, database, client_id, client_secret, tenant, entorno) {
   let res;
-  console.log(`companyID: ${companyID}, database: ${database}, client_id: ${client_id}, client_secret: ${client_secret}, tenant: ${tenant}, entorno: ${entorno}`);
   try {
     console.log(`Intentado la configuración inicial de la empresa`);
     res = await axios.get('http://localhost:3333/initConfig', {
@@ -852,6 +854,24 @@ async function initConfig(companyID, database, client_id, client_secret, tenant,
     });
   } catch (error) {
     console.error('Error:', error);
+  }
+}
+async function syncIncidencias(companyID, database, client_id, client_secret, tenant, entorno) {
+  let res;
+  try {
+    console.log(`Intentando sincronizar las incidencias de la empresa ${companyID}`);
+    res = await axios.get('http://localhost:3333/syncIncidencias', {
+      params: {
+        companyID: companyID,
+        database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+      },
+    });
+  } catch (error) {
+    console.error('Error al sincronizar las incidencias:', error);
   }
 }
 
