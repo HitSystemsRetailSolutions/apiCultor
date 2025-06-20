@@ -190,7 +190,7 @@ export class PdfService {
 
       const pdfHex = bufferArchivo.toString('hex');
 
-      const sql = `UPDATE BC_SyncSales_${year} SET BC_PDF=0x${pdfHex}, BC_Number='${number}' WHERE BC_IdSale='${id}'`;
+      const sql = `UPDATE BC_SyncSales_${year} SET BC_PDF=0x${pdfHex} WHERE BC_IdSale='${id}'`;
       await this.sql.runSql(sql, database);
 
       return { msg: 'Se ha insertado correctamente' };
