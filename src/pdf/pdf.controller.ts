@@ -94,7 +94,7 @@ export class PdfController {
 
   @Get('reintentarPdf')
   async reintentarSubidaPdf(
-    @Query('idFactura') idFactura: string,
+    @Query('idFactura') idFactura: string[],
     @Query('database') database: string,
     @Query('client_id') client_id: string,
     @Query('client_secret') client_secret: string,

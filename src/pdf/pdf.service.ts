@@ -200,34 +200,35 @@ export class PdfService {
     }
   }
 
-  async reintentarSubidaPdf(id: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string, endpoint: string) {
-    try {
-      // Obtener token
-      const token = await this.token.getToken2(client_id, client_secret, tenant);
+  async reintentarSubidaPdf(id: string[], database: string, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string, endpoint: string) {
+    // Obtener token
+    const token = await this.token.getToken2(client_id, client_secret, tenant);
+    for (const factura of id) {
+      try {
+        // Llamada al endpoint para obtener el PDF
+        const url = `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${factura})/pdfDocument/pdfDocumentContent`;
+        const response = await axios.get(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          responseType: 'arraybuffer',
+        });
 
-      // Llamada al endpoint para obtener el PDF
-      const url = `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${id})/pdfDocument/pdfDocumentContent`;
-      const response = await axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        responseType: 'arraybuffer',
-      });
+        const archivoBase64 = Buffer.from(response.data).toString('base64');
 
-      const archivoBase64 = Buffer.from(response.data).toString('base64');
+        if (!archivoBase64) {
+          this.logError(`❌ No se encontró el contenido del PDF para el ID ${factura}`, new Error('Contenido del PDF no encontrado'));
+          throw new Error(`No se encontró el contenido del PDF para el ID ${factura}`);
+        }
 
-      if (!archivoBase64) {
-        this.logError(`❌ No se encontró el contenido del PDF para el ID ${id}`, new Error('Contenido del PDF no encontrado'));
-        throw new Error(`No se encontró el contenido del PDF para el ID ${id}`);
+        // Insertar el PDF en SQL llamando a la función existente
+        const resultado = await this.subirPdf(factura, archivoBase64, database, client_id, client_secret, tenant, entorno, companyID, endpoint);
+      } catch (error) {
+        this.logError(`❌ Error al reintentar la subida del PDF con ID ${factura}:`, error);
+        throw error;
       }
-
-      // Insertar el PDF en SQL llamando a la función existente
-      const resultado = await this.subirPdf(id, archivoBase64, database, client_id, client_secret, tenant, entorno, companyID, endpoint);
-      return true;
-    } catch (error) {
-      this.logError(`❌ Error al reintentar la subida del PDF con ID ${id}:`, error);
-      throw error;
     }
+    return true;
   }
   private logError(message: string, error: any) {
     this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
