@@ -473,9 +473,10 @@ export class salesFacturasService {
         return false;
       }
       const year = salesData.data.postingDate.split('-')[0];
+      const number = salesData.data.number;
 
       const updateSql = `UPDATE [BC_SyncSales_${year}] 
-                         SET Registrada = 'Si'
+                         SET Registrada = 'Si', BC_Number='${number}'
                          WHERE BC_IdSale = '${idFactura}'`;
 
       await this.sql.runSql(updateSql, database);
