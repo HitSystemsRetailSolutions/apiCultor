@@ -169,6 +169,9 @@ client.on('message', async function (topic, message) {
         case 'factura':
           await facturas(companyID, database, msgJson.idFactura, msgJson.tabla, client_id, client_secret, tenant, entorno);
           break;
+        case 'reintentarPDF':
+          await reintentarPDF(msgJson.idFactura, database, client_id, client_secret, tenant, entorno, companyID, msgJson.endpoint);
+          break;
         case 'Companies':
           await setCompanies(client_id, client_secret, tenant, entorno);
           break;
@@ -760,6 +763,26 @@ async function facturas(companyID, database, idFactura, tabla, client_id, client
     console.log('Sincronización de facturas acabada');
   } catch (error) {
     console.error('Error al sincronizar facturas de ventas:', error);
+  }
+}
+async function reintentarPDF(idFactura, database, client_id, client_secret, tenant, entorno, companyID, endpoint) {
+  try {
+    await axios.get('http://localhost:3333/reintentarPDF', {
+      params: {
+        idFactura: idFactura,
+        database: database,
+        client_id: client_id,
+        client_secret: client_secret,
+        tenant: tenant,
+        entorno: entorno,
+        companyID: companyID,
+        endpoint: endpoint,
+      },
+      timeout: 30000,
+    });
+    console.log('Reintentar PDF sent...');
+  } catch (error) {
+    console.error('Error al reintentar PDF:', error);
   }
 }
 
