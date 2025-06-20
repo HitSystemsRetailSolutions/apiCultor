@@ -91,4 +91,24 @@ export class PdfController {
     if (!res) return 'Ha habido un error al intentar enviar el correo';
     return 'Se han sincronizado todas las incidencias correctamente';
   }
+
+  @Get('reintentarPdf')
+  async reintentarSubidaPdf(
+    @Query('idFactura') idFactura: string,
+    @Query('database') database: string,
+    @Query('client_id') client_id: string,
+    @Query('client_secret') client_secret: string,
+    @Query('tenant') tenant: string,
+    @Query('entorno') entorno: string,
+    @Query('companyID') companyID: string,
+    @Query('endpoint') endpoint: string,
+  ) {
+    try {
+      const result = await this.pdfService.reintentarSubidaPdf(idFactura, database, client_id, client_secret, tenant, entorno, companyID, endpoint);
+      return { msg: 'Se ha reintentado la subida del PDF correctamente', data: result };
+    } catch (error) {
+      console.error('Error al reintentar la subida del PDF:', error);
+      return { msg: 'No se ha podido reintentar la subida del PDF' };
+    }
+  }
 }
