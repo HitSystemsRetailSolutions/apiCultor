@@ -16,7 +16,7 @@ export class trabajadoresService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) {}
+  ) { }
 
   async syncTrabajadoresAC(database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     const empresas: Array<{ empresaID: string; nombre: string }> = [
@@ -147,10 +147,16 @@ export class trabajadoresService {
         { nom: 'DATACONTRACTEINI0', valor: fechaAlta },
       ];
       if (query.recordset.length == 0) {
+        let year = new Date(fechaAlta).getFullYear();
+        if (year < 2025) {
+          year = new Date().getFullYear();
+        }
         console.log(`Trabajador a procesar: ${trabajador.documento}`);
         let sqlInsert = ` INSERT INTO dependentes ( CODI, NOM, MEMO, ADREÇA, Icona, [Hi Editem Horaris], Tid) 
         VALUES ( '${codi}', '${this.escapeSqlString(nom)}', '${this.escapeSqlString(memo)}', '${this.escapeSqlString(adreca)}', '${icona}', ${hiEditemHoraris}, '${tid}'); `;
         await this.sql.runSql(sqlInsert, database);
+        let sqlCalendario = `insert into CdpCalendariLaboral_${year} (id, fecha, idEmpleado, estado, observaciones, timestamp) values (NEWID(), '${fechaAlta}', '${codi}', 'INICIO CONTRATO', '', getdate())`;
+        await this.sql.runSql(sqlCalendario, database);
         for (const { nom, valor } of inserts) {
           // Salta la inserción si el valor está vacío, null, undefined o solo espacios
           if (valor == null || valor.toString().trim() === '') continue;
