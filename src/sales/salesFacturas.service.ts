@@ -28,7 +28,7 @@ export class salesFacturasService {
     @Inject(forwardRef(() => locationsService))
     private locations: locationsService,
     private intercompanySilema: intercompanySilemaService,
-  ) {}
+  ) { }
 
   async syncSalesFacturas(companyID: string, database: string, idFacturas: string[], tabla: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     if (tenant === process.env.blockedTenant) {
@@ -329,13 +329,83 @@ export class salesFacturasService {
 
   private async createInvoice(salesInvoiceData, endpoint, clientCodi, database, client_id, client_secret, token: string, tenant: string, entorno: string, companyID: string) {
     try {
-      console.log(`📄 Creando factura...`);
-      const factura = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}`, salesInvoiceData, {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
-      });
+      const numLineas =
+        salesInvoiceData.salesInvoiceLines?.length ||
+        salesInvoiceData.salesCreditMemoLines?.length ||
+        0;
+
+      let factura;
+
+      if (numLineas <= 100) {
+        console.log(`📄 Creando factura en 1 sola llamada porque solo tiene ${numLineas} líneas...`);
+
+        factura = await axios.post(
+          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}`,
+          salesInvoiceData,
+          {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      } else {
+        console.log(`📄 Factura con ${numLineas} líneas. Usando proceso en bloques...`);
+
+        const invoiceHeader = {
+          externalDocumentNumber: salesInvoiceData.externalDocumentNumber,
+          invoiceDate: salesInvoiceData.invoiceDate,
+          postingDate: salesInvoiceData.postingDate,
+          customerId: salesInvoiceData.customerId,
+        };
+
+        factura = await axios.post(
+          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}`,
+          invoiceHeader,
+          {
+            headers: {
+              Authorization: 'Bearer ' + token,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        console.log(`✅ Cabecera creada con ID: ${factura.data.id}`);
+
+        let allLines;
+        let lineEndpoint;
+        if (endpoint === "salesInvoices") {
+          allLines = salesInvoiceData.salesInvoiceLines;
+          lineEndpoint = `salesInvoiceLines`;
+        } else if (endpoint === "salesCreditMemos") {
+          allLines = salesInvoiceData.salesCreditMemoLines;
+          lineEndpoint = `salesCreditMemoLines`;
+        } else {
+          throw new Error("Endpoint desconocido. No se puede insertar líneas.");
+        }
+
+        const chunkSize = 100;
+        for (let i = 0; i < allLines.length; i += chunkSize) {
+          const chunk = allLines.slice(i, i + chunkSize);
+
+          for (const line of chunk) {
+            await axios.post(
+              `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${factura.data.id})/${lineEndpoint}`,
+              line,
+              {
+                headers: {
+                  Authorization: 'Bearer ' + token,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+          }
+
+          console.log(`✅ Bloque de líneas ${i + 1} a ${i + chunk.length} insertado.`);
+        }
+
+        console.log(`✅ Todas las líneas insertadas.`);
+      }
 
       const esTienda = await this.sql.runSql(`SELECT * FROM ParamsHw WHERE codi = ${clientCodi}`, database);
       if (esTienda.recordset && esTienda.recordset.length > 0) {
@@ -412,6 +482,30 @@ export class salesFacturasService {
       throw error;
     }
   }
+  async getSaleLinesFromAPI(companyID, facturaId_BC, endpoint, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    try {
+
+      let lineEndpoint;
+      if (endpoint === "salesInvoices") {
+        lineEndpoint = `salesInvoiceLines`;
+      } else if (endpoint === "salesCreditMemos") {
+        lineEndpoint = `salesCreditMemoLines`;
+      } else {
+        throw new Error("Endpoint desconocido. No se puede insertar líneas.");
+      }
+      const token = await this.token.getToken2(client_id, client_secret, tenant);
+      const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${facturaId_BC})/${lineEndpoint}?$filter=lineType eq 'Item'`, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+      return res;
+    } catch (error) {
+      this.logError(`❌ Error obteniendo venta desde API para el documento ${facturaId_BC}`, error);
+      throw error;
+    }
+  }
 
   async updateSQLSale(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno, idSaleHit, database) {
     try {
@@ -467,23 +561,123 @@ export class salesFacturasService {
   async updateRegistro(companyID: string, database: string, idFactura: string, client_id: string, client_secret: string, tenant: string, entorno: string, endpoint: string) {
     try {
       const salesData = await this.getSaleFromAPI(companyID, idFactura, endpoint, client_id, client_secret, tenant, entorno);
+      const salesDataLines = await this.getSaleLinesFromAPI(companyID, idFactura, endpoint, client_id, client_secret, tenant, entorno);
 
       if (!salesData.data) {
         console.warn(`⚠️ No se encontró información para la factura ${idFactura}`);
         return false;
       }
+      if (!salesDataLines.data || salesDataLines.data.value.length === 0) {
+        console.warn(`⚠️ No se encontraron líneas para la factura ${idFactura}`);
+        return false;
+      }
       const year = salesData.data.postingDate.split('-')[0];
+      const month = salesData.data.postingDate.split('-')[1];
+      console.log(`📅 Actualizando factura del año ${year} y mes ${month}`);
       const number = salesData.data.number;
+      const sqlQuery = `SELECT HIT_IdFactura FROM [BC_SyncSales_${year}] WHERE BC_IdSale = '${idFactura}'`;
+      const getidHit = await this.sql.runSql(sqlQuery, database);
+      const idHit = getidHit.recordset[0].HIT_IdFactura;
+
+      const idFacturaParts = number.split('-');
+      const idFacturaSerie = idFacturaParts.slice(0, -1).join('-') + '-';
+      const idFacturaNumber = idFacturaParts[idFacturaParts.length - 1];
+
+      console.log(`📝 Actualizando factura ${idFactura} con número ${idFacturaNumber} y serie ${idFacturaSerie}`);
+
+      const importBC = salesData.data.totalAmountIncludingTax;
 
       const updateSql = `UPDATE [BC_SyncSales_${year}] 
                          SET Registrada = 'Si', BC_Number='${number}'
                          WHERE BC_IdSale = '${idFactura}'`;
 
       await this.sql.runSql(updateSql, database);
+
+      for (const line of salesDataLines.data.value) {
+        const lineImport = line.amountExcludingTax;
+        const updateLineSql = `UPDATE [facturacio_${year}-${month}_Data_BC] 
+                               SET IdFactura = '${idFactura}', 
+                                   Import = ${lineImport}
+                               WHERE IdFactura = '${idHit}' 
+                               AND Producte = ${line.lineObjectNumber}
+                               AND Preu = ${line.unitPrice}
+                               AND Desconte = ${line.discountPercent}`;
+        // console.log(`➡ Ejecutando SQL:\n${updateLineSql}`);
+        await this.sql.runSql(updateLineSql, database);
+      }
+      // Agrupar bases por tipo de IVA
+      interface IvaGroup {
+        ivaPercent: number;
+        base: number;
+        quota: number;
+      }
+
+      const ivaMap: Record<string, IvaGroup> = {};
+
+      for (const line of salesDataLines.data.value) {
+        const ivaPercent = Number(line.taxPercent);
+        if (!ivaMap[ivaPercent]) {
+          ivaMap[ivaPercent] = {
+            ivaPercent,
+            base: 0,
+            quota: 0
+          };
+        }
+        ivaMap[ivaPercent].base += Number(line.amountExcludingTax);
+        ivaMap[ivaPercent].quota += Number(line.totalTaxAmount);
+      }
+
+      // Ordenar por porcentaje IVA
+      const ivaGroupsSorted = Object.values(ivaMap).sort((a, b) => a.ivaPercent - b.ivaPercent);
+
+      // Generar valores para BaseIvaX, IvaX, valorIvaX
+      const maxIvaSlots = 4;
+      const fieldsToUpdate: string[] = [];
+
+      for (let i = 0; i < maxIvaSlots; i++) {
+        const group = ivaGroupsSorted[i];
+        if (group) {
+          fieldsToUpdate.push(`BaseIva${i + 1} = ${group.base}`);
+          fieldsToUpdate.push(`Iva${i + 1} = ${group.quota}`);
+          fieldsToUpdate.push(`valorIva${i + 1} = ${group.ivaPercent}`);
+        } else {
+          fieldsToUpdate.push(`BaseIva${i + 1} = 0`);
+          fieldsToUpdate.push(`Iva${i + 1} = 0`);
+          fieldsToUpdate.push(`valorIva${i + 1} = 0`);
+        }
+      }
+
+      const updateFactIva = `
+      UPDATE [facturacio_${year}-${month}_iva_BC]
+      SET 
+          IdFactura = '${idFactura}',
+          Total = ${importBC.toFixed(2)},
+          Serie = '${idFacturaSerie}',
+          NumFactura = '${idFacturaNumber}',
+          ${fieldsToUpdate.join(',\n')}
+      WHERE IdFactura = '${idHit}'`;
+
+      const updateFactReb = `
+      UPDATE [facturacio_${year}-${month}_Reb_BC]
+      SET 
+          IdFactura = '${idFactura}',
+          Total = ${importBC.toFixed(2)},
+          Serie = '${idFacturaSerie}',
+          NumFactura = '${idFacturaNumber}',
+          ${fieldsToUpdate.join(',\n')}
+      WHERE IdFactura = '${idHit}'`;
+
+
+      // console.log(`➡ Ejecutando SQL:\n${updateFactIva}`);
+      await this.sql.runSql(updateFactIva, database);
+      // console.log(`➡ Ejecutando SQL:\n${updateFactReb}`);
+      await this.sql.runSql(updateFactReb, database);
+
     } catch (error) {
       this.logError(`❌ Error al actualizar la factura con id ${idFactura} en BC_SyncSales`, error);
       throw error;
     }
+    console.log(`✅ Registro actualizado correctamente para la factura ${idFactura}`);
     return true;
   }
   private logError(message: string, error: any) {
