@@ -69,7 +69,7 @@ export class salesFacturasService {
 
           let res;
           try {
-            res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=externalDocumentNumber eq '${num}'`, {
+            res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=externalDocumentNumber eq '${num}' and totalAmountIncludingTax ne 0`, {
               headers: {
                 Authorization: 'Bearer ' + token,
                 'Content-Type': 'application/json',
