@@ -9,6 +9,7 @@ import * as mqtt from 'mqtt';
 import * as pLimit from 'p-limit';
 import { error } from 'console';
 import { intercompanySilemaService } from 'src/silema/intercompanySilema.service';
+import { PdfService } from 'src/pdf/pdf.service';
 
 let errores: string[] = [];
 @Injectable()
@@ -28,6 +29,7 @@ export class salesFacturasService {
     @Inject(forwardRef(() => locationsService))
     private locations: locationsService,
     private intercompanySilema: intercompanySilemaService,
+    private pdfService: PdfService,
   ) { }
 
   async syncSalesFacturas(companyID: string, database: string, idFacturas: string[], tabla: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -166,6 +168,13 @@ export class salesFacturasService {
             await this.updateCorrectedInvoice(companyID, facturaId_BC, tenant, entorno, database, token, idFactura);
           }
           await this.updateSQLSale(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno, x.IdFactura, database);
+          const post = await this.postInvoice(companyID, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
+          if (post === 204) {
+            console.log(`✅ Factura ${num} sincronizada correctamente.`);
+            this.pdfService.esperaYVeras();
+            this.updateRegistro(companyID, database, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
+            this.pdfService.reintentarSubidaPdf([facturaId_BC], database, client_id, client_secret, tenant, entorno, companyID, endpoint);
+          }
         } catch (error) {
           await this.handleError(error, num, endpoint, token, companyID, tenant, entorno);
           i++;
@@ -679,6 +688,30 @@ export class salesFacturasService {
     }
     console.log(`✅ Registro actualizado correctamente para la factura ${idFactura}`);
     return true;
+  }
+
+  async postInvoice(companyID: string, idFactura: string, client_id: string, client_secret: string, tenant: string, entorno: string, endpoint: string) {
+    const token = await this.token.getToken2(client_id, client_secret, tenant);
+    try {
+      const url = `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${idFactura})/Microsoft.NAV.post`;
+      const response = await axios.post(
+        url,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      console.log(`✅ Factura ${idFactura} registrada correctamente.`);
+      return response.status;
+
+    } catch (error) {
+      this.logError(`❌ Error al registrar la factura ${idFactura}`, error);
+      throw error;
+    }
+
   }
   private logError(message: string, error: any) {
     this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
