@@ -266,7 +266,7 @@ export class salesSilemaService {
       let formattedDate = `${formattedDay}-${formattedMonth}-${formattedYear}`;
       let formattedDate2 = date.toISOString().substring(0, 10);
 
-      let sellToCustomerNo = x.Nif === 'B61957189' ? '430001314' : '';
+      let sellToCustomerNo = x.Nif;
       x.Nom = x.Nom.substring(0, 6);
       let salesData = {
         no: `${x.Nom}_${turno}_${formattedDate}`,
