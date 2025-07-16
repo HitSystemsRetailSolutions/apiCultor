@@ -4,6 +4,7 @@ import { runSqlService } from 'src/connection/sqlConection.service';
 import axios from 'axios';
 import * as mqtt from 'mqtt';
 import { salesFacturasService } from 'src/sales/salesFacturas.service';
+import * as cliProgress from 'cli-progress';
 
 @Injectable()
 export class itemsService {
@@ -18,7 +19,7 @@ export class itemsService {
     private sqlService: runSqlService,
     @Inject(forwardRef(() => salesFacturasService))
     private salesFacturas: salesFacturasService,
-  ) {}
+  ) { }
 
   async syncItems(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, codiHIT?: string) {
     if (tenant === process.env.blockedTenant) return;
@@ -52,6 +53,14 @@ export class itemsService {
 
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let itemId = '';
+    const bar = new cliProgress.SingleBar({
+      format: '⏳ Sincronizando producto: {item} |{bar}| {percentage}% | {value}/{total} | ⏰ Tiempo restante: {eta_formatted}',
+      barCompleteChar: '\u2588',
+      barIncompleteChar: '\u2591',
+      barGlue: '',
+      hideCursor: true
+    });
+    bar.start(items.recordset.length, 0, { item: 'N/A' });
     let i = 1;
     for (const item of items.recordset) {
       try {
@@ -104,7 +113,8 @@ export class itemsService {
           }
         } else {
           let etag = res.data.value[0]['@odata.etag'];
-          const updateItem = await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${res.data.value[0].id})`, itemData1, {
+          const { type, ...itemDataWithoutType } = itemData1;
+          const updateItem = await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${res.data.value[0].id})`, itemDataWithoutType, {
             headers: {
               Authorization: 'Bearer ' + token,
               'Content-Type': 'application/json',
@@ -130,12 +140,13 @@ export class itemsService {
         }
         continue;
       }
-      console.log(`⏳ Sincronizando artículo ${item.Nom} ... -> ${i}/${items.recordset.length} --- ${((i / items.recordset.length) * 100).toFixed(2)}% `);
+      bar.update(i, { item: item.Nom });
       i++;
     }
     if (codiHIT) {
       return itemId;
     }
+    bar.stop();
     return true;
   }
 
