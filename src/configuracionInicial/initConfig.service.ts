@@ -17,7 +17,7 @@ export class initConfigService {
     private tokenService: getTokenService,
     private sqlService: runSqlService,
     private customers: customersService,
-  ) {}
+  ) { }
 
   async initConfig(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     if (tenant === process.env.blockedTenant) return;
@@ -39,7 +39,7 @@ export class initConfigService {
 
   async paymentMethods(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     //El code no puede superar los 10 caracteres
-    const paymentMethods = ['UNDEFINED', 'EFECTIVO', 'TRANSF.', 'DOM.', 'CHEQUE'];
+    const paymentMethods = ['UNDEFINED', 'EFECTIVO', 'TRANSF.', 'DOM.', 'CHEQUE', 'PAYTEF', '3G'];
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let i = 1;
     for (const paymentMethod of paymentMethods) {
