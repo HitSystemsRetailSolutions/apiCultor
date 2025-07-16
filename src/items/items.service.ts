@@ -58,7 +58,8 @@ export class itemsService {
       barCompleteChar: '\u2588',
       barIncompleteChar: '\u2591',
       barGlue: '',
-      hideCursor: true
+      hideCursor: true,
+      noTTYOutput: true
     });
     bar.start(items.recordset.length, 0, { item: 'N/A' });
     let i = 1;
