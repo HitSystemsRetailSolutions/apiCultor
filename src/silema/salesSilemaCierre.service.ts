@@ -8,7 +8,7 @@ export class salesSilemaCierreService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) {}
+  ) { }
 
   //Sincroniza tickets HIT-BC, Ventas
   async syncSalesSilemaCierre(day, month, year, companyID, database, botiga, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -492,7 +492,14 @@ export class salesSilemaCierreService {
   }
 
   async postToApiCierre(tipo, salesData, tenant, entorno, companyID, token) {
-    let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/journalLinesBuffer?$filter=contains(documentNo,'${salesData.documentNo}') and lineNo eq ${salesData.lineNo}`;
+    let url1;
+    const validTypes = ['Cash', 'Card', '3G Card', 'Restaurant Ticket', 'Excess Restaurant Ticket', 'Drawer Opening', 'Drawer Closing', 'Discrepancy', 'Total invoice'];
+    if (validTypes.includes(salesData.closingStoreType)) {
+      url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/journalLinesBuffer?$filter=contains(documentNo,'${salesData.documentNo}') and closingStoreType eq '${salesData.closingStoreType}'`;
+    }
+    else {
+      url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/journalLinesBuffer?$filter=contains(documentNo,'${salesData.documentNo}') and lineNo eq ${salesData.lineNo}`;
+    }
     //console.log(url1);
     let resGet1 = await axios
       .get(url1, {
