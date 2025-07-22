@@ -451,6 +451,10 @@ export class salesFacturasService {
     try {
       const sqlQRect = `SELECT SUBSTRING(Comentari, CHARINDEX('[RECTIFICATIVA_DE:', Comentari) + 18, CHARINDEX(']', Comentari, CHARINDEX('[RECTIFICATIVA_DE:', Comentari)) - CHARINDEX('[RECTIFICATIVA_DE:', Comentari) - 18) AS rectificativa from FacturacioComentaris WHERE idFactura = '${idFactura}'`;
       const facturaComentari = await this.sql.runSql(sqlQRect, database);
+      if (facturaComentari.recordset.length === 0 || !facturaComentari.recordset[0].rectificativa) {
+        console.warn(`⚠️ No se encontró una factura rectificativa para la factura con ID ${idFactura}.`);
+        return;
+      }
       const correctedInvoice = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=externalDocumentNumber eq '${facturaComentari.recordset[0].rectificativa}' `, {
         headers: {
           Authorization: 'Bearer ' + token,
