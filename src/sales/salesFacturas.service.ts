@@ -594,8 +594,6 @@ export class salesFacturasService {
 
       console.log(`📝 Actualizando factura ${idFactura} con número ${idFacturaNumber} y serie ${idFacturaSerie}`);
 
-      const importBC = salesData.data.totalAmountIncludingTax;
-
       const updateSql = `UPDATE [BC_SyncSales_${year}] 
                          SET Registrada = 'Si', BC_Number='${number}'
                          WHERE BC_IdSale = '${idFactura}'`;
@@ -603,7 +601,7 @@ export class salesFacturasService {
       await this.sql.runSql(updateSql, database);
 
       for (const line of salesDataLines.data.value) {
-        const lineImport = line.amountExcludingTax;
+        const lineImport = endpoint === 'salesCreditMemos' ? -Math.abs(line.amountExcludingTax) : line.amountExcludingTax;
         const updateLineSql = `UPDATE [facturacio_${year}-${month}_Data_BC] 
                                SET IdFactura = '${idFactura}', 
                                    Import = ${lineImport}
@@ -632,8 +630,12 @@ export class salesFacturasService {
             quota: 0
           };
         }
-        ivaMap[ivaPercent].base += Number(line.amountExcludingTax);
-        ivaMap[ivaPercent].quota += Number(line.totalTaxAmount);
+        const base = Number(line.amountExcludingTax);
+        const quota = Number(line.totalTaxAmount);
+
+        ivaMap[ivaPercent].base += endpoint === 'salesCreditMemos' ? -Math.abs(base) : base;
+        ivaMap[ivaPercent].quota += endpoint === 'salesCreditMemos' ? -Math.abs(quota) : quota;
+
       }
 
       // Ordenar por porcentaje IVA
@@ -655,7 +657,7 @@ export class salesFacturasService {
           fieldsToUpdate.push(`valorIva${i + 1} = 0`);
         }
       }
-
+      const importBC = endpoint === 'salesCreditMemos' ? -Math.abs(salesData.data.totalAmountIncludingTax) : salesData.data.totalAmountIncludingTax;
       const updateFactIva = `
       UPDATE [facturacio_${year}-${month}_iva_BC]
       SET 
