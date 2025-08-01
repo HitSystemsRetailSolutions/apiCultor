@@ -8,7 +8,7 @@ export class salesSilemaAbonoService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) {}
+  ) { }
 
   //Abono
   async syncSalesSilemaAbono(day, month, year, companyID, database, botiga, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -79,187 +79,110 @@ export class salesSilemaAbonoService {
     return true;
   }
 
-  private getSQLQuerySalesSilemaAbono(botiga: number, day: number, month: number, year: number, horaInicio: string, horaFin: string, sqlAbono: boolean) {
-    if (sqlAbono) {
-      return `
+  private getSQLQuerySalesSilemaAbono(botiga: number, day: number, month: number, year: number, horaInicio: string, horaFin: string) {
+    return `
       DECLARE @Botiga INT = ${botiga};
       DECLARE @Dia INT = ${day};
       DECLARE @HoraInicio TIME = '${horaInicio}';
       DECLARE @HoraFin TIME = '${horaFin}';
 
       ;WITH ExtractedData AS (
-          SELECT 
-              SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3)) AS ExtractedValue,
-              v.import,
-              i.iva,
-              v.Botiga,
-			        CAST(v.data AS DATE) AS Fecha
-          FROM [v_venut_${year}-${month}] v
-          LEFT JOIN articles a ON v.plu = a.codi
-          LEFT JOIN TipusIva2012 i ON a.TipoIva = i.Tipus
-          WHERE num_tick IN (
-              SELECT 
-                  SUBSTRING(motiu, CHARINDEX(':', motiu) + 2, LEN(motiu)) AS Numero
-              FROM [v_moviments_${year}-${month}]
-              WHERE botiga = @Botiga
-                AND DAY(data) = @Dia
-                AND CONVERT(TIME, Data) BETWEEN @HoraInicio AND @HoraFin
-                AND motiu LIKE 'Deute client%'
-          )
+        SELECT
+            SUBSTRING(v.otros,CHARINDEX('id:', v.otros) + 3,CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - CHARINDEX('id:', v.otros) - 3) AS ExtractedValue,
+            v.num_tick AS NumeroTicket,
+            v.plu AS PLU,
+            a.nom AS Article, 
+            v.quantitat AS Quantitat,
+            v.import / NULLIF(V.Quantitat, 0) AS PreuUnitari,
+            i.iva AS IVA,
+            v.Botiga,
+            CAST(v.data AS DATE) AS Data
+        FROM [v_venut_${year}-${month}] v
+        LEFT JOIN articles a ON v.plu = a.codi
+        LEFT JOIN TipusIva2012 i ON a.TipoIva = i.Tipus
+        WHERE num_tick IN (
+                SELECT SUBSTRING(motiu, CHARINDEX(':', motiu) + 2, LEN(motiu))
+                FROM [v_moviments_${year}-${month}]
+                WHERE botiga = @Botiga
+                  AND DAY(data) = @Dia
+                  AND CONVERT(TIME,Data) BETWEEN @HoraInicio AND @HoraFin
+                  AND motiu LIKE 'Deute client%'
+                )
           AND CHARINDEX('id:', v.otros) > 0
           AND CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) > 0
           AND CONVERT(TIME, Data) BETWEEN @HoraInicio AND @HoraFin
-          AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, 
-          CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
-          AND botiga = @Botiga
+          AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3,CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - CHARINDEX('id:', v.otros) - 3)) > 0
+          AND  v.botiga = @Botiga
       ),
+
       FilteredData AS (
-          SELECT 
+          SELECT
               d.ExtractedValue,
               c.valor,
-              c.codi,
-              cl.nif,
-              d.import,
-              d.iva,
-              cl2.Nif as nifTienda,
-              cl2.Nom as Nom,
-			        d.Fecha
-          FROM ExtractedData d
-          INNER JOIN constantsclient c ON c.valor = d.ExtractedValue 
-          INNER JOIN clients cl ON cl.codi = c.codi
-          INNER JOIN clients cl2 ON cl2.codi = d.botiga
-      )
-      ,
-      Aggregated AS (
-          SELECT
-              fd.Nom,
-              LTRIM(RTRIM(fd.nifTienda)) AS NifTienda,
-              fd.iva AS IVA,
-              SUM(fd.import) AS Importe,
-              fd.Fecha
-          FROM   FilteredData fd
-          GROUP  BY
-              fd.Nom,
-              LTRIM(RTRIM(fd.nifTienda)),
-              fd.iva,
-			        fd.Fecha
-      ),
-
-      Totals AS (                               
-          SELECT
-              SUM(import) AS TotalAmbIVA,
-              SUM(import / (1 + iva / 100.0)) AS TotalSenseIVA
-          FROM   FilteredData
-      )
-
-      SELECT
-          a.Nom,
-          a.NifTienda,
-          a.IVA,
-          a.Importe,
-          Round(t.TotalAmbIVA,2) as TotalAmbIVA,
-          Round(t.TotalSenseIVA,2) as TotalSenseIVA,
-          a.Fecha as Data
-      FROM   Aggregated a
-      CROSS  JOIN Totals t
-      ORDER  BY
-          a.IVA,
-          a.NifTienda;`;
-    } else {
-      return `
-      DECLARE @Botiga INT = ${botiga};
-      DECLARE @Dia INT = ${day};
-      DECLARE @HoraInicio TIME = '${horaInicio}';
-      DECLARE @HoraFin TIME = '${horaFin}';
-
-      ;WITH ExtractedData AS (
-          SELECT 
-              SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3)) AS ExtractedValue,
-              v.import,
-              i.iva,
-          v.Botiga
-          FROM [v_venut_${year}-${month}] v
-          LEFT JOIN articles a ON v.plu = a.codi
-          LEFT JOIN TipusIva2012 i ON a.TipoIva = i.Tipus
-          WHERE num_tick IN (
-              SELECT 
-                  SUBSTRING(motiu, CHARINDEX(':', motiu) + 2, LEN(motiu)) AS Numero
-              FROM [v_moviments_${year}-${month}]
-              WHERE botiga = @Botiga
-                AND DAY(data) = @Dia
-                AND CONVERT(TIME, Data) BETWEEN @HoraInicio AND @HoraFin
-                AND motiu LIKE 'Deute client%'
-          )
-          AND CHARINDEX('id:', v.otros) > 0
-          AND CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) > 0
-          AND CONVERT(TIME, Data) BETWEEN @HoraInicio AND @HoraFin
-          AND LEN(SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, 
-          CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3))) > 0
-          AND botiga = @Botiga
-      ),
-      FilteredData AS (
-          SELECT 
-              d.ExtractedValue,
-              c.valor,
-              c.codi,
-              cl.nif,
-              d.import,
-              d.iva,
-              cl2.Nif AS nifTienda,
-              cl2.Nom AS Nom
+              c.codi AS CodigoCliente,
+              cl.nif AS NIF,
+              cl.Nom AS NomClient,
+              d.PreuUnitari,
+              d.Quantitat,
+              d.IVA,
+              d.NumeroTicket,
+              d.PLU,
+              d.Article,
+              cl2.Nif AS NifTienda,
+              cl2.Nom AS Nom,
+              d.Data
           FROM ExtractedData d
           INNER JOIN constantsclient c ON c.valor = d.ExtractedValue AND c.variable = 'CFINAL'
           INNER JOIN clients cl ON cl.codi = c.codi
-          INNER JOIN clients cl2 ON cl2.codi = d.botiga
+          INNER JOIN clients cl2 ON cl2.codi = d.Botiga
       ),
+
       Totals AS (
           SELECT
-              SUM(import) AS TotalAmbIVA,
-              SUM(import / (1 + iva / 100.0)) AS TotalSenseIVA
-          FROM   FilteredData
+              NIF,
+              SUM(Quantitat * PreuUnitari) AS TotalAmbIVA,
+              SUM(Quantitat * PreuUnitari / (1 + IVA / 100.0)) AS TotalSenseIVA
+          FROM FilteredData
+          GROUP BY NIF
+      ),
+	    TotalsAbono AS (
+          SELECT
+              SUM(Quantitat * PreuUnitari) AS TotalAmbIVA,
+              SUM(Quantitat * PreuUnitari / (1 + IVA / 100.0)) AS TotalSenseIVA
+          FROM FilteredData
       )
 
       SELECT
-          a.Nom,
-          a.NomClient,
-          a.NifTienda,
-          a.NIF,
-          a.CodigoCliente,
-          a.Importe,        
-          a.IVA,
-          Round(t.TotalAmbIVA,2) as TotalAmbIVA,
-          Round(t.TotalSenseIVA,2) as TotalSenseIVA
-      FROM (
-          SELECT
-              fd.Nom AS Nom,
-              LTRIM(RTRIM(cl.Nom)) AS NomClient,
-              LTRIM(RTRIM(fd.nifTienda)) AS NifTienda,
-              LTRIM(RTRIM(fd.nif)) AS NIF,
-              fd.codi AS CodigoCliente,
-              SUM(fd.import) AS Importe,
-              fd.iva AS IVA
-          FROM   FilteredData fd
-          INNER  JOIN clients cl
-                ON LTRIM(RTRIM(cl.nif)) = LTRIM(RTRIM(fd.nif))
-          GROUP  BY
-              fd.Nom,
-              LTRIM(RTRIM(cl.Nom)),
-              LTRIM(RTRIM(fd.nifTienda)),
-              LTRIM(RTRIM(fd.nif)),
-              fd.codi,
-              fd.iva
-      ) a
-      CROSS JOIN Totals t
-      ORDER BY
-          a.NIF,
-          a.IVA;`;
-    }
+          fd.Data,
+          fd.Nom AS Nom,
+          LTRIM(RTRIM(fd.NomClient)) AS NomClient,
+          LTRIM(RTRIM(fd.NifTienda)) AS NifTienda,
+          LTRIM(RTRIM(fd.NIF)) AS NIF,
+          fd.CodigoCliente,
+          fd.NumeroTicket,
+          fd.PLU,
+          fd.Article,
+          fd.Quantitat,
+          fd.IVA,
+          ROUND(fd.PreuUnitari, 5) AS PreuUnitari,
+          ROUND(fd.PreuUnitari / (1 + fd.IVA / 100.0), 5) AS PreuUnitariSenseIVA,
+          fd.Quantitat * fd.PreuUnitari AS TotalLinia,
+          ROUND(fd.Quantitat * fd.PreuUnitari/ (1 + fd.IVA / 100.0),5) AS TotalLiniaSenseIVA,
+          ROUND(t.TotalAmbIVA, 5) AS TotalAmbIVA,
+          ROUND(t.TotalSenseIVA, 5) AS TotalSenseIVA,
+          ROUND(t.TotalAmbIVA - t.TotalSenseIVA, 5) AS TotalIVA,
+          ROUND(at.TotalAmbIVA, 5) AS ATotalAmbIVA,
+          ROUND(at.TotalSenseIVA, 5) AS ATotalSenseIVA,
+          ROUND(at.TotalAmbIVA - at.TotalSenseIVA, 5) AS ATotalIVA
+      FROM FilteredData fd
+      JOIN Totals t ON t.NIF = fd.NIF
+      CROSS  JOIN TotalsAbono at
+      ORDER BY fd.NIF, fd.NumeroTicket, fd.plu;`;
   }
 
   async processTurnoSalesSilemaAbono(turno, botiga, day, month, year, horaInicio, horaFin, database, tipo, tenant, entorno, companyID, token) {
     //Abono
-    let sqlQ = this.getSQLQuerySalesSilemaAbono(botiga, day, month, year, horaInicio, horaFin, true);
-    let importAmount = 0;
+    let sqlQ = this.getSQLQuerySalesSilemaAbono(botiga, day, month, year, horaInicio, horaFin);
 
     let data = await this.sql.runSql(sqlQ, database);
     //console.log("Data lenght: " + data.recordset.length)
@@ -288,8 +211,9 @@ export class salesSilemaAbonoService {
         personalStoreInvoice: true,
         postingDate: `${formattedDate2}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
-        remainingAmount: parseFloat(x.TotalAmbIVA.toFixed(2)), // Precio total incluyendo IVA por factura
-        amountExclVat: parseFloat(x.TotalSenseIVA.toFixed(2)), // Precio total sin IVA por factura
+        remainingAmount: parseFloat(x.ATotalAmbIVA.toFixed(2)), // Precio total incluyendo IVA por factura
+        amountExclVat: parseFloat(x.ATotalSenseIVA.toFixed(2)), // Precio total sin IVA por factura
+        vatAmount: parseFloat(x.ATotalIVA.toFixed(2)), // IVA total por factura,
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${this.extractNumber(x.Nom).toUpperCase()}`, // Cód. dirección envío cliente
@@ -302,40 +226,39 @@ export class salesSilemaAbonoService {
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
         x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
+        let isoDate = new Date(x.Data).toISOString().substring(0, 10);
         if (x.IVA === 'IVA00') x.IVA = 'IVA0';
         let salesLine = {
           documentNo: `${salesData.no}`,
-          type: `G_x002F_L_x0020_Account`,
-          no: `700000000`,
+          type: `Item`,
+          no: `${x.PLU}`,
           lineNo: i + 1,
-          //description: `${x.producte}`,
-          quantity: 1,
-          lineTotalAmount: parseFloat(x.Importe),
+          description: `${x.Article}`,
+          quantity: parseFloat(x.Quantitat),
+          shipmentDate: isoDate,
+          lineTotalAmount: parseFloat(x.TotalLinia),
+          lineAmountExclVat: parseFloat(x.TotalLiniaSenseIVA),
           vatProdPostingGroup: `${x.IVA}`,
-          unitPrice: parseFloat(x.Importe),
+          unitPrice: parseFloat(x.PreuUnitari),
+          unitPriceExclVat: parseFloat(x.PreuUnitariSenseIVA),
           locationCode: `${this.extractNumber(x.Nom)}`,
         };
-        importAmount += parseFloat(x.Importe);
+
         salesData.salesLinesBuffer.push(salesLine);
       }
 
-      // console.log(salesData);
+      // console.log('ABONO:', salesData);
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
-      //Facturas
-      sqlQ = this.getSQLQuerySalesSilemaAbono(botiga, day, month, year, horaInicio, horaFin, false);
-      //console.log(sqlQT1);
-
-      data = await this.sql.runSql(sqlQ, database);
+      //---------------------------------------------------Pedidos------------------------------------------------------//
       x = data.recordset[0];
-      importAmount = 0;
       sellToCustomerNo = '';
       x.Nom = x.Nom.substring(0, 6);
       let nCliente = 1;
       let cliente = `C${nCliente}`;
       salesData = {
         no: `${x.Nom}_${turno}_${formattedDate}_${cliente}`, // Nº factura
-        documentType: 'Invoice', // Tipo de documento
+        documentType: 'Order', // Tipo de documento
         dueDate: `${formattedDate2}`, // Fecha vencimiento
         externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}_${cliente}`, // Nº documento externo
         locationCode: `${this.extractNumber(x.Nom)}`, // Cód. almacén
@@ -345,6 +268,7 @@ export class salesSilemaAbonoService {
         recapInvoice: false, // Factura recap //false
         remainingAmount: parseFloat(x.TotalAmbIVA.toFixed(2)), // Precio total incluyendo IVA por factura
         amountExclVat: parseFloat(x.TotalSenseIVA.toFixed(2)), // Precio total sin IVA por factura
+        vatAmount: parseFloat(x.TotalIVA.toFixed(2)), // IVA total por factura
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
         shipToCode: `${this.extractNumber(x.Nom).toUpperCase()}`, // Cód. dirección envío cliente
@@ -356,11 +280,14 @@ export class salesSilemaAbonoService {
       };
 
       let NifAnterior = x.NIF;
+      let lastAlbaranDescription = '';
+      let lineCounter = 1;
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
         if (x.NIF != NifAnterior) {
-          //console.log("NIF DIFENRETE\nSubiendo factura")
+          // console.log('NIF DIFERENTE\nSubiendo factura');
           // console.log(`salesData Number: ${salesData.no}`);
+          // console.log(salesData);
           await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
           //Si el NifActual es diferente al Nif anterior tengo que primero. subo la factura actual, segundo. vacio el array de mi diccionario y cambio el "vatRegistrationNo" por el nuevo nif. Y repetir el proceso
 
@@ -370,32 +297,52 @@ export class salesSilemaAbonoService {
           nCliente++;
           cliente = `C${nCliente}`;
           salesData.no = `${x.Nom}_${turno}_${formattedDate}_${cliente}`;
-          importAmount = 0;
-          salesData.remainingAmount = x.TotalAmbIVA;
-          salesData.amountExclVat = x.TotalSenseIVA;
+          salesData.remainingAmount = parseFloat(x.TotalAmbIVA.toFixed(2));
+          salesData.amountExclVat = parseFloat(x.TotalSenseIVA.toFixed(2));
+          salesData.vatAmount = parseFloat(x.TotalIVA.toFixed(2));
+        }
+        let date = new Date(x.Data);
+        let isoDate = date.toISOString().substring(0, 10);
+        let partesAlbaran = isoDate.split('-');
+        let formattedDateAlbaran = `${partesAlbaran[2]}/${partesAlbaran[1]}/${partesAlbaran[0]}`;
+        let currentAlbaranDescription = `albaran nº ${x.NumeroTicket} ${formattedDateAlbaran}`;
+        if (currentAlbaranDescription !== lastAlbaranDescription) {
+          let salesLineAlbaran = {
+            documentNo: `${salesData.no}`,
+            lineNo: lineCounter,
+            description: currentAlbaranDescription,
+            quantity: 1,
+            shipmentDate: `${isoDate}`,
+            lineTotalAmount: 0,
+            locationCode: `${this.extractNumber(x.Nom)}`,
+          };
+          lineCounter++;
+          salesData.salesLinesBuffer.push(salesLineAlbaran);
+          lastAlbaranDescription = currentAlbaranDescription;
         }
         x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
         if (x.IVA === 'IVA00') x.IVA = 'IVA0';
         let salesLine = {
           documentNo: `${salesData.no}`,
-          type: `G_x002F_L_x0020_Account`,
-          no: `700000000`,
-          lineNo: i + 1,
-          //description: `${x.producte}`,
-          quantity: 1,
-          lineTotalAmount: parseFloat(x.Importe),
+          type: `Item`,
+          no: `${x.PLU}`,
+          lineNo: lineCounter,
+          description: `${x.Article}`,
+          quantity: parseFloat(x.Quantitat),
+          shipmentDate: isoDate,
+          lineTotalAmount: parseFloat(x.TotalLinia),
+          lineAmountExclVat: parseFloat(x.TotalLiniaSenseIVA),
           vatProdPostingGroup: `${x.IVA}`,
-          unitPrice: parseFloat(x.Importe),
+          unitPrice: parseFloat(x.PreuUnitari),
+          unitPriceExclVat: parseFloat(x.PreuUnitariSenseIVA),
           locationCode: `${this.extractNumber(x.Nom)}`,
         };
         salesData.salesLinesBuffer.push(salesLine);
-        // console.log("Importe a sumar: " + x.Importe)
+        lineCounter++;
         NifAnterior = x.NIF;
       }
-      // console.log(salesData.remainingAmount)
-      // console.log(`salesData Number: ${salesData.no}`)
-      await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
       // console.log(JSON.stringify(salesData, null, 2));
+      await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
     }
   }
 
