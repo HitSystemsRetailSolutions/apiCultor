@@ -8,11 +8,11 @@ export class salesSilemaRecapService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) {}
+  ) { }
 
   async syncRecapPeriodo(periodoRecap, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     month = String(month).padStart(2, '0'); // Asegura que el mes tenga dos dígitos
-    
+
     let sqlQ = `;WITH ExtractedData AS (
     SELECT 
         SUBSTRING(v.otros, CHARINDEX('id:', v.otros) + 3, CHARINDEX(']', v.otros, CHARINDEX('id:', v.otros)) - (CHARINDEX('id:', v.otros) + 3)) AS ExtractedValue,
@@ -120,7 +120,6 @@ export class salesSilemaRecapService {
   async syncSalesSilemaRecapitulativa(client, botiga, dayStart, dayEnd, month, year, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let tipo = 'syncSalesSilemaRecapitulativa';
-    let importTotal: number = 0;
     let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
     let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
     if (queryFranquicia.recordset.length >= 1) return;
@@ -149,18 +148,21 @@ export class salesSilemaRecapService {
     AND v.botiga = '${botiga}';
 
     SELECT 
+        v.data AS FECHA,
+		    cb.nom AS TIENDA,
+		    c.NIF AS NIF,
+        CASE cc1.valor WHEN '4' THEN 'CLI_TRANSF' ELSE '' END AS FORMAPAGO,
         v.num_tick AS TICKET, 
         V.PLU AS PLU, 
         a.nom AS ARTICULO, 
-        V.Quantitat AS CANTIDAD, 
-        v.data AS FECHA, 
+        V.Quantitat AS CANTIDAD,
+		    i.Iva AS IVA, 
+		    ROUND(v.Import / NULLIF(v.Quantitat, 0), 5) AS precioUnitario, 
+		    ROUND((v.Import / (1 + (ISNULL(i.Iva, 10) / 100.0))) / NULLIF(v.Quantitat, 0), 5) AS precioUnitarioSinIVA,       
         V.Import AS PRECIO, 
-        i.Iva AS IVA, 
-        cb.nom AS TIENDA, 
-        C.NIF AS NIF, 
-        SUM(v.Import) OVER () AS TOTAL, 
-        ROUND(v.Import / NULLIF(v.Quantitat, 0), 5) AS precioUnitario,
-        @TotalSinIVA AS TotalSinIVA
+		    ROUND(v.Import / (1 + (ISNULL(i.Iva, 10) / 100.0)), 5) AS PRECIO_SIN_IVA,
+		    SUM(v.Import) OVER () AS TOTAL, 
+		    @TotalSinIVA AS TotalSinIVA
     FROM [v_venut_${year}-${month}] v
     LEFT JOIN articles a ON a.codi = v.plu
     LEFT JOIN TipusIva i ON i.Tipus = a.TipoIva
@@ -169,11 +171,12 @@ export class salesSilemaRecapService {
                                 AND valor COLLATE Modern_Spanish_CI_AS != ''
     LEFT JOIN Clients c ON cc.codi = c.codi
     LEFT JOIN clients cb ON v.botiga = cb.codi
+    LEFT JOIN ConstantsClient cc1 ON cc1.codi = @Cliente AND cc1.variable = 'FormaPagoLlista'
     WHERE v.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + cc.valor COLLATE Modern_Spanish_CI_AS + '%'
     AND DAY(data) BETWEEN @Inicio AND @Fin
     AND cb.codi = '${botiga}'
     GROUP BY 
-        V.Num_tick, v.plu, a.nom, v.Quantitat, v.data, v.import, i.iva, cb.nom, c.nif, 
+        V.Num_tick, v.plu, a.nom, v.Quantitat, v.data, v.import, i.iva, cb.nom, c.nif, cc1.Valor,
         ROUND(v.Import / NULLIF(v.Quantitat, 0), 5)
     HAVING SUM(quantitat) > 0
     ORDER BY v.data;`;
@@ -210,21 +213,25 @@ export class salesSilemaRecapService {
       )
 
       SELECT 
+          v.data AS FECHA,
+		      v.TIENDA,
+		      v.NIF,
+          CASE cc1.valor WHEN '4' THEN 'CLI_TRANSF' ELSE '' END AS FORMAPAGO,
           v.num_tick AS TICKET,
           v.PLU,
           v.ARTICULO,
           v.Quantitat AS CANTIDAD,
-          v.data AS FECHA,
-          v.Import AS PRECIO,
           v.Iva AS IVA,
-          v.TIENDA,
-          v.NIF,
-          SUM(v.Import) OVER () AS TOTAL,
           v.precioUnitario,
+		      ROUND((v.Import / (1 + (ISNULL(v.Iva, 10) / 100.0))) / NULLIF(v.Quantitat, 0), 5) AS precioUnitarioSinIVA, 
+          v.Import AS PRECIO,
+          ROUND(v.Import / (1 + (ISNULL(v.Iva, 10) / 100.0)), 5) AS PRECIO_SIN_IVA,
+          SUM(v.Import) OVER () AS TOTAL,
           ROUND((SELECT SUM(Import / (1 + (ISNULL(Iva, 10) / 100.0))) FROM VentasConJoin),2) AS TotalSinIVA
       FROM VentasConJoin v
+      LEFT JOIN ConstantsClient cc1 ON cc1.codi = @Cliente AND cc1.variable = 'FormaPagoLlista'
       GROUP BY 
-          v.num_tick, v.PLU, v.ARTICULO, v.Quantitat, v.data, v.Import, v.Iva, v.TIENDA, v.NIF, v.precioUnitario
+          v.num_tick, v.PLU, v.ARTICULO, v.Quantitat, v.data, v.Import, v.Iva, v.TIENDA, v.NIF, v.precioUnitario, cc1.Valor
       HAVING SUM(v.Quantitat) > 0
       ORDER BY v.data;`;
       formattedDateDayEnd = new Date(Date.UTC(year, parseFloat(nextMonth) - 1, dayEnd)).toISOString().substring(0, 10);
@@ -233,7 +240,7 @@ export class salesSilemaRecapService {
 
     let data = await this.sql.runSql(sqlQ, database);
     let x = data.recordset[0];
-
+    let paymentMethodCode = `${x.FORMAPAGO}`;
     // Calculamos `n` basado en las facturas recapitulativas existentes
     let url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_R') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd}`;
     //console.log(url);
@@ -251,7 +258,9 @@ export class salesSilemaRecapService {
       recapInvoice: true, // Factura recap //false
       remainingAmount: parseFloat(x.TOTAL.toFixed(2)), // Precio total incluyendo IVA por factura
       amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)), // Precio total sin IVA por factura
+      vatAmount: parseFloat((x.TOTAL - x.TotalSinIVA).toFixed(2)), // IVA total por factura
       shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
+      paymentMethodCode: `${paymentMethodCode}`, // Cód. forma de pago
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
@@ -297,18 +306,18 @@ export class salesSilemaRecapService {
         description: `${x.ARTICULO}`,
         quantity: parseFloat(x.CANTIDAD),
         shipmentDate: `${isoDate}`,
-        lineTotalAmount: parseFloat(x.PRECIO.toFixed(2)),
+        lineTotalAmount: parseFloat(x.PRECIO),
+        lineAmountExclVat: parseFloat(x.PRECIO_SIN_IVA),
         vatProdPostingGroup: `${x.IVA}`,
         unitPrice: parseFloat(x.precioUnitario),
+        unitPriceExclVat: parseFloat(x.precioUnitarioSinIVA),
         locationCode: `${this.extractNumber(x.TIENDA)}`,
       };
       countLines++;
-      importTotal += parseFloat(x.PRECIO);
       salesData.salesLinesBuffer.push(salesLine);
     }
-    //salesData.remainingAmount = Number(importTotal.toFixed(2));
 
-    let urlExist = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_R') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd} and contains(vatRegistrationNo, '${x.NIF}') and remainingAmount eq ${importTotal}`;
+    let urlExist = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${x.TIENDA}_') and contains(no,'_R') and invoiceStartDate ge ${formattedDateDayStart} and invoiceEndDate le ${formattedDateDayEnd} and contains(vatRegistrationNo, '${x.NIF}') and remainingAmount eq ${parseFloat(x.TOTAL.toFixed(2))}`;
     let resGetExist = await axios
       .get(urlExist, {
         headers: {
@@ -472,8 +481,6 @@ export class salesSilemaRecapService {
     formattedDateDayStart = new Date(Date.UTC(year, month - 1, dayStart)).toISOString().substring(0, 10);
     formattedDateDayEnd = new Date(Date.UTC(year, month - 1, dayEnd)).toISOString().substring(0, 10);
 
-    importTotal = 0;
-    if (x.TIENDA.toLowerCase() == 'bot granollers') x.TIENDA = 'T--000';
     salesData = {
       no: `${x.TIENDA.substring(0, 6)}_${formattedDate}_AR${n}`, // Nº factura
       documentType: 'Credit_x0020_Memo', // Tipo de documento
@@ -485,7 +492,9 @@ export class salesSilemaRecapService {
       recapInvoice: true, // Factura recap //false
       remainingAmount: parseFloat(x.TOTAL.toFixed(2)), // Precio total incluyendo IVA por factura
       amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)), // Precio total sin IVA por factura
+      vatAmount: parseFloat((x.TOTAL - x.TotalSinIVA).toFixed(2)), // IVA total por factura
       shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
+      paymentMethodCode: `${paymentMethodCode}`,  // Cód. forma de pago
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
@@ -521,11 +530,8 @@ export class salesSilemaRecapService {
         locationCode: `${this.extractNumber(x.TIENDA)}`,
       };
       countLines++;
-
-      importTotal += parseFloat(x.IMPORTE_TOTAL);
       salesData.salesLinesBuffer.push(salesLine);
     }
-    //salesData.remainingAmount = Number(importTotal.toFixed(2));
     // console.log(salesData);
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
