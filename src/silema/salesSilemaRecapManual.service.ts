@@ -8,7 +8,7 @@ export class salesSilemaRecapManualService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) {}
+  ) { }
 
   async syncSalesSilemaRecapitulativaManual(TicketsArray: Array<String>, client, dataInici, dataFi, dataFactura, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
@@ -135,7 +135,6 @@ export class salesSilemaRecapManualService {
       remainingAmount: totalConIVA, // Precio total incluyendo IVA por factura
       amountExclVat: totalBase, // Precio total sin IVA por factura
       vatAmount: totalCuota, // IVA total por factura
-      shipToCode: `${locationCode}`, // Cód. dirección envío cliente
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${dataInici}`, // Fecha inicio facturación
@@ -270,7 +269,6 @@ export class salesSilemaRecapManualService {
       remainingAmount: totalConIVA, // Precio total incluyendo IVA por factura
       amountExclVat: totalBase, // Precio total sin IVA por factura
       vatAmount: totalCuota, // IVA total por factura
-      shipToCode: `${locationCode}`, // Cód. dirección envío cliente
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${dataInici}`, // Fecha inicio facturación
@@ -328,7 +326,6 @@ export class salesSilemaRecapManualService {
   async postToApi(tipo, salesData, tenant, entorno, companyID, token) {
     if (salesData.no.length > 20) salesData.no = salesData.no.slice(-20);
     if (salesData.locationCode.length > 10) salesData.locationCode = salesData.locationCode.slice(-10);
-    if (salesData.shipToCode.length > 10) salesData.shipToCode = salesData.shipToCode.slice(-10);
     let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'RM') and documentType eq '${salesData.documentType}' and 
     vatRegistrationNo eq '${salesData.vatRegistrationNo}' and amountExclVat eq ${salesData.amountExclVat} and postingDate eq ${salesData.postingDate} and locationCode eq '${salesData.locationCode}'`;
 

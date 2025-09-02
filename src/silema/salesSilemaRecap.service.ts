@@ -259,7 +259,6 @@ export class salesSilemaRecapService {
       remainingAmount: parseFloat(x.TOTAL.toFixed(2)), // Precio total incluyendo IVA por factura
       amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)), // Precio total sin IVA por factura
       vatAmount: parseFloat((x.TOTAL - x.TotalSinIVA).toFixed(2)), // IVA total por factura
-      shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
       paymentMethodCode: `${paymentMethodCode}`, // Cód. forma de pago
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
@@ -282,7 +281,6 @@ export class salesSilemaRecapService {
         salesData.no = `T--000_${formattedDate}_R${n}`;
         salesData.externalDocumentNo = `T--000_${formattedDate}_R${n}`;
         salesData.locationCode = '000';
-        salesData.shipToCode = '000';
         changetLocationCode = true;
       }
       let salesLineAlbaran = {
@@ -493,7 +491,6 @@ export class salesSilemaRecapService {
       remainingAmount: parseFloat(x.TOTAL.toFixed(2)), // Precio total incluyendo IVA por factura
       amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)), // Precio total sin IVA por factura
       vatAmount: parseFloat((x.TOTAL - x.TotalSinIVA).toFixed(2)), // IVA total por factura
-      shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
       paymentMethodCode: `${paymentMethodCode}`,  // Cód. forma de pago
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
@@ -511,7 +508,6 @@ export class salesSilemaRecapService {
         salesData.no = `T--000_${formattedDate}_AR${n}`;
         salesData.externalDocumentNo = `T--000_${formattedDate}_AR${n}`;
         salesData.locationCode = '000';
-        salesData.shipToCode = '000';
         changetLocationCode = true;
       }
       x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
@@ -589,7 +585,6 @@ export class salesSilemaRecapService {
   async postToApi(tipo, salesData, tenant, entorno, companyID, token) {
     if (salesData.no.length > 20) salesData.no = salesData.no.slice(-20);
     if (salesData.locationCode.length > 10) salesData.locationCode = salesData.locationCode.slice(-10);
-    if (salesData.shipToCode.length > 10) salesData.shipToCode = salesData.shipToCode.slice(-10);
     let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${salesData.no}') and documentType eq '${salesData.documentType}'`;
     //console.log(url1);
     let resGet1 = await axios
