@@ -18,7 +18,7 @@ export class customersService {
     private sqlService: runSqlService,
     @Inject(forwardRef(() => salesFacturasService))
     private salesFacturas: salesFacturasService,
-  ) {}
+  ) { }
 
   private async getIdFromAPI(endpoint: string, filter: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
     try {
@@ -95,7 +95,7 @@ export class customersService {
     const IBANsinGuiones = IBAN.replace(/-/g, ' ');
     let code = '';
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
-    const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/CustomerBankAccount?$filter=IBAN eq '${IBAN}' and number eq '${client}'`;
+    const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/CustomerBankAccount?$filter=IBAN eq '${IBANsinGuiones}' and number eq '${client}'`;
     let res;
     try {
       res = await axios.get(url, {
@@ -111,14 +111,14 @@ export class customersService {
     if (res.data.value.length === 0) {
       let bankAccount;
       try {
-        const lastNumber = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/CustomerBankAccount?$filter=IBAN eq '${IBAN}' and number eq '${client}'&$orderby=code desc&$top=1`, {
+        const lastNumber = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/CustomerBankAccount?$filter=number eq '${client}'&$orderby=code desc&$top=1`, {
           headers: {
             Authorization: 'Bearer ' + token,
             'Content-Type': 'application/json',
           },
         });
 
-        const newCode = lastNumber.data.value.length === 0 ? 1 : lastNumber.data.value[0].code + 1;
+        const newCode = lastNumber.data.value.length === 0 ? 1 : parseInt(lastNumber.data.value[0].code, 10) + 1;
         const bankAccountData = {
           number: `${client}`,
           code: `${newCode}`,
@@ -338,7 +338,7 @@ export class customersService {
         } else {
           let bankAccountCode = '';
           if (customer.IBAN) {
-            bankAccountCode = await this.getBankAccountCode(customer.IBAN, customer.CODIGO, companyID, client_id, client_secret, tenant, entorno);
+            bankAccountCode = await this.getBankAccountCode(customer.IBAN, customer.NIF, companyID, client_id, client_secret, tenant, entorno);
           }
           const customerData = {
             ...customerData1,
@@ -388,6 +388,8 @@ export class customersService {
 
     if (res.data.value.length > 0) {
       customerId = res.data.value[0].id;
+      // Si el cliente ya existe, forzar sincronización para actualizar datos
+      await this.syncCustomers(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
       console.log('📘 Cliente existente en la API con ID:', customerId);
       return customerId;
     }
