@@ -22,7 +22,7 @@ export class itemsService {
   ) { }
 
   async syncItems(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, codiHIT?: string) {
-    if (tenant === process.env.blockedTenant) return;
+    if (tenant === process.env.tenaTenant) return;
     let items;
     try {
       if (codiHIT) {
