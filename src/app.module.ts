@@ -56,10 +56,13 @@ import { salesSilemaAbonoController } from './silema/salesSilemaAbono.controller
 import { salesSilemaAbonoService } from './silema/salesSilemaAbono.service';
 import { intercompanySilemaService } from './silema/intercompanySilema.service';
 import { intercompanySilemaController } from './silema/intercompanySilema.controller';
-// import { materiasPrimasSilemaService } from './silema/materiasPrimasSilema.service';
-// import { materiasPrimasSilemaController } from './silema/materiasPrimasSilema.controller';
 import { ventasPrevisionController } from './ventasPrevision/ventasPrevision.controller';
 import { ventasPrevisionService } from './ventasPrevision/ventasPrevision.service';
+import { ticketsService } from './tickets/tickets.service';
+import { ticketsController } from './tickets/tickets.controller';
+import { peticionesMqttService } from './webPeticionesMqtt/peticionesMqtt.service';
+import { peticionesMqttController } from './webPeticionesMqtt/peticionesMqtt.controller';
+
 
 @Module({
   imports: [ConfigModule.forRoot()],
@@ -92,8 +95,9 @@ import { ventasPrevisionService } from './ventasPrevision/ventasPrevision.servic
     salesSilemaCierreController,
     salesSilemaAbonoController,
     intercompanySilemaController,
-    // materiasPrimasSilemaController,
     ventasPrevisionController,
+    ticketsController,
+    peticionesMqttController,
   ],
   providers: [
     employeesService,
@@ -126,8 +130,9 @@ import { ventasPrevisionService } from './ventasPrevision/ventasPrevision.servic
     salesSilemaCierreService,
     salesSilemaAbonoService,
     intercompanySilemaService,
-    // materiasPrimasSilemaService,
     ventasPrevisionService,
+    ticketsService,
+    peticionesMqttService,
   ],
 })
-export class AppModule {}
+export class AppModule { }
