@@ -28,11 +28,11 @@ export class peticionesMqttService {
       ],
       tabla: `2025-${month}`,
       database: "fac_tena",
-      tenant: process.env.blockedTenant,
+      tenant: process.env.tenaTenant,
       companyID: companyID,
       entorno: entorno,
-      client_id: "",
-      client_secret: ""
+      client_id: process.env.tenaClientId,
+      client_secret: process.env.tenaClientSecret
     }
     console.log(`Enviando mensaje MQTT: ${JSON.stringify(message)}`);
     this.client.publish('/Hit/Serveis/Apicultor', JSON.stringify(message), { qos: 1 });
@@ -63,11 +63,11 @@ export class peticionesMqttService {
       month: mes,
       year: `2025`,
       database: "fac_tena",
-      tenant: process.env.blockedTenant,
+      tenant: process.env.tenaTenant,
       companyID: companyID,
       entorno: entorno,
-      client_id: "",
-      client_secret: ""
+      client_id: process.env.tenaClientId,
+      client_secret: process.env.tenaClientSecret
     }
     console.log(`Enviando mensaje MQTT cierre: ${JSON.stringify(message)}`);
     this.client.publish('/Hit/Serveis/Apicultor', JSON.stringify(message), { qos: 1 });

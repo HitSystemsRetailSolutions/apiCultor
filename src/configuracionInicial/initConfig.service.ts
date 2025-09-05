@@ -20,7 +20,7 @@ export class initConfigService {
   ) { }
 
   async initConfig(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    if (tenant === process.env.blockedTenant) return;
+    if (tenant === process.env.tenaTenant) return;
     console.log('🚀 Iniciando configuración');
     try {
       await this.paymentMethods(companyID, database, client_id, client_secret, tenant, entorno);

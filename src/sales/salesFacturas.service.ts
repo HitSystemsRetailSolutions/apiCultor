@@ -33,7 +33,7 @@ export class salesFacturasService {
   ) { }
 
   async syncSalesFacturas(companyID: string, database: string, idFacturas: string[], tabla: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    if (tenant === process.env.blockedTenant) {
+    if (tenant === process.env.tenaTenant) {
       await this.intercompanySilema.syncIntercompany(companyID, database, idFacturas, tabla, client_id, client_secret, tenant, entorno);
       return true;
     }
