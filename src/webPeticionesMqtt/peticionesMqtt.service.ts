@@ -13,8 +13,20 @@ export class peticionesMqttService {
     private sql: runSqlService,
   ) { }
 
-  async syncIntercompanyByDate(companyID: string, entorno: string, day: string, month: string) {
-    const query = `select IdFactura from [facturacio_2025-${month}_iva] where clientnif ='B66567470' and empnif = 'B64990906' and day(DataEmissio)=${day}`
+  async syncIntercompanyByDate(companyID: string, entorno: string, day: string, month: string, factura: string) {
+    let query = '';
+    if (factura == 'filapena') {
+      query = `select IdFactura from [facturacio_2025-${month}_iva] where clientnif ='B66567470' and empnif = 'B64990906' and day(DataEmissio)=${day}`
+    } else if (factura == 'ime_mil') {
+      query = `select IdFactura from [facturacio_2025-${month}_iva] where clientnif ='B61957189' and empnif = 'B64990906' and day(DataEmissio)=${day}`
+    } else if (factura == 'franquicias') {
+      query = `select IdFactura from [facturacio_2025-${month}_iva] where clientnif not in ('B66567470','B61957189','B64990906') and ClientCodi in (select codi from ParamsHw) and empnif = 'B64990906' and day(DataEmissio)=${day}`
+    } else if (factura == 'todas') {
+      query = `select IdFactura from [facturacio_2025-${month}_iva] where empnif = 'B64990906' and ClientCodi in (select codi from ParamsHw) and day(DataEmissio)=${day}`
+    } else {
+      console.log(`No se ha seleccionado ninguna factura válida.`);
+      return false;
+    }
     const idFacturas = await this.sql.runSql(query, 'fac_tena');
     console.log(`Facturas encontradas: ${idFacturas.recordset.length}`);
     if (idFacturas.recordset.length === 0) {
@@ -42,8 +54,8 @@ export class peticionesMqttService {
   async syncSilemaDate(diaInicio: string, diaFin: string, mes: string, turno: number, companyID: string, entorno: string, empresa: string, tiendas: string = "") {
 
     let tiendasArray: number[] = [];
-    if (empresa == 'imeMil') {
-      const query = `select codi from clients where codi in (select codi from ParamsHw) and nif = 'B61957189'`
+    if (empresa == 'imeMil' && tiendas === '') {
+      const query = `select codi from clients where codi in (select codi from ParamsHw) and nif = 'B61957189' and nom not like 'no%' order by codi`
       const listaTiendas = await this.sql.runSql(query, 'fac_tena');
       tiendasArray = listaTiendas.recordset.map((item) => item.codi);
     } else {

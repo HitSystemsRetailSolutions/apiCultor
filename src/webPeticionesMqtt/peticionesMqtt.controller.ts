@@ -11,8 +11,9 @@ export class peticionesMqttController {
     @Query('entorno') entorno: string,
     @Query('day') day: string,
     @Query('month') month: string,
+    @Query('factura') factura: string,
   ) {
-    let res = await this.peticionesMqttService.syncIntercompanyByDate(companyID, entorno, day, month);
+    let res = await this.peticionesMqttService.syncIntercompanyByDate(companyID, entorno, day, month, factura);
     if (res == true) {
       return 'Petición de sincronización de facturas intercompany recibida';
     } else {
