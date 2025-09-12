@@ -60,7 +60,7 @@ export class ticketsService {
           SELECT 
             v.Botiga,
             v.Data,
-            d.nom AS Dependenta,
+            d.MEMO AS Dependenta,
             v.Num_tick,
             v.Plu,
             v.Quantitat,

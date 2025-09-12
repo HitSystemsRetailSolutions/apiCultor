@@ -36,11 +36,12 @@ export class salesSilemaRecapManualService {
               C.NIF
           FROM ConstantsClient CC
           JOIN Clients C
-            ON CC.Codi = C.Codi
+              ON CC.Codi = C.Codi
           WHERE CC.Codi = @Cliente
             AND CC.variable COLLATE Modern_Spanish_CI_AS = 'CFINAL'
             AND CC.valor COLLATE Modern_Spanish_CI_AS <> ''
-      ), CTE_Base AS (
+      ),
+      CTE_Base AS (
           SELECT
               V.num_tick,
               V.plu,
@@ -50,14 +51,14 @@ export class salesSilemaRecapManualService {
               V.Import AS Precio,
               I.Iva AS IvaPct,
               CB.nom AS Tienda,
+              CB.Nif AS NifTienda,
               CTE.NIF,
               V.Import / (1.0 + I.Iva / 100.0) AS ImportSinIVA,
               V.Import / NULLIF(V.Quantitat, 0) AS PrecioUnitario,
               (V.Import / NULLIF(V.Quantitat, 0)) / (1.0 + I.Iva / 100.0) AS PrecioUnitarioSinIVA
           FROM [v_venut_${year}-${month}] V
           INNER JOIN CTE_Const CTE
-              ON V.otros COLLATE Modern_Spanish_CI_AS
-                LIKE '%' + CTE.CFinal + '%' COLLATE Modern_Spanish_CI_AS
+              ON V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CTE.CFinal + '%' COLLATE Modern_Spanish_CI_AS
           LEFT JOIN articles A
               ON A.codi = V.plu
           LEFT JOIN TipusIva I
@@ -68,22 +69,23 @@ export class salesSilemaRecapManualService {
             AND V.num_tick IN (${TicketsString})
       )
       SELECT
-        Fecha,
-        Tienda AS TIENDA,
-        NIF,
-        num_tick AS TICKET,
-        plu AS PLU,
-        Articulo AS ARTICULO,
-        Cantidad,
-        IvaPct,
-        ROUND(PrecioUnitario, 3) AS unitPrice,
-        ROUND(PrecioUnitarioSinIVA, 3) AS unitPriceExcIVA,
-        ROUND(ImportSinIVA * IvaPct / 100.0, 3) AS IVA,
-        Precio AS importe,
-        ROUND(ImportSinIVA, 3) AS importeSinIVA,
-        ROUND(SUM(ImportSinIVA) OVER (), 3) AS TotalSinIVA,
-        ROUND(SUM(ImportSinIVA * IvaPct / 100.0) OVER (), 3) AS TotalIVA,
-        SUM(Precio) OVER () AS TOTAL
+          Fecha,
+          Tienda AS TIENDA,
+          NifTienda,
+          NIF,
+          num_tick AS TICKET,
+          plu AS PLU,
+          Articulo AS ARTICULO,
+          Cantidad,
+          IvaPct,
+          ROUND(PrecioUnitario, 3) AS unitPrice,
+          ROUND(PrecioUnitarioSinIVA, 3) AS unitPriceExcIVA,
+          ROUND(ImportSinIVA * IvaPct / 100.0, 3) AS IVA,
+          Precio AS importe,
+          ROUND(ImportSinIVA, 3) AS importeSinIVA,
+          ROUND(SUM(ImportSinIVA) OVER (), 3) AS TotalSinIVA,
+          ROUND(SUM(ImportSinIVA * IvaPct / 100.0) OVER (), 3) AS TotalIVA,
+          SUM(Precio) OVER () AS TOTAL
       FROM CTE_Base
       ORDER BY Fecha;`;
       // console.log(sqlQ);
@@ -140,6 +142,7 @@ export class salesSilemaRecapManualService {
       invoiceStartDate: `${dataInici}`, // Fecha inicio facturación
       invoiceEndDate: `${dataFi}`, // Fecha fin facturación
       documentDate: `${dataInici}`, // Fecha de documento
+      shipToCode: '',
       salesLinesBuffer: [], // Array vacío para las líneas de ventas
     };
 
@@ -191,110 +194,154 @@ export class salesSilemaRecapManualService {
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
     // ---------------------------------Abono recap manual---------------------------------
-    arrayDatos = [];
+    // arrayDatos = [];
 
     //console.log(`Mes inicial: ${monthInicial}, Mes final: ${mesFinal}`);
-    for (let i = parseInt(monthInicial, 10); i <= parseInt(monthFinal, 10); i++) {
-      const month = String(i).padStart(2, '0'); // Asegura que el mes tenga dos dígitos
-      let sqlQ = `
-      DECLARE @Cliente INT = ${parseInt(client, 10)};
+    // for (let i = parseInt(monthInicial, 10); i <= parseInt(monthFinal, 10); i++) {
+    //   const month = String(i).padStart(2, '0'); // Asegura que el mes tenga dos dígitos
+    //   let sqlQ = `
+    //   DECLARE @Cliente INT = ${parseInt(client, 10)};
+    //   DECLARE @TotalSinIVA DECIMAL(18, 2);
 
-      DECLARE @TotalSinIVA DECIMAL(18, 2);
-      SELECT @TotalSinIVA = 
-          SUM(V.Import / (1 + (ISNULL(I.Iva, 10) / 100.0)))
-      FROM [v_venut_${year}-${month}] V
-      LEFT JOIN articles A ON A.codi = V.plu
-      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
-      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' AND valor COLLATE Modern_Spanish_CI_AS != ''
-      LEFT JOIN Clients C ON CC.codi = C.codi
-      LEFT JOIN clients CB ON V.botiga = CB.codi
-      WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
-        AND V.num_tick IN (${TicketsString});
+    //   SELECT 
+    //       @TotalSinIVA = SUM(V.Import / (1 + (ISNULL(I.Iva, 10) / 100.0)))
+    //   FROM [v_venut_${year}-${month}] V
+    //   LEFT JOIN articles A 
+    //       ON A.codi = V.plu
+    //   LEFT JOIN TipusIva I 
+    //       ON I.Tipus = A.TipoIva
+    //   LEFT JOIN ConstantsClient CC 
+    //       ON @Cliente = CC.Codi
+    //     AND CC.variable COLLATE Modern_Spanish_CI_AS = 'CFINAL'
+    //     AND CC.valor COLLATE Modern_Spanish_CI_AS != ''
+    //   LEFT JOIN Clients C 
+    //       ON CC.codi = C.codi
+    //   LEFT JOIN clients CB 
+    //       ON V.botiga = CB.codi
+    //   WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
+    //     AND V.num_tick IN (${TicketsString});
 
-      SELECT 
-          V.PLU AS PLU,
-          A.nom AS ARTICULO,
-          V.Quantitat AS CANTIDAD,
-          V.data AS FECHA,
-          V.Import AS PRECIO,
-          I.Iva AS IVA,
-          CB.nom AS TIENDA,
-          C.NIF AS NIF,
-          SUM(V.Import) OVER () AS TOTAL,
-          ROUND(V.Import / NULLIF(V.Quantitat, 0), 5) AS precioUnitario,
-          @TotalSinIVA AS TotalSinIVA
-      FROM [v_venut_${year}-${month}] V
-      LEFT JOIN articles A ON A.codi = V.plu
-      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
-      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' AND valor COLLATE Modern_Spanish_CI_AS != ''
-      LEFT JOIN Clients C ON CC.codi = C.codi
-      LEFT JOIN clients CB ON V.botiga = CB.codi
-      WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
-        AND V.num_tick IN (${TicketsString})
-      GROUP BY 
-          V.plu, 
-          A.nom, 
-          V.Quantitat, 
-          V.data, 
-          V.import, 
-          I.Iva, 
-          CB.nom, 
-          C.NIF,
-          ROUND(V.Import / NULLIF(V.Quantitat, 0), 5)
-      HAVING SUM(V.Quantitat) > 0
-      ORDER BY V.data;`;
-      // console.log(sqlQ);
-      let data = await this.sql.runSql(sqlQ, database);
-      arrayDatos.push(data.recordset);
-      console.log(`Mes ${month} - ${data.recordset.length} datos encontrados`);
-    }
-    if (arrayDatos.length === 0) {
-      throw new Error('No se encontraron facturas en la base de datos.');
-    }
-    datosPlanos = arrayDatos.flat();
+    //   SELECT 
+    //       V.PLU AS PLU,
+    //       A.nom AS ARTICULO,
+    //       V.Quantitat AS CANTIDAD,
+    //       V.data AS FECHA,
+    //       V.Import AS PRECIO,
+    //       I.Iva AS IVA,
+    //       CB.nom AS TIENDA,
+    //       C.NIF AS NIF,
+    //       SUM(V.Import) OVER () AS TOTAL,
+    //       ROUND(V.Import / NULLIF(V.Quantitat, 0), 5) AS precioUnitario,
+    //       @TotalSinIVA AS TotalSinIVA
+    //   FROM [v_venut_${year}-${month}] V
+    //   LEFT JOIN articles A 
+    //       ON A.codi = V.plu
+    //   LEFT JOIN TipusIva I 
+    //       ON I.Tipus = A.TipoIva
+    //   LEFT JOIN ConstantsClient CC 
+    //       ON @Cliente = CC.Codi
+    //     AND CC.variable COLLATE Modern_Spanish_CI_AS = 'CFINAL'
+    //     AND CC.valor COLLATE Modern_Spanish_CI_AS != ''
+    //   LEFT JOIN Clients C 
+    //       ON CC.codi = C.codi
+    //   LEFT JOIN clients CB 
+    //       ON V.botiga = CB.codi
+    //   WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
+    //     AND V.num_tick IN (${TicketsString})
+    //   GROUP BY 
+    //       V.plu,
+    //       A.nom,
+    //       V.Quantitat,
+    //       V.data,
+    //       V.import,
+    //       I.Iva,
+    //       CB.nom,
+    //       C.NIF,
+    //       ROUND(V.Import / NULLIF(V.Quantitat, 0), 5)
+    //   HAVING SUM(V.Quantitat) > 0
+    //   ORDER BY V.data;`;
+    //   // console.log(sqlQ);
+    //   let data = await this.sql.runSql(sqlQ, database);
+    //   arrayDatos.push(data.recordset);
+    //   console.log(`Mes ${month} - ${data.recordset.length} datos encontrados`);
+    // }
+    // if (arrayDatos.length === 0) {
+    //   throw new Error('No se encontraron facturas en la base de datos.');
+    // }
+    // datosPlanos = arrayDatos.flat();
     //console.log(datosPlanos.length);
 
-    x = datosPlanos[0];
+    // x = datosPlanos[0];
 
-    salesData = {
-      no: `${locationCodeDocNo}_${fechaFormateada}_ARM${n}`, // Nº factura
-      documentType: 'Credit_x0020_Memo', // Tipo de documento
-      dueDate: `${dataFi}`, // Fecha vencimiento
-      externalDocumentNo: `${locationCodeDocNo}_${fechaFormateada}_ARM${n}`, // Nº documento externo
-      locationCode: `${locationCode}`, // Cód. almacén
-      orderDate: `${dataInici}`, // Fecha pedido
-      postingDate: `${dataFactura}`, // Fecha registro
-      recapInvoice: false, // Factura recap //false
-      manualRecapInvoice: true, // Factura manual
-      remainingAmount: totalConIVA, // Precio total incluyendo IVA por factura
-      amountExclVat: totalBase, // Precio total sin IVA por factura
-      vatAmount: totalCuota, // IVA total por factura
-      storeInvoice: false, // Factura tienda
-      vatRegistrationNo: `${x.NIF}`, // CIF/NIF
-      invoiceStartDate: `${dataInici}`, // Fecha inicio facturación
-      invoiceEndDate: `${dataFi}`, // Fecha fin facturación
-      documentDate: `${dataInici}`, // Fecha de documento
-      salesLinesBuffer: [], // Array vacío para las líneas de ventas
-    };
+    // salesData = {
+    //   no: `${locationCodeDocNo}_${fechaFormateada}_ARM${n}`, // Nº factura
+    //   documentType: 'Credit_x0020_Memo', // Tipo de documento
+    //   dueDate: `${dataFi}`, // Fecha vencimiento
+    //   externalDocumentNo: `${locationCodeDocNo}_${fechaFormateada}_ARM${n}`, // Nº documento externo
+    //   locationCode: `${locationCode}`, // Cód. almacén
+    //   orderDate: `${dataInici}`, // Fecha pedido
+    //   postingDate: `${dataFactura}`, // Fecha registro
+    //   recapInvoice: false, // Factura recap //false
+    //   manualRecapInvoice: true, // Factura manual
+    //   remainingAmount: totalConIVA, // Precio total incluyendo IVA por factura
+    //   amountExclVat: totalBase, // Precio total sin IVA por factura
+    //   vatAmount: totalCuota, // IVA total por factura
+    //   storeInvoice: false, // Factura tienda
+    //   vatRegistrationNo: `${x.NIF}`, // CIF/NIF
+    //   invoiceStartDate: `${dataInici}`, // Fecha inicio facturación
+    //   invoiceEndDate: `${dataFi}`, // Fecha fin facturación
+    //   documentDate: `${dataInici}`, // Fecha de documento
+    //   salesLinesBuffer: [], // Array vacío para las líneas de ventas
+    // };
+    salesData.no = `${locationCodeDocNo}_${fechaFormateada}_ARM${n}`;
+    salesData.documentType = 'Credit_x0020_Memo';
+    salesData.externalDocumentNo = `${locationCodeDocNo}_${fechaFormateada}_ARM${n}`;
+    salesData.vatRegistrationNo = `${x.NifTienda}`;
+    salesData.shipToCode = `${locationCode}`;
+    salesData.salesLinesBuffer = [];
+
     countLines = 1;
+    lastAlbaranDescription = '';
 
     for (let i = 0; i < datosPlanos.length; i++) {
       x = datosPlanos[i];
-      let date = new Date(x.FECHA);
+      let date = new Date(x.Fecha);
       let isoDate = date.toISOString().substring(0, 10);
-      x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
-      if (x.IVA === 'IVA00') x.IVA = 'IVA0';
+      let partesAlbaran = isoDate.split('-');
+      let formattedDateAlbaran = `${partesAlbaran[2]}/${partesAlbaran[1]}/${partesAlbaran[0]}`;
+      let currentAlbaranDescription = `albaran nº ${x.TICKET} ${formattedDateAlbaran}`;
+
+      if (currentAlbaranDescription !== lastAlbaranDescription) {
+        let salesLineAlbaran = {
+          documentNo: `${salesData.no}`,
+          lineNo: countLines,
+          description: currentAlbaranDescription,
+          quantity: 1,
+          shipmentDate: `${isoDate}`,
+          lineTotalAmount: 0,
+          locationCode: `${this.extractNumber(x.TIENDA)}`,
+        };
+        countLines++;
+        salesData.salesLinesBuffer.push(salesLineAlbaran);
+        lastAlbaranDescription = currentAlbaranDescription;
+      }
+
+      x.IvaPct = `IVA${String(x.IvaPct).replace(/\D/g, '').padStart(2, '0')}`;
+      if (x.IvaPct === 'IVA00') x.IvaPct = 'IVA0';
+
       let salesLine = {
         documentNo: `${salesData.no}`,
         type: `Item`,
         no: `${x.PLU}`,
         lineNo: countLines,
         description: `${x.ARTICULO}`,
-        quantity: parseFloat(x.CANTIDAD),
+        quantity: parseFloat(x.Cantidad),
         shipmentDate: `${isoDate}`,
-        lineTotalAmount: parseFloat(x.PRECIO),
-        vatProdPostingGroup: `${x.IVA}`,
-        unitPrice: parseFloat(x.precioUnitario),
+        lineTotalAmount: parseFloat(x.importe),
+        lineAmountExclVat: parseFloat(x.importeSinIVA),
+        vatProdPostingGroup: `${x.IvaPct}`,
+        unitPrice: parseFloat(x.unitPrice),
+        unitPriceExclVat: parseFloat(x.unitPriceExcIVA),
         locationCode: `${this.extractNumber(x.TIENDA)}`,
       };
       countLines++;
@@ -326,6 +373,7 @@ export class salesSilemaRecapManualService {
   async postToApi(tipo, salesData, tenant, entorno, companyID, token) {
     if (salesData.no.length > 20) salesData.no = salesData.no.slice(-20);
     if (salesData.locationCode.length > 10) salesData.locationCode = salesData.locationCode.slice(-10);
+    if (salesData.shipToCode.length > 10) salesData.shipToCode = salesData.shipToCode.slice(-10);
     let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'RM') and documentType eq '${salesData.documentType}' and 
     vatRegistrationNo eq '${salesData.vatRegistrationNo}' and amountExclVat eq ${salesData.amountExclVat} and postingDate eq ${salesData.postingDate} and locationCode eq '${salesData.locationCode}'`;
 

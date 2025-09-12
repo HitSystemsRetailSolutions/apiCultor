@@ -16,7 +16,7 @@ interface updateRegistroRequest {
 }
 @Controller()
 export class salesFacturasController {
-  constructor(private readonly salesFacturasService: salesFacturasService) {}
+  constructor(private readonly salesFacturasService: salesFacturasService) { }
 
   @Get('syncSalesFacturas')
   async salesFacturas(
@@ -40,6 +40,21 @@ export class salesFacturasController {
     if (!res) return 'Ha habido un error al actualizar el registro';
     return 'Se han actualizado las facturas correctamente';
   }
+
+  @Get('getInvoiceByNumber')
+  async getInvoiceByNumber(
+    @Query('companyID') companyID: string,
+    @Query('invoiceNumber') invoiceNumber: string,
+    @Query('client_id') client_id: string,
+    @Query('client_secret') client_secret: string,
+    @Query('tenant') tenant: string,
+    @Query('entorno') entorno: string,
+    @Query('database') database: string,
+  ) {
+    let res = await this.salesFacturasService.getInvoiceByNumber(companyID, invoiceNumber, client_id, client_secret, tenant, entorno, database);
+    return res;
+  }
+
   // @Get('generateXML')
   // async generateXML(
   //   @Query('companyID') companyID: string,
