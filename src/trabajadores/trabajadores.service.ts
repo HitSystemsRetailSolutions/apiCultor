@@ -73,6 +73,20 @@ export class trabajadoresService {
       this.logError(`❌ Error consultando el trabajadores en BC`, error);
       throw error;
     }
+    let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/companyInformation`;
+    let res2;
+    try {
+      res2 = await axios.get(url2, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      this.logError(`❌ Error consultando la información de la empresa en BC`, error);
+      throw error;
+    }
+    const nifEmpresa = res2.data.value[0].taxRegistrationNumber || '';
     const categoriaTipoGDTMap = {
       AUXADM: 'GERENT_2',
       AUXCOM: 'CONTABILITAT',
@@ -145,6 +159,7 @@ export class trabajadoresService {
         { nom: 'hBase', valor: trabajador.horassemana },
         { nom: 'TIPUSTREBALLADOR', valor: tipoGDT },
         { nom: 'DATACONTRACTEINI0', valor: fechaAlta },
+        { nom: 'NIF_EMPRESA', valor: nifEmpresa },
       ];
       if (query.recordset.length == 0) {
         let year = new Date(fechaAlta).getFullYear();
