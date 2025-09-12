@@ -107,15 +107,15 @@ export class ticketsService {
         console.warn(`⚠️ Advertencia: No se encontraron registros de previsiones de ventas`);
         continue;
       }
-      const bar = new cliProgress.SingleBar({
-        format: '⏳ Sincronizando día {dia} |{bar}| {percentage}% | {value}/{total} registros | ⏰ Tiempo restante: {eta_formatted}',
-        barCompleteChar: '\u2588',
-        barIncompleteChar: '\u2591',
-        barGlue: '',
-        hideCursor: true
-      });
+      // const bar = new cliProgress.SingleBar({
+      //   format: '⏳ Sincronizando día {dia} |{bar}| {percentage}% | {value}/{total} registros | ⏰ Tiempo restante: {eta_formatted}',
+      //   barCompleteChar: '\u2588',
+      //   barIncompleteChar: '\u2591',
+      //   barGlue: '',
+      //   hideCursor: true
+      // });
       await this.locations.getLocationFromAPI(companyID, database, licencia, client_id, client_secret, tenant, entorno);
-      bar.start(tickets.recordset.length, 0, { dia: 'N/A' });
+      // bar.start(tickets.recordset.length, 0, { dia: 'N/A' });
       let ultimaFechaSincronizada = null;
 
       for (let i = 0; i < tickets.recordset.length; i++) {
@@ -256,10 +256,10 @@ export class ticketsService {
             this.logError(`❌ Error al enviar el registro: ${JSON.stringify(data)}`, error);
           }
         }
-        // console.log(`⏳ Sincronizando registros de la fecha ${data.Data} ... -> ${i}/${tickets.recordset.length} --- ${((i / tickets.recordset.length) * 100).toFixed(2)}% `);
-        bar.update(i, { dia });
+        console.log(`⏳ Sincronizando registros de la fecha ${data.Data} ... -> ${i}/${tickets.recordset.length} --- ${((i / tickets.recordset.length) * 100).toFixed(2)}% `);
+        // bar.update(i, { dia });
       }
-      bar.stop();
+      // bar.stop();
       if (ultimaFechaSincronizada) {
         const ts = new Date(ultimaFechaSincronizada).toISOString().slice(0, 19).replace('T', ' ');
         await this.sql.runSql(`UPDATE records SET TimeStamp = '${ts}' WHERE concepte = 'BC_Tickets_${licencia}'`, database);
