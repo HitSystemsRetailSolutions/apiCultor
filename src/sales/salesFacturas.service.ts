@@ -719,6 +719,44 @@ export class salesFacturasService {
     }
 
   }
+
+  async getInvoiceByNumber(companyID: string, invoiceNumber: string, client_id: string, client_secret: string, tenant: string, entorno: string, database: string) {
+    const endpoint = invoiceNumber.startsWith('RE/') ? 'salesCreditMemos' : 'salesInvoices';
+    try {
+      const token = await this.token.getToken2(client_id, client_secret, tenant);
+      const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=number eq '${invoiceNumber}'`;
+      const response = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const factura = response.data.value[0];
+      if (!factura) {
+        console.warn(`⚠️ No se encontró la factura con número ${invoiceNumber}`);
+      }
+      const year = factura.postingDate.split('-')[0];
+
+      const selectQuery = `SELECT * FROM [BC_SyncSales_${year}] WHERE BC_IdSale = '${factura.id}' and BC_PostingDate = '${factura.postingDate}' and BC_CustomerId = '${factura.customerId}' and BC_totalAmountIncludingTax = ${factura.totalAmountIncludingTax}`;
+      const existingRecord = await this.sql.runSql(selectQuery, database);
+      if (existingRecord.recordset.length > 0) {
+        console.log(`La factura ${invoiceNumber} ya existe en BC_SyncSales_${year}. No se insertará de nuevo.`);
+        return;
+      } else {
+        const clientQuery = `SELECT Codi FROM clients WHERE nif = '${factura.customerNumber}'`;
+        const clientNumber = await this.sql.runSql(clientQuery, database);
+        const insertQuery = `INSERT INTO [BC_SyncSales_${year}] (Id, HIT_IdFactura, HIT_ClientNom, HIT_ClientCodi, BC_IdSale,BC_Number, BC_PostingDate, BC_CustomerId, BC_totalAmountIncludingTax, Registrada) VALUES 
+        (newid(), newid(), '${factura.customerName}', '${clientNumber.recordset[0].Codi}', '${factura.id}', '${factura.number}', '${factura.postingDate}', '${factura.customerId}', ${factura.totalAmountIncludingTax}, 'Si');`;
+        await this.sql.runSql(insertQuery, database);
+        await this.pdfService.reintentarSubidaPdf([factura.id], database, client_id, client_secret, tenant, entorno, companyID, endpoint);
+      }
+      return true;
+    } catch (error) {
+      this.logError(`❌ Error al obtener la factura ${invoiceNumber}`, error);
+    }
+  }
+
   private logError(message: string, error: any) {
     this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
     console.error(message, error.response?.data || error.message);
@@ -736,9 +774,5 @@ export class salesFacturasService {
         'Content-Type': 'application/json',
       },
     });
-  }
-
-  async addError(error: string) {
-    errores.push(error);
   }
 }
