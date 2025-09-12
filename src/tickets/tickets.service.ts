@@ -204,6 +204,15 @@ export class ticketsService {
                     'Content-Type': 'application/json',
                   },
                 });
+              } else if (postError.code === 'ECONNABORTED' || postError.code === 'Timeout') {
+                console.log('⏳ Timeout detectado, reintentando...');
+                // 🔁 Reintento en caso de timeout
+                postResponse = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/v_venut`, data, {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                });
               } else {
                 this.logError(`❌ Error en el post del registro: ${JSON.stringify(data)}`, postError);
               }
@@ -230,7 +239,20 @@ export class ticketsService {
                 },
               }
             );
-          } else {
+          } else if (error.code === 'ECONNABORTED' || error.code === 'Timeout') {
+            console.log('⏳ Timeout detectado, reintentando...');
+            // 🔁 Reintento en caso de timeout
+            response = await axios.get(
+              `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/v_venut?$filter=Data eq ${tmstString} and Botiga eq ${data.Botiga} and Num_tick eq ${data.Num_tick} and Plu eq ${data.Plu} and Import eq ${data.Import}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+          }
+          else {
             this.logError(`❌ Error al enviar el registro: ${JSON.stringify(data)}`, error);
           }
         }
