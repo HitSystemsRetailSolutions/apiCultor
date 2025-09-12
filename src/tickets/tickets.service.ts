@@ -107,15 +107,15 @@ export class ticketsService {
         console.warn(`⚠️ Advertencia: No se encontraron registros de previsiones de ventas`);
         continue;
       }
-      const bar = new cliProgress.SingleBar({
-        format: '⏳ Sincronizando día {dia} |{bar}| {percentage}% | {value}/{total} registros | ⏰ Tiempo restante: {eta_formatted}',
-        barCompleteChar: '\u2588',
-        barIncompleteChar: '\u2591',
-        barGlue: '',
-        hideCursor: true
-      });
+      // const bar = new cliProgress.SingleBar({
+      //   format: '⏳ Sincronizando día {dia} |{bar}| {percentage}% | {value}/{total} registros | ⏰ Tiempo restante: {eta_formatted}',
+      //   barCompleteChar: '\u2588',
+      //   barIncompleteChar: '\u2591',
+      //   barGlue: '',
+      //   hideCursor: true
+      // });
       await this.locations.getLocationFromAPI(companyID, database, licencia, client_id, client_secret, tenant, entorno);
-      bar.start(tickets.recordset.length, 0, { dia: 'N/A' });
+      // bar.start(tickets.recordset.length, 0, { dia: 'N/A' });
       let ultimaFechaSincronizada = null;
 
       for (let i = 0; i < tickets.recordset.length; i++) {
@@ -204,6 +204,15 @@ export class ticketsService {
                     'Content-Type': 'application/json',
                   },
                 });
+              } else if (postError.code === 'ECONNABORTED' || postError.code === 'Timeout') {
+                console.log('⏳ Timeout detectado, reintentando...');
+                // 🔁 Reintento en caso de timeout
+                postResponse = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/v_venut`, data, {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                });
               } else {
                 this.logError(`❌ Error en el post del registro: ${JSON.stringify(data)}`, postError);
               }
@@ -230,14 +239,27 @@ export class ticketsService {
                 },
               }
             );
-          } else {
+          } else if (error.code === 'ECONNABORTED' || error.code === 'Timeout') {
+            console.log('⏳ Timeout detectado, reintentando...');
+            // 🔁 Reintento en caso de timeout
+            response = await axios.get(
+              `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/v_venut?$filter=Data eq ${tmstString} and Botiga eq ${data.Botiga} and Num_tick eq ${data.Num_tick} and Plu eq ${data.Plu} and Import eq ${data.Import}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            );
+          }
+          else {
             this.logError(`❌ Error al enviar el registro: ${JSON.stringify(data)}`, error);
           }
         }
-        // console.log(`⏳ Sincronizando registros de la fecha ${data.Data} ... -> ${i}/${tickets.recordset.length} --- ${((i / tickets.recordset.length) * 100).toFixed(2)}% `);
-        bar.update(i, { dia });
+        console.log(`⏳ Sincronizando registros de la fecha ${data.Data} ... -> ${i}/${tickets.recordset.length} --- ${((i / tickets.recordset.length) * 100).toFixed(2)}% `);
+        // bar.update(i, { dia });
       }
-      bar.stop();
+      // bar.stop();
       if (ultimaFechaSincronizada) {
         const ts = new Date(ultimaFechaSincronizada).toISOString().slice(0, 19).replace('T', ' ');
         await this.sql.runSql(`UPDATE records SET TimeStamp = '${ts}' WHERE concepte = 'BC_Tickets_${licencia}'`, database);
