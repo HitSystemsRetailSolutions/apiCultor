@@ -150,6 +150,7 @@ export class salesSilemaRecapService {
     SELECT 
         v.data AS FECHA,
 		    cb.nom AS TIENDA,
+        cb.nif AS NifTienda,
 		    c.NIF AS NIF,
         CASE cc1.valor WHEN '4' THEN 'CLI_TRANSF' ELSE '' END AS FORMAPAGO,
         v.num_tick AS TICKET, 
@@ -176,7 +177,7 @@ export class salesSilemaRecapService {
     AND DAY(data) BETWEEN @Inicio AND @Fin
     AND cb.codi = '${botiga}'
     GROUP BY 
-        V.Num_tick, v.plu, a.nom, v.Quantitat, v.data, v.import, i.iva, cb.nom, c.nif, cc1.Valor,
+        V.Num_tick, v.plu, a.nom, v.Quantitat, v.data, v.import, i.iva, cb.nom, cb.nif, c.nif, cc1.Valor,
         ROUND(v.Import / NULLIF(v.Quantitat, 0), 5)
     HAVING SUM(quantitat) > 0
     ORDER BY v.data;`;
@@ -249,7 +250,7 @@ export class salesSilemaRecapService {
     if (x.TIENDA.toLowerCase() == 'bot granollers') x.TIENDA = 'T--000';
     let salesData = {
       no: `${x.TIENDA.substring(0, 6)}_${formattedDate}_R${n}`, // Nº factura
-      documentType: 'Invoice', // Tipo de documento+
+      documentType: 'Invoice', // Tipo de documento
       dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
       externalDocumentNo: `${x.TIENDA.substring(0, 6)}_${formattedDate}_R${n}`, // Nº documento externo
       locationCode: `${this.extractNumber(x.TIENDA)}`, // Cód. almacén
@@ -260,6 +261,7 @@ export class salesSilemaRecapService {
       amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)), // Precio total sin IVA por factura
       vatAmount: parseFloat((x.TOTAL - x.TotalSinIVA).toFixed(2)), // IVA total por factura
       paymentMethodCode: `${paymentMethodCode}`, // Cód. forma de pago
+      shipToCode: '', // Cód. dirección envío cliente
       storeInvoice: false, // Factura tienda
       vatRegistrationNo: `${x.NIF}`, // CIF/NIF
       invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
@@ -331,185 +333,210 @@ export class salesSilemaRecapService {
       console.log(`Ya existe la recapitulativa ${resGetExist.data.value[0].no}`);
       return;
     }
-    // console.log(salesData);
+    // console.log('factura', salesData);
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
-    //Abono recap
-    sqlQ = `
-    DECLARE @Cliente INT = ${parseInt(client, 10)};
-    DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
-    DECLARE @Fin INT = ${parseInt(dayEnd, 10)};
-    
-    DECLARE @TotalConIVA DECIMAL(18, 2);
-    DECLARE @TotalSinIVA DECIMAL(18, 2);
+    //-------------------------------------------------------------Abono recap-------------------------------------------------------------
+    // sqlQ = `
+    // DECLARE @Cliente INT = ${parseInt(client, 10)};
+    // DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
+    // DECLARE @Fin INT = ${parseInt(dayEnd, 10)};
 
-    SELECT @TotalConIVA = SUM(V.Import)
-    FROM [v_venut_${year}-${month}] V
-    LEFT JOIN articles A ON A.codi = V.plu
-    LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
-    LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
-    LEFT JOIN Clients C ON CC.codi = C.codi
-    LEFT JOIN clients CB ON V.botiga = CB.codi
-    WHERE V.otros LIKE '%' + CC.valor + '%'
-      AND DAY(data) BETWEEN @Inicio AND @Fin
-      AND CB.codi = '${botiga}';
+    // DECLARE @TotalConIVA DECIMAL(18, 2);
+    // DECLARE @TotalSinIVA DECIMAL(18, 2);
 
-    SELECT @TotalSinIVA = 
-        SUM(V.Import / (1 + (ISNULL(I.Iva, 10) / 100.0)))
-    FROM [v_venut_${year}-${month}] V
-    LEFT JOIN articles A ON A.codi = V.plu
-    LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
-    LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
-    LEFT JOIN Clients C ON CC.codi = C.codi
-    LEFT JOIN clients CB ON V.botiga = CB.codi
-    WHERE V.otros LIKE '%' + CC.valor + '%'
-      AND DAY(data) BETWEEN @Inicio AND @Fin
-      AND CB.codi = '${botiga}';
+    // SELECT @TotalConIVA = SUM(V.Import)
+    // FROM [v_venut_${year}-${month}] V
+    // LEFT JOIN articles A ON A.codi = V.plu
+    // LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+    // LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
+    // LEFT JOIN Clients C ON CC.codi = C.codi
+    // LEFT JOIN clients CB ON V.botiga = CB.codi
+    // WHERE V.otros LIKE '%' + CC.valor + '%'
+    //   AND DAY(data) BETWEEN @Inicio AND @Fin
+    //   AND CB.codi = '${botiga}';
 
-    SELECT 
-        V.PLU AS PLU, 
-        A.nom AS ARTICULO, 
-        SUM(V.Quantitat) AS CANTIDAD_TOTAL, 
-        SUM(V.Import) AS IMPORTE_TOTAL, 
-        MIN(V.data) AS FECHA_PRIMERA_VENTA, 
-        MAX(V.data) AS FECHA_ULTIMA_VENTA, 
-        I.Iva AS IVA, 
-        CB.nom AS TIENDA, 
-        C.NIF AS NIF, 
-        ROUND(SUM(V.Import) / NULLIF(SUM(V.Quantitat), 0), 5) AS precioUnitario,
-        @TotalSinIVA AS TotalSinIVA,
-        @TotalConIVA AS TOTAL
-    FROM [v_venut_${year}-${month}] V
-    LEFT JOIN articles A ON A.codi = V.plu
-    LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
-    LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
-    LEFT JOIN Clients C ON CC.codi = C.codi
-    LEFT JOIN clients CB ON V.botiga = CB.codi
-    WHERE V.otros LIKE '%' + CC.valor + '%'
-      AND DAY(data) BETWEEN @Inicio AND @Fin
-      AND CB.codi = '${botiga}'
-    GROUP BY 
-        V.PLU, 
-        A.nom, 
-        I.Iva, 
-        CB.nom, 
-        C.NIF
-    HAVING SUM(V.Quantitat) > 0
-    ORDER BY MIN(V.data);`;
-    if (dayStart > dayEnd) {
-      let nextMonth = String(Number(month) + 1).padStart(2, '0');
-      sqlQ = `
-      DECLARE @Cliente INT = ${parseInt(client, 10)};
-      DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
-      DECLARE @Fin INT = ${parseInt(dayEnd, 10)};
+    // SELECT @TotalSinIVA = 
+    //     SUM(V.Import / (1 + (ISNULL(I.Iva, 10) / 100.0)))
+    // FROM [v_venut_${year}-${month}] V
+    // LEFT JOIN articles A ON A.codi = V.plu
+    // LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+    // LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
+    // LEFT JOIN Clients C ON CC.codi = C.codi
+    // LEFT JOIN clients CB ON V.botiga = CB.codi
+    // WHERE V.otros LIKE '%' + CC.valor + '%'
+    //   AND DAY(data) BETWEEN @Inicio AND @Fin
+    //   AND CB.codi = '${botiga}';
 
-      DECLARE @TotalConIVA DECIMAL(18, 2);
-      DECLARE @TotalSinIVA DECIMAL(18, 2);
+    // SELECT 
+    //     V.PLU AS PLU, 
+    //     A.nom AS ARTICULO, 
+    //     SUM(V.Quantitat) AS CANTIDAD_TOTAL, 
+    //     SUM(V.Import) AS IMPORTE_TOTAL, 
+    //     MIN(V.data) AS FECHA_PRIMERA_VENTA, 
+    //     MAX(V.data) AS FECHA_ULTIMA_VENTA, 
+    //     I.Iva AS IVA, 
+    //     CB.nom AS TIENDA, 
+    //     C.NIF AS NIF, 
+    //     ROUND(SUM(V.Import) / NULLIF(SUM(V.Quantitat), 0), 5) AS precioUnitario,
+    //     @TotalSinIVA AS TotalSinIVA,
+    //     @TotalConIVA AS TOTAL
+    // FROM [v_venut_${year}-${month}] V
+    // LEFT JOIN articles A ON A.codi = V.plu
+    // LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+    // LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable = 'CFINAL' AND valor != ''
+    // LEFT JOIN Clients C ON CC.codi = C.codi
+    // LEFT JOIN clients CB ON V.botiga = CB.codi
+    // WHERE V.otros LIKE '%' + CC.valor + '%'
+    //   AND DAY(data) BETWEEN @Inicio AND @Fin
+    //   AND CB.codi = '${botiga}'
+    // GROUP BY 
+    //     V.PLU, 
+    //     A.nom, 
+    //     I.Iva, 
+    //     CB.nom, 
+    //     C.NIF
+    // HAVING SUM(V.Quantitat) > 0
+    // ORDER BY MIN(V.data);`;
+    // if (dayStart > dayEnd) {
+    //   let nextMonth = String(Number(month) + 1).padStart(2, '0');
+    //   sqlQ = `
+    //   DECLARE @Cliente INT = ${parseInt(client, 10)};
+    //   DECLARE @Inicio INT = ${parseInt(dayStart, 10)};
+    //   DECLARE @Fin INT = ${parseInt(dayEnd, 10)};
 
-      SELECT @TotalConIVA = SUM(V.Import)
-      FROM (
-          SELECT * FROM [v_venut_${year}-${month}] WHERE DAY(data) BETWEEN @Inicio AND 31
-          UNION ALL
-          SELECT * FROM [v_venut_${year}-${nextMonth}] WHERE DAY(data) BETWEEN 1 AND @Fin
-      ) V
-      LEFT JOIN articles A ON A.codi = V.plu
-      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
-      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' AND valor COLLATE Modern_Spanish_CI_AS != ''
-      LEFT JOIN Clients C ON CC.codi = C.codi
-      LEFT JOIN clients CB ON V.botiga = CB.codi
-      WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
-        AND CB.codi = '${botiga}';
+    //   DECLARE @TotalConIVA DECIMAL(18, 2);
+    //   DECLARE @TotalSinIVA DECIMAL(18, 2);
 
-      SELECT @TotalSinIVA = 
-          SUM(V.Import / (1 + (ISNULL(I.Iva, 10) / 100.0)))
-      FROM (
-          SELECT * FROM [v_venut_${year}-${month}] WHERE DAY(data) BETWEEN @Inicio AND 31
-          UNION ALL
-          SELECT * FROM [v_venut_${year}-${nextMonth}] WHERE DAY(data) BETWEEN 1 AND @Fin
-      ) V
-      LEFT JOIN articles A ON A.codi = V.plu
-      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
-      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' AND valor COLLATE Modern_Spanish_CI_AS != ''
-      LEFT JOIN Clients C ON CC.codi = C.codi
-      LEFT JOIN clients CB ON V.botiga = CB.codi
-      WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
-        AND CB.codi = '${botiga}';
+    //   SELECT @TotalConIVA = SUM(V.Import)
+    //   FROM (
+    //       SELECT * FROM [v_venut_${year}-${month}] WHERE DAY(data) BETWEEN @Inicio AND 31
+    //       UNION ALL
+    //       SELECT * FROM [v_venut_${year}-${nextMonth}] WHERE DAY(data) BETWEEN 1 AND @Fin
+    //   ) V
+    //   LEFT JOIN articles A ON A.codi = V.plu
+    //   LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+    //   LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' AND valor COLLATE Modern_Spanish_CI_AS != ''
+    //   LEFT JOIN Clients C ON CC.codi = C.codi
+    //   LEFT JOIN clients CB ON V.botiga = CB.codi
+    //   WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
+    //     AND CB.codi = '${botiga}';
 
-      SELECT 
-          V.PLU AS PLU, 
-          A.nom AS ARTICULO, 
-          SUM(V.Quantitat) AS CANTIDAD_TOTAL, 
-          SUM(V.Import) AS IMPORTE_TOTAL, 
-          MIN(V.data) AS FECHA_PRIMERA_VENTA, 
-          MAX(V.data) AS FECHA_ULTIMA_VENTA, 
-          I.Iva AS IVA, 
-          CB.nom AS TIENDA, 
-          C.NIF AS NIF, 
-          ROUND(SUM(V.Import) / NULLIF(SUM(V.Quantitat), 0), 5) AS precioUnitario,
-          @TotalSinIVA AS TotalSinIVA,
-          @TotalConIVA AS TOTAL
-      FROM (
-          SELECT * FROM [v_venut_${year}-${month}] WHERE DAY(data) BETWEEN @Inicio AND 31
-          UNION ALL
-          SELECT * FROM [v_venut_${year}-${nextMonth}] WHERE DAY(data) BETWEEN 1 AND @Fin
-      ) V
-      LEFT JOIN articles A ON A.codi = V.plu
-      LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
-      LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' AND valor COLLATE Modern_Spanish_CI_AS != ''
-      LEFT JOIN Clients C ON CC.codi = C.codi
-      LEFT JOIN clients CB ON V.botiga = CB.codi
-      WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
-        AND CB.codi = '${botiga}'
-      GROUP BY 
-          V.PLU, 
-          A.nom, 
-          I.Iva, 
-          CB.nom, 
-          C.NIF
-      HAVING SUM(V.Quantitat) > 0
-      ORDER BY MIN(V.data);`;
-    }
+    //   SELECT @TotalSinIVA = 
+    //       SUM(V.Import / (1 + (ISNULL(I.Iva, 10) / 100.0)))
+    //   FROM (
+    //       SELECT * FROM [v_venut_${year}-${month}] WHERE DAY(data) BETWEEN @Inicio AND 31
+    //       UNION ALL
+    //       SELECT * FROM [v_venut_${year}-${nextMonth}] WHERE DAY(data) BETWEEN 1 AND @Fin
+    //   ) V
+    //   LEFT JOIN articles A ON A.codi = V.plu
+    //   LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+    //   LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' AND valor COLLATE Modern_Spanish_CI_AS != ''
+    //   LEFT JOIN Clients C ON CC.codi = C.codi
+    //   LEFT JOIN clients CB ON V.botiga = CB.codi
+    //   WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
+    //     AND CB.codi = '${botiga}';
+
+    //   SELECT 
+    //       V.PLU AS PLU, 
+    //       A.nom AS ARTICULO, 
+    //       SUM(V.Quantitat) AS CANTIDAD_TOTAL, 
+    //       SUM(V.Import) AS IMPORTE_TOTAL, 
+    //       MIN(V.data) AS FECHA_PRIMERA_VENTA, 
+    //       MAX(V.data) AS FECHA_ULTIMA_VENTA, 
+    //       I.Iva AS IVA, 
+    //       CB.nom AS TIENDA, 
+    //       C.NIF AS NIF, 
+    //       ROUND(SUM(V.Import) / NULLIF(SUM(V.Quantitat), 0), 5) AS precioUnitario,
+    //       @TotalSinIVA AS TotalSinIVA,
+    //       @TotalConIVA AS TOTAL
+    //   FROM (
+    //       SELECT * FROM [v_venut_${year}-${month}] WHERE DAY(data) BETWEEN @Inicio AND 31
+    //       UNION ALL
+    //       SELECT * FROM [v_venut_${year}-${nextMonth}] WHERE DAY(data) BETWEEN 1 AND @Fin
+    //   ) V
+    //   LEFT JOIN articles A ON A.codi = V.plu
+    //   LEFT JOIN TipusIva I ON I.Tipus = A.TipoIva
+    //   LEFT JOIN ConstantsClient CC ON @Cliente = CC.Codi AND variable COLLATE Modern_Spanish_CI_AS = 'CFINAL' AND valor COLLATE Modern_Spanish_CI_AS != ''
+    //   LEFT JOIN Clients C ON CC.codi = C.codi
+    //   LEFT JOIN clients CB ON V.botiga = CB.codi
+    //   WHERE V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CC.valor COLLATE Modern_Spanish_CI_AS + '%'
+    //     AND CB.codi = '${botiga}'
+    //   GROUP BY 
+    //       V.PLU, 
+    //       A.nom, 
+    //       I.Iva, 
+    //       CB.nom, 
+    //       C.NIF
+    //   HAVING SUM(V.Quantitat) > 0
+    //   ORDER BY MIN(V.data);`;
+    // }
     //console.log(sqlQ);
 
-    data = await this.sql.runSql(sqlQ, database);
-    x = data.recordset[0];
-    shortYear = year.slice(-2);
+    // data = await this.sql.runSql(sqlQ, database);
+    // x = data.recordset[0];
+    // shortYear = year.slice(-2);
 
     // Formateamos la fecha en el formato ddmmyy
-    formattedDate = `${dayEnd}-${month}-${shortYear}`;
-    formattedDateDayStart = new Date(Date.UTC(year, month - 1, dayStart)).toISOString().substring(0, 10);
-    formattedDateDayEnd = new Date(Date.UTC(year, month - 1, dayEnd)).toISOString().substring(0, 10);
+    // formattedDate = `${dayEnd}-${month}-${shortYear}`;
+    // formattedDateDayStart = new Date(Date.UTC(year, month - 1, dayStart)).toISOString().substring(0, 10);
+    // formattedDateDayEnd = new Date(Date.UTC(year, month - 1, dayEnd)).toISOString().substring(0, 10);
 
-    salesData = {
-      no: `${x.TIENDA.substring(0, 6)}_${formattedDate}_AR${n}`, // Nº factura
-      documentType: 'Credit_x0020_Memo', // Tipo de documento
-      dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
-      externalDocumentNo: `${x.TIENDA.substring(0, 6)}_${formattedDate}_AR${n}`, // Nº documento externo
-      locationCode: `${this.extractNumber(x.TIENDA)}`, // Cód. almacén
-      orderDate: `${formattedDateDayEnd}`, // Fecha pedido
-      postingDate: `${formattedDateDayEnd}`, // Fecha registro
-      recapInvoice: true, // Factura recap //false
-      remainingAmount: parseFloat(x.TOTAL.toFixed(2)), // Precio total incluyendo IVA por factura
-      amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)), // Precio total sin IVA por factura
-      vatAmount: parseFloat((x.TOTAL - x.TotalSinIVA).toFixed(2)), // IVA total por factura
-      paymentMethodCode: `${paymentMethodCode}`,  // Cód. forma de pago
-      storeInvoice: false, // Factura tienda
-      vatRegistrationNo: `${x.NIF}`, // CIF/NIF
-      invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
-      invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
-      salesLinesBuffer: [], // Array vacío para las líneas de ventas
-    };
+    // salesData = {
+    //   no: `${x.TIENDA.substring(0, 6)}_${formattedDate}_AR${n}`, // Nº factura
+    //   documentType: 'Credit_x0020_Memo', // Tipo de documento
+    //   dueDate: `${formattedDateDayEnd}`, // Fecha vencimiento
+    //   externalDocumentNo: `${x.TIENDA.substring(0, 6)}_${formattedDate}_AR${n}`, // Nº documento externo
+    //   locationCode: `${this.extractNumber(x.TIENDA)}`, // Cód. almacén
+    //   orderDate: `${formattedDateDayEnd}`, // Fecha pedido
+    //   postingDate: `${formattedDateDayEnd}`, // Fecha registro
+    //   recapInvoice: true, // Factura recap //false
+    //   remainingAmount: parseFloat(x.TOTAL.toFixed(2)), // Precio total incluyendo IVA por factura
+    //   amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)), // Precio total sin IVA por factura
+    //   vatAmount: parseFloat((x.TOTAL - x.TotalSinIVA).toFixed(2)), // IVA total por factura
+    //   paymentMethodCode: `${paymentMethodCode}`,  // Cód. forma de pago
+    //   shipToCode: `${this.extractNumber(x.TIENDA).toUpperCase()}`, // Cód. dirección envío cliente
+    //   storeInvoice: false, // Factura tienda
+    //   vatRegistrationNo: `${x.NIF}`, // CIF/NIF
+    //   invoiceStartDate: `${formattedDateDayStart}`, // Fecha inicio facturación
+    //   invoiceEndDate: `${formattedDateDayEnd}`, // Fecha fin facturación
+    //   salesLinesBuffer: [], // Array vacío para las líneas de ventas
+    // };
+
+    salesData.no = `${x.TIENDA.substring(0, 6)}_${formattedDate}_AR${n}`; // Nº factura
+    salesData.documentType = 'Credit_x0020_Memo'; // Tipo de documento
+    salesData.externalDocumentNo = `${x.TIENDA.substring(0, 6)}_${formattedDate}_AR${n}`; // Nº documento externo
+    salesData.vatRegistrationNo = `${x.NifTienda}`; // CIF/NIF
+    salesData.shipToCode = `${this.extractNumber(x.TIENDA).toUpperCase()}`; // Cód. dirección envío cliente
+    salesData.salesLinesBuffer = [];
+
+
     countLines = 1;
     changetLocationCode = false;
     for (let i = 0; i < data.recordset.length; i++) {
       x = data.recordset[i];
-      let date = new Date(x.FECHA_PRIMERA_VENTA);
+      let date = new Date(x.FECHA);
+      let day = date.getDate().toString().padStart(2, '0'); // Asegura dos dígitos
+      let month = (date.getMonth() + 1).toString().padStart(2, '0'); // Meses van de 0 a 11
+      let shortYear = date.getFullYear().toString().slice(-2); // Obtiene los últimos dos dígitos del año
       let isoDate = date.toISOString().substring(0, 10);
+      let formattedDateAlbaran = `${day}/${month}/${shortYear}`;
       if (this.extractNumber(x.TIENDA) != salesData.locationCode && !changetLocationCode) {
         salesData.no = `T--000_${formattedDate}_AR${n}`;
         salesData.externalDocumentNo = `T--000_${formattedDate}_AR${n}`;
         salesData.locationCode = '000';
         changetLocationCode = true;
       }
+      let salesLineAlbaran = {
+        documentNo: `${salesData.no}`,
+        lineNo: countLines,
+        description: `albaran nº ${x.TICKET} ${formattedDateAlbaran}`,
+        quantity: 1,
+        shipmentDate: `${isoDate}`,
+        lineTotalAmount: 0,
+        locationCode: `${this.extractNumber(x.TIENDA)}`,
+      };
+      countLines++;
+      salesData.salesLinesBuffer.push(salesLineAlbaran);
       x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
       if (x.IVA === 'IVA00') x.IVA = 'IVA0';
       let salesLine = {
@@ -518,17 +545,19 @@ export class salesSilemaRecapService {
         no: `${x.PLU}`,
         lineNo: countLines,
         description: `${x.ARTICULO}`,
-        quantity: parseFloat(x.CANTIDAD_TOTAL),
+        quantity: parseFloat(x.CANTIDAD),
         shipmentDate: `${isoDate}`,
-        lineTotalAmount: parseFloat(x.IMPORTE_TOTAL.toFixed(2)),
+        lineTotalAmount: parseFloat(x.PRECIO),
+        lineAmountExclVat: parseFloat(x.PRECIO_SIN_IVA),
         vatProdPostingGroup: `${x.IVA}`,
         unitPrice: parseFloat(x.precioUnitario),
+        unitPriceExclVat: parseFloat(x.precioUnitarioSinIVA),
         locationCode: `${this.extractNumber(x.TIENDA)}`,
       };
       countLines++;
       salesData.salesLinesBuffer.push(salesLine);
     }
-    // console.log(salesData);
+    // console.log('abono', salesData);
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
     return true;
