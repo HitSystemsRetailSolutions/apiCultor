@@ -241,6 +241,8 @@ export class ticketsService {
             );
           } else if (error.code === 'ECONNABORTED' || error.code === 'Timeout') {
             console.log('⏳ Timeout detectado, reintentando...');
+            const date = new Date(data.Data);
+            const tmstString = date.toISOString().replace(/\.\d{3}Z$/, 'Z');
             // 🔁 Reintento en caso de timeout
             response = await axios.get(
               `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/v_venut?$filter=Data eq ${tmstString} and Botiga eq ${data.Botiga} and Num_tick eq ${data.Num_tick} and Plu eq ${data.Plu} and Import eq ${data.Import}`,
