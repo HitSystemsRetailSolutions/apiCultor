@@ -104,7 +104,10 @@ export class salesSilemaRecapManualService {
           Pagado,
           (SELECT TOP 1 TipoFactura FROM CTE_TipoFactura) AS TipoFactura
       FROM CTE_Base
-      ORDER BY Fecha;`;
+      ORDER BY 
+      CASE WHEN (SELECT TOP 1 TipoFactura FROM CTE_TipoFactura) = 'SETMANAL' THEN Articulo END,
+      CASE WHEN (SELECT TOP 1 TipoFactura FROM CTE_TipoFactura) = 'SETMANAL' THEN Fecha END,
+      CASE WHEN (SELECT TOP 1 TipoFactura FROM CTE_TipoFactura) <> 'SETMANAL' THEN Fecha END;`;
       // console.log(sqlQ);
       let data = await this.sql.runSql(sqlQ, database);
       arrayDatos.push(data.recordset);
@@ -174,20 +177,21 @@ export class salesSilemaRecapManualService {
       let partesAlbaran = isoDate.split('-');
       let formattedDateAlbaran = `${partesAlbaran[2]}/${partesAlbaran[1]}/${partesAlbaran[0]}`;
       let currentAlbaranDescription = `albaran nº ${x.TICKET} ${formattedDateAlbaran}`;
-
-      if (currentAlbaranDescription !== lastAlbaranDescription) {
-        let salesLineAlbaran = {
-          documentNo: `${salesData.no}`,
-          lineNo: countLines,
-          description: currentAlbaranDescription,
-          quantity: 1,
-          shipmentDate: `${isoDate}`,
-          lineTotalAmount: 0,
-          locationCode: `${this.extractNumber(x.TIENDA)}`,
-        };
-        countLines++;
-        salesData.salesLinesBuffer.push(salesLineAlbaran);
-        lastAlbaranDescription = currentAlbaranDescription;
+      if (salesData.debtorIntercompany === false) {
+        if (currentAlbaranDescription !== lastAlbaranDescription) {
+          let salesLineAlbaran = {
+            documentNo: `${salesData.no}`,
+            lineNo: countLines,
+            description: currentAlbaranDescription,
+            quantity: 1,
+            shipmentDate: `${isoDate}`,
+            lineTotalAmount: 0,
+            locationCode: `${this.extractNumber(x.TIENDA)}`,
+          };
+          countLines++;
+          salesData.salesLinesBuffer.push(salesLineAlbaran);
+          lastAlbaranDescription = currentAlbaranDescription;
+        }
       }
       x.IvaPct = `IVA${String(x.IvaPct).replace(/\D/g, '').padStart(2, '0')}`;
       if (x.IvaPct === 'IVA00') x.IvaPct = 'IVA0';
