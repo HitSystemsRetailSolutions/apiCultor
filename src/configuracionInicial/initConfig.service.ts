@@ -275,6 +275,8 @@ export class initConfigService {
   async createClientesContado(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     const payMethodId = await this.customers.getPaymentMethodId('EFECTIVO', companyID, client_id, client_secret, tenant, entorno);
+    const taxId = await this.customers.getTaxAreaId('NAC', companyID, client_id, client_secret, tenant, entorno);
+    const payTermId = await this.customers.getPaymentTermId('CON', companyID, client_id, client_secret, tenant, entorno);
     const customerData = {
       number: `22222222T`,
       displayName: `CLIENTES CONTADO TIENDAS`,
@@ -282,12 +284,15 @@ export class initConfigService {
       // addressLine1: `.`,
       // city: `.`,
       country: 'ES',
+      taxAreaId: `${taxId}`,
       taxRegistrationNumber: `22222222T`,
       currencyCode: 'EUR',
       paymentMethodId: `${payMethodId}`,
+      paymentTermsId: `${payTermId}`,
       formatRegion: 'es-ES_tradnl',
       languageCode: 'CAT',
       customerPostingGroup: 'NAC',
+      GenBusPostingGroup: 'NAC',
       pricesIncludingVAT: 'true',
     };
 

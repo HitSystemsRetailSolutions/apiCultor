@@ -502,63 +502,63 @@ export class salesSilemaRecapService {
     //   salesLinesBuffer: [], // Array vacío para las líneas de ventas
     // };
 
-    salesData.no = `${x.TIENDA.substring(0, 6)}_${formattedDate}_AR${n}`; // Nº factura
-    salesData.documentType = 'Credit_x0020_Memo'; // Tipo de documento
-    salesData.externalDocumentNo = `${x.TIENDA.substring(0, 6)}_${formattedDate}_AR${n}`; // Nº documento externo
-    salesData.vatRegistrationNo = `${x.NifTienda}`; // CIF/NIF
-    salesData.shipToCode = `${this.extractNumber(x.TIENDA).toUpperCase()}`; // Cód. dirección envío cliente
-    salesData.salesLinesBuffer = [];
+    // salesData.no = `${x.TIENDA.substring(0, 6)}_${formattedDate}_AR${n}`; // Nº factura
+    // salesData.documentType = 'Credit_x0020_Memo'; // Tipo de documento
+    // salesData.externalDocumentNo = `${x.TIENDA.substring(0, 6)}_${formattedDate}_AR${n}`; // Nº documento externo
+    // salesData.vatRegistrationNo = `${x.NifTienda}`; // CIF/NIF
+    // salesData.shipToCode = `${this.extractNumber(x.TIENDA).toUpperCase()}`; // Cód. dirección envío cliente
+    // salesData.salesLinesBuffer = [];
 
 
-    countLines = 1;
-    changetLocationCode = false;
-    for (let i = 0; i < data.recordset.length; i++) {
-      x = data.recordset[i];
-      let date = new Date(x.FECHA);
-      let day = date.getDate().toString().padStart(2, '0'); // Asegura dos dígitos
-      let month = (date.getMonth() + 1).toString().padStart(2, '0'); // Meses van de 0 a 11
-      let shortYear = date.getFullYear().toString().slice(-2); // Obtiene los últimos dos dígitos del año
-      let isoDate = date.toISOString().substring(0, 10);
-      let formattedDateAlbaran = `${day}/${month}/${shortYear}`;
-      if (this.extractNumber(x.TIENDA) != salesData.locationCode && !changetLocationCode) {
-        salesData.no = `T--000_${formattedDate}_AR${n}`;
-        salesData.externalDocumentNo = `T--000_${formattedDate}_AR${n}`;
-        salesData.locationCode = '000';
-        changetLocationCode = true;
-      }
-      let salesLineAlbaran = {
-        documentNo: `${salesData.no}`,
-        lineNo: countLines,
-        description: `albaran nº ${x.TICKET} ${formattedDateAlbaran}`,
-        quantity: 1,
-        shipmentDate: `${isoDate}`,
-        lineTotalAmount: 0,
-        locationCode: `${this.extractNumber(x.TIENDA)}`,
-      };
-      countLines++;
-      salesData.salesLinesBuffer.push(salesLineAlbaran);
-      x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
-      if (x.IVA === 'IVA00') x.IVA = 'IVA0';
-      let salesLine = {
-        documentNo: `${salesData.no}`,
-        type: `Item`,
-        no: `${x.PLU}`,
-        lineNo: countLines,
-        description: `${x.ARTICULO}`,
-        quantity: parseFloat(x.CANTIDAD),
-        shipmentDate: `${isoDate}`,
-        lineTotalAmount: parseFloat(x.PRECIO),
-        lineAmountExclVat: parseFloat(x.PRECIO_SIN_IVA),
-        vatProdPostingGroup: `${x.IVA}`,
-        unitPrice: parseFloat(x.precioUnitario),
-        unitPriceExclVat: parseFloat(x.precioUnitarioSinIVA),
-        locationCode: `${this.extractNumber(x.TIENDA)}`,
-      };
-      countLines++;
-      salesData.salesLinesBuffer.push(salesLine);
-    }
+    // countLines = 1;
+    // changetLocationCode = false;
+    // for (let i = 0; i < data.recordset.length; i++) {
+    //   x = data.recordset[i];
+    //   let date = new Date(x.FECHA);
+    //   let day = date.getDate().toString().padStart(2, '0'); // Asegura dos dígitos
+    //   let month = (date.getMonth() + 1).toString().padStart(2, '0'); // Meses van de 0 a 11
+    //   let shortYear = date.getFullYear().toString().slice(-2); // Obtiene los últimos dos dígitos del año
+    //   let isoDate = date.toISOString().substring(0, 10);
+    //   let formattedDateAlbaran = `${day}/${month}/${shortYear}`;
+    //   if (this.extractNumber(x.TIENDA) != salesData.locationCode && !changetLocationCode) {
+    //     salesData.no = `T--000_${formattedDate}_AR${n}`;
+    //     salesData.externalDocumentNo = `T--000_${formattedDate}_AR${n}`;
+    //     salesData.locationCode = '000';
+    //     changetLocationCode = true;
+    //   }
+    //   let salesLineAlbaran = {
+    //     documentNo: `${salesData.no}`,
+    //     lineNo: countLines,
+    //     description: `albaran nº ${x.TICKET} ${formattedDateAlbaran}`,
+    //     quantity: 1,
+    //     shipmentDate: `${isoDate}`,
+    //     lineTotalAmount: 0,
+    //     locationCode: `${this.extractNumber(x.TIENDA)}`,
+    //   };
+    //   countLines++;
+    //   salesData.salesLinesBuffer.push(salesLineAlbaran);
+    //   x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
+    //   if (x.IVA === 'IVA00') x.IVA = 'IVA0';
+    //   let salesLine = {
+    //     documentNo: `${salesData.no}`,
+    //     type: `Item`,
+    //     no: `${x.PLU}`,
+    //     lineNo: countLines,
+    //     description: `${x.ARTICULO}`,
+    //     quantity: parseFloat(x.CANTIDAD),
+    //     shipmentDate: `${isoDate}`,
+    //     lineTotalAmount: parseFloat(x.PRECIO),
+    //     lineAmountExclVat: parseFloat(x.PRECIO_SIN_IVA),
+    //     vatProdPostingGroup: `${x.IVA}`,
+    //     unitPrice: parseFloat(x.precioUnitario),
+    //     unitPriceExclVat: parseFloat(x.precioUnitarioSinIVA),
+    //     locationCode: `${this.extractNumber(x.TIENDA)}`,
+    //   };
+    //   countLines++;
+    //   salesData.salesLinesBuffer.push(salesLine);
+    // }
     // console.log('abono', salesData);
-    await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
+    // await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
 
     return true;
   }

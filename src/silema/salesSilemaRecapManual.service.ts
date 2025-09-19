@@ -41,6 +41,12 @@ export class salesSilemaRecapManualService {
             AND CC.variable COLLATE Modern_Spanish_CI_AS = 'CFINAL'
             AND CC.valor COLLATE Modern_Spanish_CI_AS <> ''
       ),
+       CTE_TipoFactura AS (
+            SELECT valor AS TipoFactura
+            FROM configuraFacturaClient
+            WHERE nom = 'TIPUSFACTURA'
+              AND client = @Cliente
+      ),
       CTE_Base AS (
           SELECT
               V.num_tick,
@@ -55,7 +61,16 @@ export class salesSilemaRecapManualService {
               CTE.NIF,
               V.Import / (1.0 + I.Iva / 100.0) AS ImportSinIVA,
               V.Import / NULLIF(V.Quantitat, 0) AS PrecioUnitario,
-              (V.Import / NULLIF(V.Quantitat, 0)) / (1.0 + I.Iva / 100.0) AS PrecioUnitarioSinIVA
+              (V.Import / NULLIF(V.Quantitat, 0)) / (1.0 + I.Iva / 100.0) AS PrecioUnitarioSinIVA,
+              CASE 
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM [v_moviments_${year}-${month}] M
+                    WHERE M.botiga = V.botiga
+                      AND M.motiu = 'Deute client: ' + CAST(CAST(V.num_tick AS bigint) AS nvarchar(20))
+                ) THEN 0  
+                ELSE 1  
+              END AS Pagado
           FROM [v_venut_${year}-${month}] V
           INNER JOIN CTE_Const CTE
               ON V.otros COLLATE Modern_Spanish_CI_AS LIKE '%' + CTE.CFinal + '%' COLLATE Modern_Spanish_CI_AS
@@ -85,9 +100,14 @@ export class salesSilemaRecapManualService {
           ROUND(ImportSinIVA, 3) AS importeSinIVA,
           ROUND(SUM(ImportSinIVA) OVER (), 3) AS TotalSinIVA,
           ROUND(SUM(ImportSinIVA * IvaPct / 100.0) OVER (), 3) AS TotalIVA,
-          SUM(Precio) OVER () AS TOTAL
+          SUM(Precio) OVER () AS TOTAL,
+          Pagado,
+          (SELECT TOP 1 TipoFactura FROM CTE_TipoFactura) AS TipoFactura
       FROM CTE_Base
-      ORDER BY Fecha;`;
+      ORDER BY 
+      CASE WHEN (SELECT TOP 1 TipoFactura FROM CTE_TipoFactura) = 'SETMANAL' THEN Articulo END,
+      CASE WHEN (SELECT TOP 1 TipoFactura FROM CTE_TipoFactura) = 'SETMANAL' THEN Fecha END,
+      CASE WHEN (SELECT TOP 1 TipoFactura FROM CTE_TipoFactura) <> 'SETMANAL' THEN Fecha END;`;
       // console.log(sqlQ);
       let data = await this.sql.runSql(sqlQ, database);
       arrayDatos.push(data.recordset);
@@ -143,6 +163,8 @@ export class salesSilemaRecapManualService {
       invoiceEndDate: `${dataFi}`, // Fecha fin facturación
       documentDate: `${dataInici}`, // Fecha de documento
       shipToCode: '',
+      debtorIntercompany: x.TipoFactura === 'SETMANAL' ? true : false,
+      debtorRecap: x.Pagado === 0 ? true : false,
       salesLinesBuffer: [], // Array vacío para las líneas de ventas
     };
 
@@ -155,20 +177,21 @@ export class salesSilemaRecapManualService {
       let partesAlbaran = isoDate.split('-');
       let formattedDateAlbaran = `${partesAlbaran[2]}/${partesAlbaran[1]}/${partesAlbaran[0]}`;
       let currentAlbaranDescription = `albaran nº ${x.TICKET} ${formattedDateAlbaran}`;
-
-      if (currentAlbaranDescription !== lastAlbaranDescription) {
-        let salesLineAlbaran = {
-          documentNo: `${salesData.no}`,
-          lineNo: countLines,
-          description: currentAlbaranDescription,
-          quantity: 1,
-          shipmentDate: `${isoDate}`,
-          lineTotalAmount: 0,
-          locationCode: `${this.extractNumber(x.TIENDA)}`,
-        };
-        countLines++;
-        salesData.salesLinesBuffer.push(salesLineAlbaran);
-        lastAlbaranDescription = currentAlbaranDescription;
+      if (salesData.debtorIntercompany === false) {
+        if (currentAlbaranDescription !== lastAlbaranDescription) {
+          let salesLineAlbaran = {
+            documentNo: `${salesData.no}`,
+            lineNo: countLines,
+            description: currentAlbaranDescription,
+            quantity: 1,
+            shipmentDate: `${isoDate}`,
+            lineTotalAmount: 0,
+            locationCode: `${this.extractNumber(x.TIENDA)}`,
+          };
+          countLines++;
+          salesData.salesLinesBuffer.push(salesLineAlbaran);
+          lastAlbaranDescription = currentAlbaranDescription;
+        }
       }
       x.IvaPct = `IVA${String(x.IvaPct).replace(/\D/g, '').padStart(2, '0')}`;
       if (x.IvaPct === 'IVA00') x.IvaPct = 'IVA0';
@@ -192,6 +215,9 @@ export class salesSilemaRecapManualService {
     }
     // console.log('factura:', salesData);
     await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
+    if (x.Pagado === 0) {
+      return true;
+    }
 
     // ---------------------------------Abono recap manual---------------------------------
     // arrayDatos = [];

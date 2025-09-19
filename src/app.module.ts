@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { employeesController } from './employees/employees.controller';
 import { employeesService } from './employees/employees.service';
 import { getTokenService } from './connection/getToken.service';
+import { getAzureSASTokenService } from './connection/azureSASToken.service';
 import { ConfigModule } from '@nestjs/config';
 import { runSqlService } from './connection/sqlConection.service';
 import { signingsController } from './signings/signings.controller';
@@ -102,6 +103,7 @@ import { peticionesMqttController } from './webPeticionesMqtt/peticionesMqtt.con
   providers: [
     employeesService,
     getTokenService,
+    getAzureSASTokenService,
     runSqlService,
     signingsService,
     customersService,
