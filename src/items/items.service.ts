@@ -51,7 +51,7 @@ export class itemsService {
       return false;
     }
 
-    const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
+    let token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let itemId = '';
     const bar = new cliProgress.SingleBar({
       format: '⏳ Sincronizando producto: {item} |{bar}| {percentage}% | {value}/{total} | ⏰ Tiempo restante: {eta_formatted}',
@@ -90,6 +90,20 @@ export class itemsService {
             },
           });
         } catch (error) {
+          if (error.response?.status === 401) {
+            console.log('Token expirado. Renovando token...');
+            token = await this.tokenService.getToken2(client_id, client_secret, tenant);
+            if (!token) {
+              console.log('No se pudo renovar el token');
+              return false;
+            }
+            res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq '${item.Codi}'`, {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json',
+              },
+            });
+          }
           this.logError(`❌ Error consultando articulo en BC con plu ${item.Codi}`, error);
           continue;
         }
@@ -135,6 +149,16 @@ export class itemsService {
           itemId = res.data.value[0].id;
         }
       } catch (error) {
+        if (error.response?.status === 401) {
+          console.log('Token expirado. Renovando token...');
+          token = await this.tokenService.getToken2(client_id, client_secret, tenant);
+          if (!token) {
+            console.log('No se pudo renovar el token');
+            return false;
+          }
+          i--;
+          continue;
+        }
         this.logError(`❌ Error al procesar el artículo ${item.Nom}, ${item.Codi}`, error);
         if (codiHIT) {
           throw error;
@@ -156,45 +180,35 @@ export class itemsService {
     return value === 0 ? 'KG' : 'UDS';
   }
 
-  async getItemFromAPI(companyID, database, codiHIT, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    let itemId = '';
+  async getItemFromAPI(companyID: string, database: string, codiHIT: string, client_id: string, client_secret: string, tenant: string, entorno: string,): Promise<string | false> {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
     try {
-      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq '${codiHIT}'`, {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
+      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq '${codiHIT}'`,
+        {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
         },
-      });
+      );
     } catch (error) {
       this.logError(`❌ Error consultando item con plu ${codiHIT}`, error);
       throw error;
     }
 
     if (res.data.value.length > 0) {
-      itemId = res.data.value[0].id;
-      // Comprobar si los campos necesarios existen
       const item = res.data.value[0];
+      const itemId = item.id;
       if (!item.generalProductPostingGroupCode?.trim() || item.type !== 'Non_x002D_Inventory' || !item.VATProductPostingGroup?.trim()) {
-        // Si faltan campos, volver a sincronizar el artículo
-        const syncResult = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-        if (syncResult) {
-          return await this.getItemFromAPI(companyID, database, codiHIT, client_id, client_secret, tenant, entorno);
-        } else {
-          return false;
-        }
+        const updatedItemId = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+        return updatedItemId ? String(updatedItemId) : false;
       }
       return itemId;
     }
 
-    const newItem = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-    if (newItem) {
-      itemId = String(newItem);
-      return itemId;
-    } else {
-      return false;
-    }
+    const newItemId = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+    return newItemId ? String(newItemId) : false;
   }
 
   private logError(message: string, error: any) {

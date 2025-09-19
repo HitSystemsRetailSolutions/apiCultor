@@ -291,6 +291,7 @@ export class customersService {
           formatRegion: 'es-ES_tradnl',
           languageCode: customer.idioma === 'CA' ? 'CAT' : 'ESP',
           customerPostingGroup: 'NAC',
+          GenBusPostingGroup: 'NAC',
           pricesIncludingVAT: 'false',
           equivalenceCharge: customer.recargo === 'si' ? 'true' : 'false',
         };
