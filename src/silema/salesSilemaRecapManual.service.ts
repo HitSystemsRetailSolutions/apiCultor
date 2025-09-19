@@ -163,8 +163,8 @@ export class salesSilemaRecapManualService {
       invoiceEndDate: `${dataFi}`, // Fecha fin facturación
       documentDate: `${dataInici}`, // Fecha de documento
       shipToCode: '',
-      debtorIntercompany: x.TipoFactura === 'SETMANAL' ? true : false,
-      debtorRecap: x.Pagado === 0 ? true : false,
+      debtorIntercompany: x.Pagado === 0 && x.TipoFactura === 'SETMANAL' ? true : false,
+      debtorRecap: x.Pagado === 0 && x.TipoFactura !== 'SETMANAL' ? true : false,
       salesLinesBuffer: [], // Array vacío para las líneas de ventas
     };
 
