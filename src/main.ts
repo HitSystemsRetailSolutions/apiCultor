@@ -121,7 +121,7 @@ client.on('message', async function (topic, message) {
         empresa: () => callSync('crearEmpresa', { name: msgJson.name, displayName: msgJson.displayName, client_id, client_secret, tenant, entorno, database, empresa_id: msgJson.empresa_id, nif }, '✅ Empresa sincronizada'),
         initConfig: () => callSync('initConfig', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Configuración inicial completada'),
         incidencias: () => callSync('syncIncidencias', { companyID, database, client_id, client_secret, tenant, entorno, }, '✅ Sincronización de incidencias acabada'),
-        syncTickets: () => callSync('syncTickets', { companyID, database, client_id, client_secret, tenant, entorno, botiga: msgJson.botiga, }, '✅ Sincronización de tickets acabada'),
+        syncTickets: () => callSync('syncTickets', { companyID, database, client_id, client_secret, tenant, entorno, botiga: msgJson.botiga, companyNAME }, '✅ Sincronización de tickets acabada'),
         ventasPrevisiones: () => callSync('syncVentasPrevisiones', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de previsiones y ventas acabada'),
 
         //----------------------------------------INTEGRACIONES SILEMA----------------------------------------//

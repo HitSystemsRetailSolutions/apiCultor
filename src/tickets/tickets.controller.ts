@@ -16,8 +16,9 @@ export class ticketsController {
     @Query('tenant') tenant: string,
     @Query('entorno') entorno: string,
     @Query('botiga') botiga: string[],
+    @Query('companyNAME') companyName: string,
   ) {
-    let res = await this.ticketsService.syncTickets(companyID, database, client_id, client_secret, tenant, entorno, botiga);
+    let res = await this.ticketsService.syncTickets(companyID, database, client_id, client_secret, tenant, entorno, botiga, companyName);
     if (res == true) return { message: 'Se han sincronizado los tickets correctamente' };
     else return 'Ha habido un error al sincronizar las previsiones de ventas';
   }
