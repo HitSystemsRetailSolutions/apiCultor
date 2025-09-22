@@ -211,6 +211,12 @@ export class ticketsService {
   }
 
   async exportTicketsToCsv(tickets, outputPath) {
+    // Si el archivo ya existe, eliminarlo primero
+    if (fs.existsSync(outputPath)) {
+      await fs.promises.unlink(`${outputPath}`).catch(err => {
+        this.logError(`⚠️ No se pudo eliminar el archivo ${outputPath}`, err);
+      });
+    }
     return new Promise<void>((resolve, reject) => {
       const ws = fs.createWriteStream(outputPath);
       const csvStream = format({ headers: true, delimiter: ';' });
@@ -272,17 +278,22 @@ export class ticketsService {
   }
 
   private async csvToBase64(filePath: string): Promise<string> {
-    console.log(`Convirtiendo CSV a Base64: ${filePath}`);
-    return new Promise((resolve, reject) => {
-      fs.readFile(filePath, (err, data) => {
-        if (err) {
-          reject(`❌ Error llegint el fitxer: ${err.message}`);
-          return;
-        }
-        const base64Content = data.toString("base64");
-        resolve(base64Content);
+    try {
+      console.log(`Convirtiendo CSV a Base64: ${filePath}`);
+      return new Promise((resolve, reject) => {
+        fs.readFile(filePath, (err, data) => {
+          if (err) {
+            reject(`❌ Error llegint el fitxer: ${err.message}`);
+            return;
+          }
+          const base64Content = data.toString("base64");
+          resolve(base64Content);
+        });
       });
-    });
+    } catch (error) {
+      this.logError(`❌ Error al pasar el csv a Base64: ${filePath}`, error);
+      throw error;
+    }
   }
 
   private getMonthsBetween(startDate: Date, endDate: Date) {
@@ -375,7 +386,6 @@ export class ticketsService {
           "Content-Type": "application/json",
         },
       });
-      console.log(`Respuesta al buscar factura ${invoiceNumber}:`, response.data);
       if (response?.data?.value && response.data.value.length > 0) {
         //devolver todos los ids si hay más de uno
         return response?.data?.value?.map(inv => inv.id) ?? [];
