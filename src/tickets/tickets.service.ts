@@ -141,9 +141,14 @@ export class ticketsService {
           ...ticket,
           dia: formatDate(ticket.Data),
         }));
-        // 🔹 Obtener días únicos
-        const dias = Array.from(new Set(ticketsConDia.map(t => t.dia)));
-        console.log(`Días a procesar para la tienda ${licencia}:`, dias);
+
+        const hoy = dayjs().format("YYYY-MM-DD");
+
+        // Quitamos el día actual de la lista de días a procesar
+        const dias = Array.from(new Set(ticketsConDia.map(t => t.dia)))
+          .filter(dia => dia !== hoy);
+
+        console.log(`Días a procesar para la tienda ${licencia} (sin incluir el actual ${hoy}):`, dias);
 
         for (const dia of dias) {
           console.log(`Procesando día ${dia} para la tienda ${licencia}`);
