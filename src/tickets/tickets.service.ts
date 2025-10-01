@@ -45,10 +45,8 @@ export class ticketsService {
       if (records.recordset.length > 0) {
         timestamp = new Date(records.recordset[0].TimeStamp).toISOString().slice(0, 19).replace('T', ' ');
       } else {
-        const year = new Date().getFullYear();
-        const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
-        let tsResult = await this.sql.runSql(`SELECT MIN(Data) as timestamp FROM [v_venut_${year}-${month}] WHERE Botiga = ${licencia}`, database);
-        timestamp = new Date(tsResult.recordset[0].timestamp).toISOString().slice(0, 19).replace('T', ' ');
+        const fixedDate = new Date(`2025-07-01T00:00:00Z`);
+        timestamp = fixedDate.toISOString().slice(0, 19).replace('T', ' ');
         await this.sql.runSql(`INSERT INTO records (timestamp, concepte) VALUES ('${timestamp}', 'BC_Tickets_${licencia}')`, database);
       }
       let tickets;
