@@ -10,6 +10,7 @@ import * as pLimit from 'p-limit';
 import { error } from 'console';
 import { intercompanySilemaService } from 'src/silema/intercompanySilema.service';
 import { PdfService } from 'src/pdf/pdf.service';
+import { xmlService } from 'src/xml/xml.service';
 
 let errores: string[] = [];
 @Injectable()
@@ -30,6 +31,7 @@ export class salesFacturasService {
     private locations: locationsService,
     private intercompanySilema: intercompanySilemaService,
     private pdfService: PdfService,
+    private xmlService: xmlService,
   ) { }
 
   async syncSalesFacturas(companyID: string, database: string, idFacturas: string[], tabla: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -167,13 +169,17 @@ export class salesFacturasService {
           if (x.Total < 0 && x.ClientNif != '22222222J') {
             await this.updateCorrectedInvoice(companyID, facturaId_BC, tenant, entorno, database, token, idFactura);
           }
+          await this.updateYourReference(companyID, facturaId_BC, tenant, entorno, token);
           await this.updateSQLSale(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno, x.IdFactura, database);
           const post = await this.postInvoice(companyID, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
-          if (post === 204) {
+          if (post.status === 204) {
             console.log(`✅ Factura ${num} sincronizada correctamente.`);
-            this.pdfService.esperaYVeras();
-            this.updateRegistro(companyID, database, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
-            this.pdfService.reintentarSubidaPdf([facturaId_BC], database, client_id, client_secret, tenant, entorno, companyID, endpoint);
+            const docNo = await this.getSaleFromAPI(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno);
+            await this.callAPI_XML(docNo.data.number, entorno, tenant, client_id, client_secret, companyID);
+            await this.pdfService.esperaYVeras();
+            await this.updateRegistro(companyID, database, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
+            await this.pdfService.reintentarSubidaPdf([facturaId_BC], database, client_id, client_secret, tenant, entorno, companyID, endpoint);
+            await this.xmlService.getXML(facturaId_BC, database, client_id, client_secret, tenant, entorno, companyID, endpoint);
           }
         } catch (error) {
           await this.handleError(error, num, endpoint, token, companyID, tenant, entorno);
@@ -479,7 +485,23 @@ export class salesFacturasService {
       throw error;
     }
   }
-
+  private async updateYourReference(companyID, facturaId_BC, tenant, entorno, token) {
+    try {
+      const updateData = {
+        yourReference: '-',
+      };
+      await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/salesHeader(${facturaId_BC})`, updateData, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+          'If-Match': '*',
+        },
+      });
+    } catch (error) {
+      this.logError(`❌ Error al actualizar la factura con id ${facturaId_BC}`, error);
+      throw error;
+    }
+  }
   async getSaleFromAPI(companyID, facturaId_BC, endpoint, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
       const token = await this.token.getToken2(client_id, client_secret, tenant);
@@ -711,7 +733,7 @@ export class salesFacturasService {
         }
       );
       console.log(`✅ Factura ${idFactura} registrada correctamente.`);
-      return response.status;
+      return response;
 
     } catch (error) {
       this.logError(`❌ Error al registrar la factura ${idFactura}`, error);
@@ -719,7 +741,49 @@ export class salesFacturasService {
     }
 
   }
+  async callAPI_XML(documentNO: string, entorno: string, tenant: string, client_id: string, client_secret: string, companyId: string) {
+    console.log(`📡 Enviando factura ${documentNO} a la API SOAP de Business Central...`);
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
+    const getcompanyName = await axios.get(
+      `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyId})`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    const companyName = getcompanyName.data.name;
+    // Escapar correctamente los valores para XML
+    const safeDocNO = this.escapeXml(documentNO);
 
+    const soapEnvelope = `
+      <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:tns="urn:microsoft-dynamics-schemas/codeunit/SendAPI">
+        <soap:Header/>
+        <soap:Body>
+          <tns:SendSalesDocument>
+            <tns:documentNo>${safeDocNO}</tns:documentNo>
+            <tns:forceFormatCode></tns:forceFormatCode>
+          </tns:SendSalesDocument>
+        </soap:Body>
+      </soap:Envelope>`.trim();
+    const url = `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/WS/${companyName}/Codeunit/SendAPI`;
+    // Realizar la solicitud SOAP
+    const response = await axios.post(
+      url,
+      soapEnvelope,
+      {
+        headers: {
+          Authorization: "Bearer " + token,
+          "Content-Type": "text/xml; charset=utf-8",
+          SOAPAction:
+            "urn:microsoft-dynamics-schemas/codeunit/SendAPI:SendSalesDocument",
+        },
+      }
+    );
+    console.log("✅ Respuesta de BC:", response.data);
+  }
   async getInvoiceByNumber(companyID: string, invoiceNumber: string, client_id: string, client_secret: string, tenant: string, entorno: string, database: string) {
     const endpoint = invoiceNumber.startsWith('RE/') ? 'salesCreditMemos' : 'salesInvoices';
     try {
@@ -774,5 +838,13 @@ export class salesFacturasService {
         'Content-Type': 'application/json',
       },
     });
+  }
+  private escapeXml(unsafe: string): string {
+    return unsafe
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
   }
 }
