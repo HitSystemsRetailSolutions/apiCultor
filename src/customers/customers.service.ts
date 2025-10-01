@@ -196,6 +196,7 @@ export class customersService {
                       CASE c2_venciment.valor WHEN '' THEN 'CON' ELSE c2_venciment.valor + ' DÍAS' END AS TERMINOPAGO, 
                       CASE WHEN COALESCE(NULLIF(ph.Valor1, ''), NULL) IS NULL THEN 'NO' ELSE 'SI' END AS esTienda,
                       CASE c1.[Tipus Iva] WHEN '2' THEN 'si' ELSE 'no' END AS recargo, c2_idioma.valor as idioma,
+                      c2_OG.Valor AS OG, c2_UT.Valor AS UT, c2_OC.Valor AS OC,
                       ROW_NUMBER() OVER (PARTITION BY c1.Nif ORDER BY c1.nom) AS rn
                 FROM ClienteMare cm
                 JOIN Clients c1 ON c1.codi = cm.CODIGO_MARE
@@ -206,10 +207,13 @@ export class customersService {
                 LEFT JOIN ConstantsClient c2_diaPago ON c2_diaPago.codi = c1.codi AND c2_diaPago.variable = 'DiaPagament'
                 LEFT JOIN ConstantsClient c2_venciment ON c2_venciment.codi = c1.codi AND c2_venciment.variable = 'Venciment'
                 LEFT JOIN ConstantsClient c2_idioma ON c2_idioma.codi = c1.codi AND c2_idioma.variable = 'IDIOMA'
+                LEFT JOIN ConstantsClient c2_OG ON c2_OG.codi = c1.codi AND c2_OG.variable = 'OrganGestor'
+                LEFT JOIN ConstantsClient c2_UT ON c2_UT.codi = c1.codi AND c2_UT.variable = 'UnitatTramitadora'
+                LEFT JOIN ConstantsClient c2_OC ON c2_OC.codi = c1.codi AND c2_OC.variable = 'OficinaComptable'
                 LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
                 WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9 and c1.Nif = '${codiHIT}'
               )
-              SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma
+              SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma, OG, UT, OC
               FROM ClientesFiltrados
               WHERE rn = 1
               ORDER BY codi;`,
@@ -231,6 +235,7 @@ export class customersService {
                     CASE c2_venciment.valor WHEN '' THEN 'CON' ELSE c2_venciment.valor + ' DÍAS' END AS TERMINOPAGO, 
                     CASE WHEN COALESCE(NULLIF(ph.Valor1, ''), NULL) IS NULL THEN 'NO' ELSE 'SI' END AS esTienda,
                     CASE c1.[Tipus Iva] WHEN '2' THEN 'si' ELSE 'no' END AS recargo, c2_idioma.valor as idioma,
+                    c2_OG.Valor AS OG, c2_UT.Valor AS UT, c2_OC.Valor AS OC,
                     ROW_NUMBER() OVER (PARTITION BY c1.Nif ORDER BY c1.nom) AS rn
               FROM ClienteMare cm
               JOIN Clients c1 ON c1.codi = cm.CODIGO_MARE
@@ -241,10 +246,13 @@ export class customersService {
               LEFT JOIN ConstantsClient c2_diaPago ON c2_diaPago.codi = c1.codi AND c2_diaPago.variable = 'DiaPagament'
               LEFT JOIN ConstantsClient c2_venciment ON c2_venciment.codi = c1.codi AND c2_venciment.variable = 'Venciment'
               LEFT JOIN ConstantsClient c2_idioma ON c2_idioma.codi = c1.codi AND c2_idioma.variable = 'IDIOMA'
+              LEFT JOIN ConstantsClient c2_OG ON c2_OG.codi = c1.codi AND c2_OG.variable = 'OrganGestor'
+              LEFT JOIN ConstantsClient c2_UT ON c2_UT.codi = c1.codi AND c2_UT.variable = 'UnitatTramitadora'
+              LEFT JOIN ConstantsClient c2_OC ON c2_OC.codi = c1.codi AND c2_OC.variable = 'OficinaComptable'
               LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
               WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9
             )
-            SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma
+            SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma, OG, UT, OC
             FROM ClientesFiltrados
             WHERE rn = 1
             ORDER BY codi;`,
@@ -294,6 +302,9 @@ export class customersService {
           GenBusPostingGroup: 'NAC',
           pricesIncludingVAT: 'false',
           equivalenceCharge: customer.recargo === 'si' ? 'true' : 'false',
+          OG: customer.OG || '',
+          UT: customer.UT || '',
+          OC: customer.OC || '',
         };
         let res;
         try {
