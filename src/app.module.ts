@@ -63,6 +63,8 @@ import { ticketsService } from './tickets/tickets.service';
 import { ticketsController } from './tickets/tickets.controller';
 import { peticionesMqttService } from './webPeticionesMqtt/peticionesMqtt.service';
 import { peticionesMqttController } from './webPeticionesMqtt/peticionesMqtt.controller';
+import { xmlService } from './xml/xml.service';
+import { xmlController } from './xml/xml.controller';
 
 
 @Module({
@@ -99,6 +101,7 @@ import { peticionesMqttController } from './webPeticionesMqtt/peticionesMqtt.con
     ventasPrevisionController,
     ticketsController,
     peticionesMqttController,
+    xmlController
   ],
   providers: [
     employeesService,
@@ -135,6 +138,7 @@ import { peticionesMqttController } from './webPeticionesMqtt/peticionesMqtt.con
     ventasPrevisionService,
     ticketsService,
     peticionesMqttService,
+    xmlService
   ],
 })
 export class AppModule { }

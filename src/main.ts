@@ -113,9 +113,9 @@ client.on('message', async function (topic, message) {
         factura: () => callSync('syncSalesFacturas', { companyID, database, idFactura: msgJson.idFactura, tabla: msgJson.tabla, client_id, client_secret, tenant, entorno }, '✅ Sincronización de facturas acabada'),
         reintentarPDF: () => callSync('reintentarPDF', { idFactura: msgJson.idFactura, database, client_id, client_secret, tenant, entorno, companyID, endpoint: msgJson.endpoint }, '✅ Reintento de subida de PDF realizado'),
         invoiceByNumber: () => callSync('getInvoiceByNumber', { companyID, invoiceNumber: msgJson.invoiceNumber, client_id, client_secret, tenant, entorno, database }, '✅ Factura obtenida por número'),
+        xml: () => callSync('getXML', { companyID, database, client_id, client_secret, tenant, entorno, id: msgJson.id, endpoint: msgJson.endpoint }, '✅ XML de factura obtenido'),
 
         Companies: () => callSync('getCompaniesId', { client_id, client_secret, tenant, entorno }, '✅ Información de empresas obtenida'),
-        xml: () => callSync('generateXML', { companyID, idFactura: msgJson.idFactura, client_id, client_secret, tenant, entorno }, '✅ XML generado'),
         mail: () => callSync('sendMail', { database, mailTo: msgJson.mailTo, idFactura: msgJson.idFactura }, '✅ Envío de correo electrónico realizado'),
 
         empresa: () => callSync('crearEmpresa', { name: msgJson.name, displayName: msgJson.displayName, client_id, client_secret, tenant, entorno, database, empresa_id: msgJson.empresa_id, nif }, '✅ Empresa sincronizada'),
