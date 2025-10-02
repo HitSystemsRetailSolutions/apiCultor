@@ -68,7 +68,7 @@ export class ticketsService {
              ${unionQueries}
            )
           SELECT 
-            v.Botiga,
+            CASE WHEN v.estat <> '' THEN v.estat ELSE v.Botiga END AS Botiga,
             v.Data,
             d.MEMO AS Dependenta,
             v.Num_tick,
@@ -100,11 +100,11 @@ export class ticketsService {
                       ELSE NULL
                   END AS ClientCode
           ) extracted
-          LEFT JOIN constantsclient cc ON cc.valor = extracted.ClientCode
+          LEFT JOIN constantsclient cc ON cc.valor COLLATE SQL_Latin1_General_CP1_CI_AS = extracted.ClientCode
           LEFT JOIN clients c ON c.codi = cc.codi
           LEFT JOIN all_articles a ON a.Codi = v.Plu
           LEFT JOIN TipusIva ti ON ti.Tipus = a.TipoIva
-          WHERE v.data >= '${timestamp}' AND v.botiga = ${licencia}
+          WHERE v.data >= '${timestamp}' AND CASE WHEN v.Estat <> '' THEN v.Estat ELSE v.Botiga END = ${licencia}
           ORDER BY v.Data, v.Num_tick;
           `
         tickets = await this.sql.runSql(query, database);
