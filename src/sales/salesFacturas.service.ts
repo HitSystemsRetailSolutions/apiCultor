@@ -174,11 +174,11 @@ export class salesFacturasService {
           const post = await this.postInvoice(companyID, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
           if (post.status === 204) {
             console.log(`✅ Factura ${num} sincronizada correctamente.`);
-            const docNo = await this.getSaleFromAPI(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno);
-            await this.callAPI_XML(docNo.data.number, entorno, tenant, client_id, client_secret, companyID);
             await this.pdfService.esperaYVeras();
             await this.updateRegistro(companyID, database, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
             await this.pdfService.reintentarSubidaPdf([facturaId_BC], database, client_id, client_secret, tenant, entorno, companyID, endpoint);
+            const docNo = await this.getSaleFromAPI(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno);
+            await this.callAPI_XML(docNo.data.number, entorno, tenant, client_id, client_secret, companyID);
             await this.xmlService.getXML(facturaId_BC, database, client_id, client_secret, tenant, entorno, companyID, endpoint);
           }
         } catch (error) {
