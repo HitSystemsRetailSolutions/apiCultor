@@ -33,10 +33,17 @@ export class salesFacturasController {
     if (res == true) return 'Se han sincronizado las facturas correctamente';
     else return 'Ha habido un error al sincronizar las facturas';
   }
-  @Post('updateRegistro')
-  async updateRegistro(@Body() body: updateRegistroRequest) {
-    const { companyId, database, id, client, secret, tenant, entorno, endpoint } = body;
-    let res = await this.salesFacturasService.updateRegistro(companyId, database, id, client, secret, tenant, entorno, endpoint);
+  @Get('updateRegistro')
+  async updateRegistro(
+    @Query('companyID') companyID: string,
+    @Query('database') database: string,
+    @Query('idFactura') idFactura: string,
+    @Query('client_id') client: string,
+    @Query('client_secret') secret: string,
+    @Query('tenant') tenant: string,
+    @Query('entorno') entorno: string,
+    @Query('endpoint') endpoint: string) {
+    let res = await this.salesFacturasService.updateRegistro(companyID, database, idFactura, client, secret, tenant, entorno, endpoint);
     if (!res) return 'Ha habido un error al actualizar el registro';
     return 'Se han actualizado las facturas correctamente';
   }

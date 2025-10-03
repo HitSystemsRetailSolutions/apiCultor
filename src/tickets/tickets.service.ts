@@ -104,7 +104,7 @@ export class ticketsService {
           LEFT JOIN clients c ON c.codi = cc.codi
           LEFT JOIN all_articles a ON a.Codi = v.Plu
           LEFT JOIN TipusIva ti ON ti.Tipus = a.TipoIva
-          WHERE v.data >= '${timestamp}' AND CASE WHEN v.Estat <> '' THEN v.Estat ELSE v.Botiga END = ${licencia}
+          WHERE v.data > '${timestamp}' AND CASE WHEN v.Estat <> '' THEN v.Estat ELSE v.Botiga END = ${licencia}
           ORDER BY v.Data, v.Num_tick;
           `
         tickets = await this.sql.runSql(query, database);
@@ -204,13 +204,12 @@ export class ticketsService {
             continue;
           }
         }
-        return true;
-
       } catch (error) {
         this.logError("❌ Error general al procesar tickets", error);
         return false;
       }
     }
+    return true;
   }
 
   async exportTicketsToCsv(tickets, outputPath) {
