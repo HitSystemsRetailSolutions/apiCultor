@@ -204,13 +204,12 @@ export class ticketsService {
             continue;
           }
         }
-        return true;
-
       } catch (error) {
         this.logError("❌ Error general al procesar tickets", error);
         return false;
       }
     }
+    return true;
   }
 
   async exportTicketsToCsv(tickets, outputPath) {
