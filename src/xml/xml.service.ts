@@ -19,7 +19,7 @@ export class xmlService {
     ) { }
 
     async getXML(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, id: string, endpoint: string) {
-
+        console.log('Iniciando proceso para obtener XML de la factura con ID:', id);
         const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
         const getDocumentNo = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${id})`, {
             headers: {
@@ -28,7 +28,6 @@ export class xmlService {
             },
         });
         const documentNo = getDocumentNo.data.number;
-        console.log('Iniciando obtención de XML para la factura:', documentNo);
         try {
             const urlGet = `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/edocLog?$filter=documentNo eq '${documentNo}' and status eq 'Exported'&$orderby=entryNo desc&$top=1`;
             const responseGet = await axios.get(urlGet, {
@@ -45,7 +44,6 @@ export class xmlService {
                     'Content-Type': 'application/xml',
                 },
             });
-            console.log(xmlResponse.data);
             const archivoBase64 = Buffer.from(xmlResponse.data).toString('base64');
             await this.subirXml(id, archivoBase64, database, client_id, client_secret, tenant, entorno, companyID, endpoint);
             return true;
@@ -55,16 +53,21 @@ export class xmlService {
         }
     }
     async subirXml(facturaId: string, archivoBase64: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string, endpoint: string) {
+        console.log('Iniciando subida de XML para la factura con ID:', facturaId);
         const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
         try {
             const bufferArchivo = Buffer.from(archivoBase64, 'base64');
-            const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${facturaId})`, {
+            const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${facturaId})`;
+            const res = await axios.get(url, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json',
                 },
             });
-            const { postingDate } = res.data.value[0];
+            if (!res.data) {
+                this.logError('Respuesta inválida al obtener la factura', res.data);
+            }
+            const { postingDate } = res.data;
             const year = postingDate.split('-')[0];
             const xmlHex = bufferArchivo.toString('hex');
             const sql = `UPDATE BC_SyncSales_${year} SET BC_XML=0x${xmlHex} WHERE BC_IdSale='${facturaId}'`;

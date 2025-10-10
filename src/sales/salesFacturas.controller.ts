@@ -61,4 +61,18 @@ export class salesFacturasController {
     let res = await this.salesFacturasService.getInvoiceByNumber(companyID, invoiceNumber, client_id, client_secret, tenant, entorno, database);
     return res;
   }
+  @Get('rellenarBCSyncSales')
+  async rellenarBCSyncSales(
+    @Query('companyID') companyID: string,
+    @Query('database') database: string,
+    @Query('idFactura') idFactura: string[],
+    @Query('client_id') client: string,
+    @Query('client_secret') secret: string,
+    @Query('tenant') tenant: string,
+    @Query('entorno') entorno: string
+  ) {
+    let res = await this.salesFacturasService.rellenarBCSyncSales(companyID, database, idFactura, client, secret, tenant, entorno);
+    if (!res) return 'Ha habido un error al actualizar el registro';
+    return 'Se han actualizado las facturas correctamente';
+  }
 }

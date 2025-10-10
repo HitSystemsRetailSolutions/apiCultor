@@ -15,10 +15,10 @@ export class xmlController {
         @Query('client_secret') client_secret: string,
         @Query('tenant') tenant: string,
         @Query('entorno') entorno: string,
-        @Query('documentNo') documentNo: string,
+        @Query('id') id: string,
         @Query('endpoint') endpoint: string,
     ) {
-        let res = await this.xmlService.getXML(companyID, database, client_id, client_secret, tenant, entorno, documentNo, endpoint);
+        let res = await this.xmlService.getXML(companyID, database, client_id, client_secret, tenant, entorno, id, endpoint);
         if (res == true) return 'Se han sincronizado los almacenes correctamente';
         else return 'Ha habido un error al sincronizar los almacenes';
     }

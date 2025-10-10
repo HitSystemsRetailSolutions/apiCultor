@@ -178,8 +178,8 @@ export class salesFacturasService {
             await this.updateRegistro(companyID, database, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
             await this.pdfService.reintentarSubidaPdf([facturaId_BC], database, client_id, client_secret, tenant, entorno, companyID, endpoint);
             const docNo = await this.getSaleFromAPI(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno);
-            await this.callAPI_XML(docNo.data.number, entorno, tenant, client_id, client_secret, companyID);
-            await this.xmlService.getXML(facturaId_BC, database, client_id, client_secret, tenant, entorno, companyID, endpoint);
+            // await this.callAPI_XML(docNo.data.number, entorno, tenant, client_id, client_secret, companyID);
+            await this.xmlService.getXML(companyID, database, client_id, client_secret, tenant, entorno, facturaId_BC, endpoint);
           }
         } catch (error) {
           await this.handleError(error, num, endpoint, token, companyID, tenant, entorno);
@@ -455,7 +455,7 @@ export class salesFacturasService {
 
   private async updateCorrectedInvoice(companyID, facturaId_BC, tenant, entorno, database, token, idFactura) {
     try {
-      const sqlQRect = `SELECT SUBSTRING(Comentari, CHARINDEX('[RECTIFICATIVA_DE:', Comentari) + 18, CHARINDEX(']', Comentari, CHARINDEX('[RECTIFICATIVA_DE:', Comentari)) - CHARINDEX('[RECTIFICATIVA_DE:', Comentari) - 18) AS rectificativa from FacturacioComentaris WHERE idFactura = '${idFactura}'`;
+      const sqlQRect = `SELECT CASE WHEN CHARINDEX('[RECTIFICATIVA_DE:', Comentari) > 0 THEN SUBSTRING(Comentari, CHARINDEX('[RECTIFICATIVA_DE:', Comentari) + 18, CHARINDEX(']', Comentari, CHARINDEX('[RECTIFICATIVA_DE:', Comentari)) - CHARINDEX('[RECTIFICATIVA_DE:', Comentari) - 18) ELSE NULL END AS rectificativa FROM FacturacioComentaris WHERE idFactura = '${idFactura}'`;
       const facturaComentari = await this.sql.runSql(sqlQRect, database);
       if (facturaComentari.recordset.length === 0 || !facturaComentari.recordset[0].rectificativa) {
         console.warn(`⚠️ No se encontró una factura rectificativa para la factura con ID ${idFactura}.`);
@@ -529,7 +529,7 @@ export class salesFacturasService {
         throw new Error("Endpoint desconocido. No se puede insertar líneas.");
       }
       const token = await this.token.getToken2(client_id, client_secret, tenant);
-      const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${facturaId_BC})/${lineEndpoint}?$filter=lineType eq 'Item'`, {
+      const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${facturaId_BC})/${lineEndpoint}?$filter=lineType eq 'Item' or lineType eq 'Account'`, {
         headers: {
           Authorization: 'Bearer ' + token,
           'Content-Type': 'application/json',
@@ -846,5 +846,37 @@ export class salesFacturasService {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&apos;");
+  }
+
+  async rellenarBCSyncSales(companyID: string, database: string, ids: string[], client_id: string, client_secret: string, tenant: string, entorno: string) {
+    const token = await this.token.getToken2(client_id, client_secret, tenant);
+    for (const id2 of ids) {
+      const getNumSql = `SELECT HIT_NumFactura FROM [BC_SyncSales_2025] WHERE HIT_IdFactura = '${id2}'`;
+      const numResult = await this.sql.runSql(getNumSql, database);
+
+      let res;
+      try {
+        res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesinvoices?$filter=externalDocumentNumber eq '${numResult.recordset[0].HIT_NumFactura}' and totalAmountIncludingTax ne 0`, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (error) {
+        this.logError(`❌ Error consultando factura en BC con número ${numResult.recordset[0].HIT_NumFactura}, pasamos a la siguiente factura`, error);
+      }
+      if (!res || res.data.value.length === 0) {
+        console.warn(`⚠️ No se encontró la factura con número ${numResult.recordset[0].HIT_NumFactura} en BC, pasamos a la siguiente factura`);
+        continue;
+      }
+      const id = res.data.value[0].id;
+      await this.updateSQLSale(companyID, id, 'salesInvoices', client_id, client_secret, tenant, entorno, id2, database);
+      await this.pdfService.esperaYVeras();
+      await this.updateRegistro(companyID, database, id, client_id, client_secret, tenant, entorno, 'salesInvoices');
+      await this.pdfService.reintentarSubidaPdf([id], database, client_id, client_secret, tenant, entorno, companyID, 'salesInvoices');
+      await this.xmlService.getXML(companyID, database, client_id, client_secret, tenant, entorno, id, 'salesInvoices');
+
+    }
+    return true;
   }
 }
