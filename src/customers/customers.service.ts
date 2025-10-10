@@ -92,7 +92,7 @@ export class customersService {
   }
 
   async getBankAccountCode(IBAN: string, client: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
-    const IBANsinGuiones = IBAN.replace(/-/g, ' ');
+    const IBANsinGuiones = this.sanitizeIBAN(IBAN);
     let code = '';
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/CustomerBankAccount?$filter=IBAN eq '${IBANsinGuiones}' and number eq '${client}'`;
@@ -289,7 +289,7 @@ export class customersService {
           city: `${customer.CIUDAD}`,
           country: 'ES',
           postalCode: `${customer.CP}`,
-          phoneNumber: `${customer.TELEFONO}`,
+          phoneNumber: this.sanitizePhone(customer.TELEFONO),
           email: `${customer.EMAIL}`,
           taxAreaId: `${taxId}`,
           taxRegistrationNumber: `${this.normalizeNIF(customer.NIF)}`,
@@ -444,6 +444,18 @@ export class customersService {
     }
 
     throw new Error(`NIF inválido para BC: ${nif}`);
+  }
+
+  private sanitizePhone(phone: string): string {
+    if (!phone) return '';
+    const cleaned = phone.replace(/[^0-9+\-()\s]/g, '');
+    return cleaned.trim();
+  }
+
+  private sanitizeIBAN(iban: string): string {
+    if (!iban) return '';
+    const cleaned = iban.replace(/[^A-Z0-9]/gi, '');
+    return cleaned.toUpperCase();
   }
 
 }
