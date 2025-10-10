@@ -282,7 +282,7 @@ export class customersService {
         const payTermId = await this.getPaymentTermId(customer.TERMINOPAGO, companyID, client_id, client_secret, tenant, entorno);
 
         const customerData1 = {
-          number: `${customer.NIF}`,
+          number: `${this.normalizeNIF(customer.NIF)}`,
           displayName: `${customer.NOMBREFISCAL}` || `${customer.NOMBRE}`,
           type: 'Company',
           addressLine1: `${customer.DIRECCION}`,
@@ -292,7 +292,7 @@ export class customersService {
           phoneNumber: `${customer.TELEFONO}`,
           email: `${customer.EMAIL}`,
           taxAreaId: `${taxId}`,
-          taxRegistrationNumber: `${customer.NIF}`,
+          taxRegistrationNumber: `${this.normalizeNIF(customer.NIF)}`,
           currencyCode: 'EUR',
           paymentMethodId: `${payMethodId}`,
           paymentTermsId: `${payTermId}`,
@@ -308,7 +308,7 @@ export class customersService {
         };
         let res;
         try {
-          res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${customer.NIF}'`, {
+          res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${this.normalizeNIF(customer.NIF)}'`, {
             headers: {
               Authorization: 'Bearer ' + token,
               'Content-Type': 'application/json',
@@ -329,12 +329,12 @@ export class customersService {
           customerId = createCustomer.data.id;
           const customeretag = createCustomer.data['@odata.etag'];
           if (customer.DIAPAGO) {
-            await this.getPaymentDays(customer.DIAPAGO, customer.NIF, companyID, client_id, client_secret, tenant, entorno);
+            await this.getPaymentDays(customer.DIAPAGO, `${this.normalizeNIF(customer.NIF)}`, companyID, client_id, client_secret, tenant, entorno);
           }
           // bankAccountCode depende del cliente y si no esta creado da error, por eso se crea primero el cliente y luego se actualiza
           let bankAccountCode = '';
           if (customer.IBAN) {
-            bankAccountCode = await this.getBankAccountCode(customer.IBAN, customer.NIF, companyID, client_id, client_secret, tenant, entorno);
+            bankAccountCode = await this.getBankAccountCode(customer.IBAN, `${this.normalizeNIF(customer.NIF)}`, companyID, client_id, client_secret, tenant, entorno);
           }
           const customerData2 = {
             bankAccountCode: `${bankAccountCode}`,
@@ -350,7 +350,7 @@ export class customersService {
         } else {
           let bankAccountCode = '';
           if (customer.IBAN) {
-            bankAccountCode = await this.getBankAccountCode(customer.IBAN, customer.NIF, companyID, client_id, client_secret, tenant, entorno);
+            bankAccountCode = await this.getBankAccountCode(customer.IBAN, `${this.normalizeNIF(customer.NIF)}`, companyID, client_id, client_secret, tenant, entorno);
           }
           const customerData = {
             ...customerData1,
@@ -387,7 +387,7 @@ export class customersService {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
     try {
-      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${codiHIT}'`, {
+      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${this.normalizeNIF(codiHIT)}'`, {
         headers: {
           Authorization: 'Bearer ' + token,
           'Content-Type': 'application/json',
@@ -416,4 +416,34 @@ export class customersService {
     this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
     console.error(message, error.response?.data || error.message);
   }
+  private normalizeNIF(nif: string): string {
+    // Limpiar espacios y pasar a mayúsculas
+    nif = nif.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+    // Transformamos los patrones usando letra = [A-Z] y número = \d
+    const patterns = [
+      /^ES\d{8}[A-Z]$/,   // ES########@
+      /^\d{8}[A-Z]$/,     // ########@
+      /^ES[A-Z]\d{8}$/,   // ES@########
+      /^[A-Z]\d{8}$/,     // @########
+      /^ES[A-Z]\d{7}[A-Z]$/, // ES@#######@
+      /^[A-Z]\d{7}[A-Z]$/,   // @#######@
+      /^[A-Z]\d{8}[A-Z]$/,   // @########@
+      /^[A-Z]\d{6}[A-Z]$/,   // @######@
+      /^[A-Z]\d{5}[A-Z]$/,   // @#####@
+      /^\d{7}[A-Z]$/,     // #######@
+      /^\d{6}[A-Z]$/,     // ######@
+      /^\d{5}[A-Z]$/,     // #####@
+      /^[A-Z]\d{7}$/,     // @#######
+      /^[A-Z]\d{6}$/,     // @######
+      /^[A-Z]\d{5}$/      // @#####
+    ];
+
+    for (const pattern of patterns) {
+      if (pattern.test(nif)) return nif;
+    }
+
+    throw new Error(`NIF inválido para BC: ${nif}`);
+  }
+
 }
