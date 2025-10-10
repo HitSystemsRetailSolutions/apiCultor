@@ -32,7 +32,7 @@ export class ticketsService {
     private salesFacturas: salesFacturasService,
   ) { }
 
-  async syncTickets(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, botiga: string[], companyName: string) {
+  async syncTickets(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, botiga: string[]) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     if (!token) {
       this.logError('Error al obtener el token', { client_id, tenant });
@@ -173,10 +173,10 @@ export class ticketsService {
             const base64Csv = await this.csvToBase64(`./csvTickets/${nombreArchivo}`);
 
             // Llamar al codeunit de BC para importar el CSV a la tabla intermedia de tickets
-            await this.callImport(base64Csv, nombreArchivo, entorno, tenant, client_id, client_secret, companyName);
+            await this.callImport(base64Csv, nombreArchivo, entorno, tenant, client_id, client_secret, companyID);
 
             // Llamar al codeunit de BC para convertir los tickets en facturas (esto es lo que tarda más porque la tarea la hace BC y tiene sus comprobaciones)
-            await this.ticketsToInvoice(licencia, formatDate(ultimoTicket.Data), entorno, tenant, client_id, client_secret, companyName);
+            await this.ticketsToInvoice(licencia, formatDate(ultimoTicket.Data), entorno, tenant, client_id, client_secret, companyID);
 
             // Obtener el ids de la facturas sin registrar
             const invoiceNumber = `VENTAS_${licencia}_${formatDate(ultimaFechaSincronizada)}`;
@@ -310,11 +310,21 @@ export class ticketsService {
     return months;
   }
 
-  async callImport(base64Csv: string, fileName: string, entorno: string, tenant: string, client_id: string, client_secret: string, companyName: string) {
+  async callImport(base64Csv: string, fileName: string, entorno: string, tenant: string, client_id: string, client_secret: string, companyId: string) {
     console.log("Iniciando importación en Business Central desde Base64...");
 
     let token = await this.token.getToken2(client_id, client_secret, tenant);
 
+    const getcompanyName = await axios.get(
+      `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyId})`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    const companyName = getcompanyName.data.name;
     // Escapar correctamente los valores para XML
     const safeCsv = this.escapeXml(base64Csv);
     const safeFileName = this.escapeXml(fileName);
@@ -346,9 +356,19 @@ export class ticketsService {
     console.log("✅ Respuesta de BC:", response.data);
   }
 
-  async ticketsToInvoice(botiga: string, fecha: string, entorno: string, tenant: string, client_id: string, client_secret: string, companyName: string) {
+  async ticketsToInvoice(botiga: string, fecha: string, entorno: string, tenant: string, client_id: string, client_secret: string, companyId: string) {
     console.log("Iniciando conversión de tickets a facturas en Business Central...");
     let token = await this.token.getToken2(client_id, client_secret, tenant);
+    const getcompanyName = await axios.get(
+      `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyId})`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    const companyName = getcompanyName.data.name;
     const soapEnvelope = `
       <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                     xmlns:tns="urn:microsoft-dynamics-schemas/codeunit/Ticketstoinvoice">

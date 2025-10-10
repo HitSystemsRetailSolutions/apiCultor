@@ -13,8 +13,6 @@ import { itemsController } from './items/items.controller';
 import { itemsService } from './items/items.service';
 import { itemCategoriesController } from './itemCategories/itemCategories.controller';
 import { itemCategoriesService } from './itemCategories/itemCategories.service';
-import { salesTicketsController } from './sales/salesTickets.controller';
-import { salesTicketsService } from './sales/salesTickets.service';
 import { salesFacturasController } from './sales/salesFacturas.controller';
 import { salesFacturasService } from './sales/salesFacturas.service';
 import { companiesController } from './companies/companies.controller';
@@ -75,7 +73,6 @@ import { xmlController } from './xml/xml.controller';
     customersController,
     itemsController,
     itemCategoriesController,
-    salesTicketsController,
     salesFacturasController,
     companiesController,
     PdfController,
@@ -112,7 +109,6 @@ import { xmlController } from './xml/xml.controller';
     customersService,
     itemsService,
     itemCategoriesService,
-    salesTicketsService,
     salesFacturasService,
     companiesService,
     PdfService,
