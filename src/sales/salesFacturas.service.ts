@@ -204,14 +204,14 @@ export class salesFacturasService {
                     CHARINDEX(']', f.referencia, CHARINDEX('IdAlbara:', f.referencia)) - CHARINDEX('IdAlbara:', f.referencia) - 9)
                     ELSE NULL END AS IdAlbara, 
                     c.Nom as Client, FORMAT(f.Data, 'dd/MM/yyyy') AS Data,
-                    SUM(CASE WHEN f.Servit = 0 THEN f.Tornat ELSE f.Servit END) AS Quantitat, 
+                    (f.Servit - f.Tornat) AS Quantitat, 
                     ROUND(f.preu, 3) AS UnitPrice, CAST(f.Producte AS VARCHAR) AS Plu, 
                     f.desconte as Descuento, f.iva as Iva, f.ProducteNom as Nombre,  
                     RIGHT(f.Referencia, CHARINDEX(']', REVERSE(f.Referencia)) - 1) AS Comentario 
                 FROM ${tabFacturacioDATA} f
                 LEFT JOIN clients c ON f.client = c.codi
                 WHERE f.idFactura = '${Hit_IdFactura}' 
-                GROUP BY f.Producte, f.Desconte, f.Preu, f.Iva, f.ProducteNom, referencia, c.Nom, f.Data
+                GROUP BY f.Producte, f.Desconte, f.Preu, f.Iva, f.ProducteNom, referencia, c.Nom, f.Data, f.servit, f.tornat
                 ORDER BY f.Data, IdAlbara, Client, Nombre;`;
 
       const invoiceLines = await this.sql.runSql(sqlQ, database);
@@ -279,12 +279,19 @@ export class salesFacturasService {
                 const itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
                 if (itemAPI === 'error') return;
 
+                let quantity = Math.abs(line.Quantitat);
+                let unitPrice = line.UnitPrice;
+
+                if (endpointline === 'salesInvoiceLines' && line.Quantitat < 0) {
+                  unitPrice *= -1;
+                }
+
                 if (itemAPI) {
                   salesInvoiceData[endpointline].push({
                     itemId: itemAPI,
                     lineType: 'Item',
-                    quantity: line.Quantitat,
-                    unitPrice: line.UnitPrice,
+                    quantity: quantity,
+                    unitPrice: unitPrice,
                     discountPercent: line.Descuento,
                     taxCode: `IVA${line.Iva}`,
                   });
@@ -293,8 +300,8 @@ export class salesFacturasService {
                     lineObjectNumber: line.Quantitat > 0 ? '7000001' : '7090001',
                     description: line.Nombre,
                     lineType: 'Account',
-                    quantity: line.Quantitat,
-                    unitPrice: line.UnitPrice,
+                    quantity: quantity,
+                    unitPrice: unitPrice,
                     discountPercent: line.Descuento,
                     taxCode: `IVA${line.Iva}`,
                   });
