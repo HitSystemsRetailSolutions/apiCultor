@@ -286,6 +286,10 @@ export class salesFacturasService {
                   unitPrice *= -1;
                 }
 
+                if (endpointline === 'salesCreditMemoLines' && line.Quantitat > 0) {
+                  unitPrice *= -1;
+                }
+
                 if (itemAPI) {
                   salesInvoiceData[endpointline].push({
                     itemId: itemAPI,
