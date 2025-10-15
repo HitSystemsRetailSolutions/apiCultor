@@ -9,4 +9,5 @@ services:
       - 3333:3333
     volumes:
       - ./csvTickets:/usr/src/csvTickets
+      - ./logs:/usr/src/logs
     restart: unless-stopped
