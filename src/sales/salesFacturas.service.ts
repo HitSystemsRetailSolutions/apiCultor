@@ -59,11 +59,22 @@ export class salesFacturasService {
           }
 
           const x = facturas.recordset[0];
-          const datePart = x.DataFactura.toISOString().split('T')[0];
+
           num = x.Serie.length <= 0 ? x.NumFactura : x.Serie + x.NumFactura;
 
           endpoint = x.Total >= 0 ? 'salesInvoices' : 'salesCreditMemos';
           const endpointline = x.Total >= 0 ? 'salesInvoiceLines' : 'salesCreditMemoLines';
+
+          const datePart = x.DataFactura.toISOString().split('T')[0];
+          const lastPostingDate = await this.getLastDate(client_id, client_secret, tenant, entorno, companyID, endpoint);
+          const facturaDate = new Date(datePart);
+          const lastDate = lastPostingDate ? new Date(lastPostingDate) : null;
+          let invoiceDate: string;
+          if (lastDate && facturaDate < lastDate) {
+            invoiceDate = lastPostingDate.split('T')[0];
+          } else {
+            invoiceDate = datePart;
+          }
 
           console.log(`-------------------SINCRONIZANDO FACTURA NÚMERO ${num} -----------------------`);
           let customerId;
@@ -93,16 +104,16 @@ export class salesFacturasService {
           if (x.Total >= 0) {
             invoiceData = {
               externalDocumentNumber: num.toString(),
-              invoiceDate: datePart,
-              postingDate: datePart,
+              invoiceDate: invoiceDate,
+              postingDate: invoiceDate,
               customerId: customerId,
               salesInvoiceLines: [],
             };
           } else {
             invoiceData = {
               externalDocumentNumber: num.toString(),
-              creditMemoDate: datePart,
-              postingDate: datePart,
+              creditMemoDate: invoiceDate,
+              postingDate: invoiceDate,
               customerId: customerId,
               salesCreditMemoLines: [],
             };
@@ -857,6 +868,17 @@ export class salesFacturasService {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&apos;");
+  }
+
+  private async getLastDate(client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string, endpoint: string) {
+    const token = await this.token.getToken2(client_id, client_secret, tenant);
+    const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$orderby=postingDate desc&$top=1`;
+    const response = await axios.get(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    return response.data.value[0]?.postingDate || null;
   }
 
   async rellenarBCSyncSales(companyID: string, database: string, ids: string[], client_id: string, client_secret: string, tenant: string, entorno: string) {
