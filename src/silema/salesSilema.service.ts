@@ -4,8 +4,7 @@ import { runSqlService } from 'src/connection/sqlConection.service';
 import { salesSilemaCierreService } from './salesSilemaCierre.service';
 import { salesSilemaAbonoService } from './salesSilemaAbono.service';
 import axios from 'axios';
-import { writeFile, readFile } from 'fs/promises';
-import { join } from 'path';
+import { helpers } from 'src/helpers/helpers';
 
 @Injectable()
 export class salesSilemaService {
@@ -14,8 +13,8 @@ export class salesSilemaService {
     private sql: runSqlService,
     private salesSilemaCierre: salesSilemaCierreService,
     private salesSilemaAbono: salesSilemaAbonoService,
+    private helpers: helpers,
   ) { }
-  private readonly logsPath = join(__dirname, '../../logs/logs.json');
   // Funcion que pasandole un dia de inicio y otro de fin sincroniza los datos de ventas de silema
   async syncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, database, botigas: Array<String>, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
@@ -139,7 +138,7 @@ export class salesSilemaService {
     let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
     let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
     if (queryFranquicia.recordset.length >= 1) return;
-    await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'INIT', `Iniciando sincronización de ventas`, 'Ventas', companyID, entorno);
+    await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'INIT', `Iniciando sincronización de ventas`, 'Ventas', companyID, entorno);
     let sqlTurnos = `
     SELECT CONVERT(Time, Data) as hora, Tipus_moviment 
     FROM [V_Moviments_${year}-${month}] 
@@ -176,12 +175,12 @@ export class salesSilemaService {
       // Por defecto, enviar todos
       turnosAEnviar = turnos;
     }
-    await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'TURNOS', `Turnos a procesar: ${JSON.stringify(turnosAEnviar)}`, 'Ventas', companyID, entorno);
+    await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'TURNOS', `Turnos a procesar: ${JSON.stringify(turnosAEnviar)}`, 'Ventas', companyID, entorno);
     for (let i = 0; i < turnosAEnviar.length; i++) {
       const { horaInicio, horaFin } = turnosAEnviar[i];
       const formattedHoraInicio = horaInicio.toISOString().substr(11, 8); // Formato HH:mm:ss
       const formattedHoraFin = horaFin.toISOString().substr(11, 8);
-      await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'PROCESS_TURNO', `Procesando turno ${i + (Number(turno) === 2 ? 2 : 1)}: ${formattedHoraInicio} - ${formattedHoraFin}`, 'Ventas', companyID, entorno);
+      await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'PROCESS_TURNO', `Procesando turno ${i + (Number(turno) === 2 ? 2 : 1)}: ${formattedHoraInicio} - ${formattedHoraFin}`, 'Ventas', companyID, entorno);
       console.log(`Turno ${i + (Number(turno) === 2 ? 2 : 1)}: ${formattedHoraInicio} - ${formattedHoraFin}`);
       const sqlCheckZ = `
       SELECT TOP 1 Import 
@@ -196,7 +195,7 @@ export class salesSilemaService {
 
       if (resultZ.recordset.length === 0) {
         console.log(`Turno ${i + (Number(turno) === 2 ? 2 : 1)} omitido por cierre Z con importe 0 o inexistente`);
-        await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'warning', 'SKIP_TURNO', `Turno ${i + (Number(turno) === 2 ? 2 : 1)} omitido por cierre Z con importe 0 o inexistente`, 'Ventas', companyID, entorno);
+        await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'warning', 'SKIP_TURNO', `Turno ${i + (Number(turno) === 2 ? 2 : 1)} omitido por cierre Z con importe 0 o inexistente`, 'Ventas', companyID, entorno);
         continue;
       }
 
@@ -257,7 +256,7 @@ export class salesSilemaService {
   }
 
   async processTurnoSalesSilema(turno: number, botiga: number, day: number, month: number, year: number, horaInicio, horaFin, database: string, tipo: string, tenant: string, entorno: string, companyID: string, token: string) {
-    await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'PROCESS_TURNO', `${horaInicio} - ${horaFin}`, 'Ventas', companyID, entorno);
+    await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'PROCESS_TURNO', `${horaInicio} - ${horaFin}`, 'Ventas', companyID, entorno);
     let sqlQuery = await this.getSQLQuerySalesSilema(botiga, day, month, year, horaInicio, horaFin);
     let data = await this.sql.runSql(sqlQuery, database);
 
@@ -296,7 +295,7 @@ export class salesSilemaService {
         invoiceEndDate: formattedDate2,
         salesLinesBuffer: [],
       };
-      await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'SALES_DATA', `Procesando venta ${salesData.no} - Total: ${salesData.remainingAmount} - Lineas: ${data.recordset.length}`, 'Ventas', companyID, entorno);
+      await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'SALES_DATA', `Procesando venta ${salesData.no} - Total: ${salesData.remainingAmount} - Lineas: ${data.recordset.length}`, 'Ventas', companyID, entorno);
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
         let isoDate = new Date(x.Data).toISOString().substring(0, 10);
@@ -321,7 +320,7 @@ export class salesSilemaService {
       // console.log(JSON.stringify(salesData, null, 2));
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
     } else {
-      await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'warning', 'NO_DATA', `No hay datos para el turno ${turno} (${horaInicio} - ${horaFin})`, 'Ventas', companyID, entorno);
+      await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'warning', 'NO_DATA', `No hay datos para el turno ${turno} (${horaInicio} - ${horaFin})`, 'Ventas', companyID, entorno);
     }
   }
 
@@ -359,12 +358,12 @@ export class salesSilemaService {
         );
         //console.log('Response:', response.data);
         console.log(`${tipo} subido con exito ${salesData.no}`);
-        await this.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'info', 'POST_OK', `${tipo} ${salesData.no} subido con exito`, 'Ventas', companyID, entorno);
+        await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'info', 'POST_OK', `${tipo} ${salesData.no} subido con exito`, 'Ventas', companyID, entorno);
       } catch (error) {
         salesData.salesLinesBuffer = [];
         console.log(JSON.stringify(salesData, null, 2));
         console.error(`Error posting sales ${tipo} data:`, error.response?.data || error.message);
-        await this.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'error', 'POST_ERROR', `Error al subir ${tipo} ${salesData.no}: ${error.response?.data || error.message}`, 'Ventas', companyID, entorno);
+        await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'error', 'POST_ERROR', `Error al subir ${tipo} ${salesData.no}: ${error.response?.data || error.message}`, 'Ventas', companyID, entorno);
         return;
       }
     } else {
@@ -378,32 +377,12 @@ export class salesSilemaService {
     if (turno !== undefined) {
       sqlDelete += ` AND Torn = ${turno}`;
     }
-    await this.addLog(botiga, `${day}-${month}-${year}`, turno || 0, 'info', 'DELETE_CONTROL', `Eliminando entrada de control para ${day}-${month}-${year} tienda ${botiga}`, 'Ventas');
+    await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno || 0, 'info', 'DELETE_CONTROL', `Eliminando entrada de control para ${day}-${month}-${year} tienda ${botiga}`, 'Ventas');
     await this.sql.runSql(sqlDelete, database);
   }
   extractNumber(input: string): string | null {
     input = input.toUpperCase();
     const match = input.match(/[TM]--(\d{3})/);
     return match ? match[1] : null;
-  }
-  async addLog(tienda, fecha: string, turno, tipo: 'info' | 'error' | 'warning' | 'debug', codigo: string, mensaje: string, origen: string = 'salesSilemaService', companyID?: string, entorno?: string) {
-    const timestamp = new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
-    const newLog = { tienda, fecha, turno, tipo, codigo, mensaje, origen, timestamp, companyID, entorno };
-
-    let logs: any[] = [];
-    try {
-      const data = await readFile(this.logsPath, 'utf8');
-      logs = JSON.parse(data);
-    } catch (err) {
-      logs = [];
-    }
-
-    logs.push(newLog);
-
-    try {
-      await writeFile(this.logsPath, JSON.stringify(logs, null, 2), 'utf8');
-    } catch (err) {
-      console.error('Error escribiendo el log en logs.json:', err);
-    }
   }
 }

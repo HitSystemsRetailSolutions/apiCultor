@@ -63,6 +63,7 @@ import { peticionesMqttService } from './webPeticionesMqtt/peticionesMqtt.servic
 import { peticionesMqttController } from './webPeticionesMqtt/peticionesMqtt.controller';
 import { xmlService } from './xml/xml.service';
 import { xmlController } from './xml/xml.controller';
+import { helpers } from './helpers/helpers';
 
 
 @Module({
@@ -134,7 +135,8 @@ import { xmlController } from './xml/xml.controller';
     ventasPrevisionService,
     ticketsService,
     peticionesMqttService,
-    xmlService
+    xmlService,
+    helpers
   ],
 })
 export class AppModule { }
