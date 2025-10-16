@@ -2,15 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { getTokenService } from '../connection/getToken.service';
 import { runSqlService } from 'src/connection/sqlConection.service';
 import axios from 'axios';
-import { writeFile, readFile } from 'fs/promises';
-import { join } from 'path';
+import { helpers } from 'src/helpers/helpers';
 @Injectable()
 export class salesSilemaAbonoService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
+    private helpers: helpers,
   ) { }
-  private readonly logsPath = join(__dirname, '../../logs/logs.json');
+
   //Abono
   async syncSalesSilemaAbono(day, month, year, companyID, database, botiga, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
@@ -18,7 +18,7 @@ export class salesSilemaAbonoService {
     let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
     let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
     if (queryFranquicia.recordset.length >= 1) return;
-    await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'INIT', `Iniciando sincronización de ventas`, 'Abonos', companyID, entorno);
+    await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'INIT', `Iniciando sincronización de ventas`, 'Abonos', companyID, entorno);
     let sqlTurnos = `
     SELECT CONVERT(Time, Data) as hora, Tipus_moviment 
     FROM [V_Moviments_${year}-${month}] 
@@ -55,12 +55,12 @@ export class salesSilemaAbonoService {
       // Por defecto, enviar todos
       turnosAEnviar = turnos;
     }
-    await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'TURNOS', `Turnos a procesar: ${JSON.stringify(turnosAEnviar)}`, 'Abonos', companyID, entorno);
+    await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'TURNOS', `Turnos a procesar: ${JSON.stringify(turnosAEnviar)}`, 'Abonos', companyID, entorno);
     for (let i = 0; i < turnosAEnviar.length; i++) {
       const { horaInicio, horaFin } = turnosAEnviar[i];
       const formattedHoraInicio = horaInicio.toISOString().substr(11, 8); // Formato HH:mm:ss
       const formattedHoraFin = horaFin.toISOString().substr(11, 8);
-      await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'PROCESS_TURNO', `Procesando turno ${i + (Number(turno) === 2 ? 2 : 1)}: ${formattedHoraInicio} - ${formattedHoraFin}`, 'Abonos', companyID, entorno);
+      await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'PROCESS_TURNO', `Procesando turno ${i + (Number(turno) === 2 ? 2 : 1)}: ${formattedHoraInicio} - ${formattedHoraFin}`, 'Abonos', companyID, entorno);
       console.log(`Turno ${i + (Number(turno) === 2 ? 2 : 1)}: ${formattedHoraInicio} - ${formattedHoraFin}`);
       const sqlCheckZ = `
       SELECT TOP 1 Import 
@@ -74,7 +74,7 @@ export class salesSilemaAbonoService {
       const resultZ = await this.sql.runSql(sqlCheckZ, database);
       if (resultZ.recordset.length === 0) {
         console.log(`Turno ${i + (Number(turno) === 2 ? 2 : 1)} omitido por cierre Z con importe 0 o inexistente`);
-        await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'warning', 'SKIP_TURNO', `Turno ${i + (Number(turno) === 2 ? 2 : 1)} omitido por cierre Z con importe 0 o inexistente`, 'Abonos', companyID, entorno);
+        await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'warning', 'SKIP_TURNO', `Turno ${i + (Number(turno) === 2 ? 2 : 1)} omitido por cierre Z con importe 0 o inexistente`, 'Abonos', companyID, entorno);
         continue;
       }
 
@@ -227,7 +227,7 @@ export class salesSilemaAbonoService {
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
         salesLinesBuffer: [], // Array vacío para las líneas de ventas
       };
-      await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'CREATE_CREDIT_MEMO', `Procesando venta ${salesData.no} - Total: ${salesData.remainingAmount} - Lineas: ${data.recordset.length}`, 'Abonos', companyID, entorno);
+      await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'CREATE_CREDIT_MEMO', `Procesando venta ${salesData.no} - Total: ${salesData.remainingAmount} - Lineas: ${data.recordset.length}`, 'Abonos', companyID, entorno);
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
         x.IVA = `IVA${String(x.IVA).replace(/\D/g, '').padStart(2, '0')}`;
@@ -349,7 +349,7 @@ export class salesSilemaAbonoService {
       // console.log(JSON.stringify(salesData, null, 2));
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
     } else {
-      await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'warning', 'NO_DATA', `No hay datos para el turno ${turno} (${horaInicio} - ${horaFin})`, 'Abonos', companyID, entorno);
+      await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'warning', 'NO_DATA', `No hay datos para el turno ${turno} (${horaInicio} - ${horaFin})`, 'Abonos', companyID, entorno);
     }
   }
 
@@ -387,12 +387,12 @@ export class salesSilemaAbonoService {
         );
         //console.log('Response:', response.data);
         console.log(`${tipo} subido con exito ${salesData.no}`);
-        await this.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'info', 'POST_OK', `${tipo} ${salesData.no} subido con exito`, 'Abonos', companyID, entorno);
+        await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'info', 'POST_OK', `${tipo} ${salesData.no} subido con exito`, 'Abonos', companyID, entorno);
 
       } catch (error) {
         salesData.salesLinesBuffer = [];
         console.log(JSON.stringify(salesData, null, 2));
-        await this.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'error', 'POST_ERROR', `Error al subir ${tipo} ${salesData.no}: ${error.response?.data || error.message}`, 'Abonos', companyID, entorno);
+        await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'error', 'POST_ERROR', `Error al subir ${tipo} ${salesData.no}: ${error.response?.data || error.message}`, 'Abonos', companyID, entorno);
         console.error(`Error posting sales ${tipo} data:`, error.response?.data || error.message);
         return;
       }
@@ -405,25 +405,5 @@ export class salesSilemaAbonoService {
     input = input.toUpperCase();
     const match = input.match(/[TM]--(\d{3})/);
     return match ? match[1] : null;
-  }
-  async addLog(tienda, fecha: string, turno, tipo: 'info' | 'error' | 'warning' | 'debug', codigo: string, mensaje: string, origen: string = 'salesSilemaService', companyID?: string, entorno?: string) {
-    const timestamp = new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
-    const newLog = { tienda, fecha, turno, tipo, codigo, mensaje, origen, timestamp, companyID, entorno };
-
-    let logs: any[] = [];
-    try {
-      const data = await readFile(this.logsPath, 'utf8');
-      logs = JSON.parse(data);
-    } catch (err) {
-      logs = [];
-    }
-
-    logs.push(newLog);
-
-    try {
-      await writeFile(this.logsPath, JSON.stringify(logs, null, 2), 'utf8');
-    } catch (err) {
-      console.error('Error escribiendo el log en logs.json:', err);
-    }
   }
 }

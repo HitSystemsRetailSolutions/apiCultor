@@ -2,16 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { getTokenService } from '../connection/getToken.service';
 import { runSqlService } from 'src/connection/sqlConection.service';
 import axios from 'axios';
-import { writeFile, readFile } from 'fs/promises';
-import { join } from 'path';
+import { helpers } from 'src/helpers/helpers';
 
 @Injectable()
 export class salesSilemaCierreService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
+    private helpers: helpers,
   ) { }
-  private readonly logsPath = join(__dirname, '../../logs/logs.json');
   //Sincroniza tickets HIT-BC, Ventas
   async syncSalesSilemaCierre(day, month, year, companyID, database, botiga, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
@@ -19,7 +18,7 @@ export class salesSilemaCierreService {
     let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
     let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
     if (queryFranquicia.recordset.length >= 1) return;
-    await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'INIT', `Iniciando sincronización de cierre`, 'Cierre', companyID, entorno);
+    await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'INIT', `Iniciando sincronización de cierre`, 'Cierre', companyID, entorno);
     let sqlTurnos = `
     SELECT CONVERT(Time, Data) as hora, Tipus_moviment 
     FROM [V_Moviments_${year}-${month}] 
@@ -56,13 +55,13 @@ export class salesSilemaCierreService {
       // Por defecto, enviar todos
       turnosAEnviar = turnos;
     }
-    await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'TURNOS', `Turnos a procesar: ${JSON.stringify(turnosAEnviar)}`, 'Cierre', companyID, entorno);
+    await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'TURNOS', `Turnos a procesar: ${JSON.stringify(turnosAEnviar)}`, 'Cierre', companyID, entorno);
     let prevFinalAmount = await this.getPrevFinalAmount(Number(turno), turnos, day, month, year, botiga, database);
     for (let i = 0; i < turnosAEnviar.length; i++) {
       const { horaInicio, horaFin } = turnosAEnviar[i];
       const formattedHoraInicio = horaInicio.toISOString().substr(11, 8); // Formato HH:mm:ss
       const formattedHoraFin = horaFin.toISOString().substr(11, 8); // Formato HH:mm:ss
-      await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'PROCESS_TURNO', `Procesando turno ${i + (Number(turno) === 2 ? 2 : 1)}: ${formattedHoraInicio} - ${formattedHoraFin}`, 'Cierre', companyID, entorno);
+      await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'PROCESS_TURNO', `Procesando turno ${i + (Number(turno) === 2 ? 2 : 1)}: ${formattedHoraInicio} - ${formattedHoraFin}`, 'Cierre', companyID, entorno);
       console.log(`Turno ${i + (Number(turno) === 2 ? 2 : 1)}: ${formattedHoraInicio} - ${formattedHoraFin}`);
       const sqlCheckZ = `
       SELECT TOP 1 Import 
@@ -77,7 +76,7 @@ export class salesSilemaCierreService {
 
       if (resultZ.recordset.length === 0) {
         console.log(`Turno ${i + (Number(turno) === 2 ? 2 : 1)} omitido por cierre Z con importe 0 o inexistente`);
-        await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'warning', 'SKIP_TURNO', `Turno ${i + (Number(turno) === 2 ? 2 : 1)} omitido por cierre Z con importe 0 o inexistente`, 'Cierre', companyID, entorno);
+        await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'warning', 'SKIP_TURNO', `Turno ${i + (Number(turno) === 2 ? 2 : 1)} omitido por cierre Z con importe 0 o inexistente`, 'Cierre', companyID, entorno);
         continue;
       }
       const sqlQ = this.getSQLQuerySalesSilemaCierre(botiga, day, month, year, formattedHoraInicio, formattedHoraFin);
@@ -98,7 +97,7 @@ export class salesSilemaCierreService {
         const importe = Math.round(Math.abs(diff) * -1 * 100) / 100;
         if (importe != 0) {
           console.log(`Ajuste de cambio inicial: ${importe}`);
-          await this.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'AJUSTE_CAMBIO_INICIAL', `Ajuste de cambio inicial: ${importe}`, 'Cierre', companyID, entorno);
+          await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'AJUSTE_CAMBIO_INICIAL', `Ajuste de cambio inicial: ${importe}`, 'Cierre', companyID, entorno);
           rows.push({
             Botiga: cambioInicialRow!.Botiga,
             Data: cambioInicialRow!.Data,
@@ -483,7 +482,7 @@ export class salesSilemaCierreService {
             break;
           case 'Total':
             salesCierre.closingStoreType = 'Total invoice';
-            await this.addLog(salesCierre.locationCode, salesCierre.postingDate, salesCierre.shift.replace('Shift_x0020_', ''), 'info', 'TOTAL_INVOICE', `Total invoice procesado: ${salesCierre.amount}`, 'Cierre', companyID, entorno);
+            await this.helpers.addLog(salesCierre.locationCode, salesCierre.postingDate, salesCierre.shift.replace('Shift_x0020_', ''), 'info', 'TOTAL_INVOICE', `Total invoice procesado: ${salesCierre.amount}`, 'Cierre', companyID, entorno);
             break;
           default:
             //no se
@@ -535,11 +534,11 @@ export class salesSilemaCierreService {
         );
         //console.log('Response:', response.data);
         console.log(`${tipo} subido con exito ${salesData.documentNo}`);
-        await this.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'info', 'POST_OK', `${tipo} subido con exito ${salesData.documentNo} Linea: ${salesData.lineNo}`, 'Cierre', companyID, entorno);
+        await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'info', 'POST_OK', `${tipo} subido con exito ${salesData.documentNo} Linea: ${salesData.lineNo}`, 'Cierre', companyID, entorno);
       } catch (error) {
         salesData.salesLinesBuffer = [];
         // console.log(JSON.stringify(salesData, null, 2));
-        await this.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'error', 'POST_ERROR', `Error subiendo ${tipo} ${salesData.documentNo} Linea: ${salesData.lineNo} - ${error.response?.data || error.message}`, 'Cierre', companyID, entorno);
+        await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'error', 'POST_ERROR', `Error subiendo ${tipo} ${salesData.documentNo} Linea: ${salesData.lineNo} - ${error.response?.data || error.message}`, 'Cierre', companyID, entorno);
         console.error(`Error posting sales ${tipo} data:`, error.response?.data || error.message);
         return;
       }
@@ -578,24 +577,5 @@ export class salesSilemaCierreService {
     const textoEnMinusculas = texto.toLowerCase();
     return textoEnMinusculas.charAt(0).toUpperCase() + textoEnMinusculas.slice(1);
   }
-  async addLog(tienda: string, fecha: string, turno: string = '', tipo: 'info' | 'error' | 'warning' | 'debug', codigo: string, mensaje: string, origen: string = 'salesSilemaService', companyID?: string, entorno?: string) {
-    const timestamp = new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' });
-    const newLog = { tienda, fecha, turno, tipo, codigo, mensaje, origen, timestamp, companyID, entorno };
 
-    let logs: any[] = [];
-    try {
-      const data = await readFile(this.logsPath, 'utf8');
-      logs = JSON.parse(data);
-    } catch (err) {
-      logs = [];
-    }
-
-    logs.push(newLog);
-
-    try {
-      await writeFile(this.logsPath, JSON.stringify(logs, null, 2), 'utf8');
-    } catch (err) {
-      console.error('Error escribiendo el log en logs.json:', err);
-    }
-  }
 }
