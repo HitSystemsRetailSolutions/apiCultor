@@ -872,7 +872,7 @@ export class salesFacturasService {
 
   private async getLastDate(client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string, endpoint: string) {
     const token = await this.token.getToken2(client_id, client_secret, tenant);
-    const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$orderby=postingDate desc&$top=1`;
+    const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=contains(externalDocumentNumber,'VENTAS_') ne true&$orderby=postingDate desc&$top=1`;
     const response = await axios.get(url, {
       headers: {
         Authorization: `Bearer ${token}`,
