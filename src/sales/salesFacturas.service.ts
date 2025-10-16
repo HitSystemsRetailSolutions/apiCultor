@@ -884,12 +884,13 @@ export class salesFacturasService {
   async rellenarBCSyncSales(companyID: string, database: string, ids: string[], client_id: string, client_secret: string, tenant: string, entorno: string) {
     const token = await this.token.getToken2(client_id, client_secret, tenant);
     for (const id2 of ids) {
-      const getNumSql = `SELECT HIT_NumFactura FROM [BC_SyncSales_2025] WHERE HIT_IdFactura = '${id2}'`;
+      const getNumSql = `SELECT HIT_NumFactura, HIT_SerieFactura FROM [BC_SyncSales_2025] WHERE HIT_IdFactura = '${id2}'`;
       const numResult = await this.sql.runSql(getNumSql, database);
+      const externalDocumentNumber = `${numResult.recordset[0].HIT_SerieFactura}${numResult.recordset[0].HIT_NumFactura}`;
 
       let res;
       try {
-        res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesinvoices?$filter=externalDocumentNumber eq '${numResult.recordset[0].HIT_NumFactura}' and totalAmountIncludingTax ne 0`, {
+        res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesinvoices?$filter=externalDocumentNumber eq '${externalDocumentNumber}' and totalAmountIncludingTax ne 0`, {
           headers: {
             Authorization: 'Bearer ' + token,
             'Content-Type': 'application/json',
