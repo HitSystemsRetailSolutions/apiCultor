@@ -64,6 +64,7 @@ import { peticionesMqttController } from './webPeticionesMqtt/peticionesMqtt.con
 import { xmlService } from './xml/xml.service';
 import { xmlController } from './xml/xml.controller';
 import { helpers } from './helpers/helpers';
+import { HelpersController } from './helpers/helpers.controller';
 
 
 @Module({
@@ -99,7 +100,8 @@ import { helpers } from './helpers/helpers';
     ventasPrevisionController,
     ticketsController,
     peticionesMqttController,
-    xmlController
+    xmlController,
+    HelpersController
   ],
   providers: [
     employeesService,
