@@ -884,31 +884,37 @@ export class salesFacturasService {
   async rellenarBCSyncSales(companyID: string, database: string, ids: string[], client_id: string, client_secret: string, tenant: string, entorno: string) {
     const token = await this.token.getToken2(client_id, client_secret, tenant);
     for (const id2 of ids) {
-      const getNumSql = `SELECT HIT_NumFactura, HIT_SerieFactura FROM [BC_SyncSales_2025] WHERE HIT_IdFactura = '${id2}'`;
+      const getNumSql = `SELECT HIT_NumFactura, HIT_SerieFactura, HIT_Total FROM [BC_SyncSales_2025] WHERE HIT_IdFactura = '${id2}'`;
       const numResult = await this.sql.runSql(getNumSql, database);
       const externalDocumentNumber = `${numResult.recordset[0].HIT_SerieFactura}${numResult.recordset[0].HIT_NumFactura}`;
-
+      let endpoint;
+      if (numResult.recordset[0].HIT_Total > 0) {
+        endpoint = 'salesInvoices';
+      } else {
+        endpoint = 'salesCreditMemos';
+      }
       let res;
       try {
-        res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesinvoices?$filter=externalDocumentNumber eq '${externalDocumentNumber}' and totalAmountIncludingTax ne 0`, {
+        const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=externalDocumentNumber eq '${externalDocumentNumber}' and totalAmountIncludingTax ne 0`;
+        res = await axios.get(url, {
           headers: {
             Authorization: 'Bearer ' + token,
             'Content-Type': 'application/json',
           },
         });
       } catch (error) {
-        this.logError(`❌ Error consultando factura en BC con número ${numResult.recordset[0].HIT_NumFactura}, pasamos a la siguiente factura`, error);
+        this.logError(`❌ Error consultando factura en BC con número ${externalDocumentNumber}, pasamos a la siguiente factura`, error);
       }
       if (!res || res.data.value.length === 0) {
-        console.warn(`⚠️ No se encontró la factura con número ${numResult.recordset[0].HIT_NumFactura} en BC, pasamos a la siguiente factura`);
+        console.warn(`⚠️ No se encontró la factura con número ${externalDocumentNumber} en BC, pasamos a la siguiente factura`);
         continue;
       }
       const id = res.data.value[0].id;
-      await this.updateSQLSale(companyID, id, 'salesInvoices', client_id, client_secret, tenant, entorno, id2, database);
+      await this.updateSQLSale(companyID, id, endpoint, client_id, client_secret, tenant, entorno, id2, database);
       await this.pdfService.esperaYVeras();
-      await this.updateRegistro(companyID, database, id, client_id, client_secret, tenant, entorno, 'salesInvoices');
-      await this.pdfService.reintentarSubidaPdf([id], database, client_id, client_secret, tenant, entorno, companyID, 'salesInvoices');
-      await this.xmlService.getXML(companyID, database, client_id, client_secret, tenant, entorno, id, 'salesInvoices');
+      await this.updateRegistro(companyID, database, id, client_id, client_secret, tenant, entorno, endpoint);
+      await this.pdfService.reintentarSubidaPdf([id], database, client_id, client_secret, tenant, entorno, companyID, endpoint);
+      await this.xmlService.getXML(companyID, database, client_id, client_secret, tenant, entorno, id, endpoint);
 
     }
     return true;
