@@ -51,6 +51,11 @@ export class salesSilemaCierreService {
     } else if (Number(turno) === 2 && turnos.length > 1) {
       // El resto de turnos (2 en adelante)
       turnosAEnviar = turnos.slice(1);
+    } else if (Number(turno) > turnos.length) {
+      turnosAEnviar = [];
+      console.log(`El turno ${turno} no existe para la tienda ${botiga} en la fecha ${day}-${month}-${year}. Turnos disponibles: ${turnos.length}`);
+      await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'warning', 'INVALID_TURNO', `El turno ${turno} no existe. Turnos disponibles: ${turnos.length}`, 'Cierre', companyID, entorno);
+      return true;
     } else {
       // Por defecto, enviar todos
       turnosAEnviar = turnos;
