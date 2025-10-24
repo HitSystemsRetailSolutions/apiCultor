@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { runSqlService } from 'src/connection/sqlConection.service';
+import { runSqlService } from 'src/connection/sqlConnection.service';
 import * as mqtt from 'mqtt';
 
 @Injectable()

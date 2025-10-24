@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable prefer-const */
 import { Injectable } from '@nestjs/common';
 import { getTokenService } from 'src/connection/getToken.service';
 import { runSqlService } from 'src/connection/sqlConnection.service';
@@ -17,20 +15,22 @@ const mqttOptions = {
 const client = mqtt.connect(mqttOptions);
 
 @Injectable()
-export class employeesService {
+export class itemCategoriesService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
   ) { }
 
-  async syncEmployees(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async syncItemCategories(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     //En todo el documento process.env.database y process.env.companyID han sido sustituidos por database y companyID respectivamente
-    console.log('CompanyID: ', companyID);
-    console.log('Database: ', database);
+    console.log(companyID);
+    console.log(database);
     let token = await this.token.getToken2(client_id, client_secret, tenant);
-    let employees;
+    let categoryId = '';
+
+    let categories;
     try {
-      employees = await this.sql.runSql(`select cast(Codi as nvarchar) Codi, left(Nom, 30) Nom from dependentes order by nom`, database);
+      categories = await this.sql.runSql('SELECT left(nom, 20) Code, Nom FROM Families', database);
     } catch (error) {
       //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No existe la database');
@@ -38,37 +38,36 @@ export class employeesService {
       return false;
     }
 
-    if (employees.recordset.length == 0) {
+    if (categories.recordset.length == 0) {
       //Comprovacion de errores y envios a mqtt
       client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
       console.log('No hay registros');
       return false;
     }
 
-    for (let i = 0; i < employees.recordset.length; i++) {
-      let x = employees.recordset[i];
+    for (let i = 0; i < categories.recordset.length; i++) {
+      let x = categories.recordset[i];
+      console.log(x.Nom);
+
       let res = await axios
-        .get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/employees?$filter=number eq '${x.Codi}'`, {
+        .get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/itemCategories?$filter=code eq '${x.Code}'`, {
           headers: {
             Authorization: 'Bearer ' + token,
             'Content-Type': 'application/json',
           },
         })
         .catch((error) => {
-          throw new Error('Failed to obtain employee ' + x.Codi);
+          throw new Error('Failed get category');
         });
 
-      if (!res.data) throw new Error('Failed to obtain employee ' + x.Codi);
-      //No está dado de alta en BC
+      if (!res.data) throw new Error('Failed get category');
       if (res.data.value.length === 0) {
-        let newEmployees = await axios
+        let newCategories = await axios
           .post(
-            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/employees`,
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/itemCategories`,
             {
-              number: x.Codi,
-              givenName: x.Nom,
-              middleName: '',
-              surname: x.Nom,
+              code: x.Code,
+              displayName: x.Nom,
             },
             {
               headers: {
@@ -78,20 +77,22 @@ export class employeesService {
             },
           )
           .catch((error) => {
-            throw new Error('Failed to post employee ' + x.Codi);
+            throw new Error('Failed post category ' + x.Nom);
           });
 
-        if (!newEmployees.data) return new Error('Failed to post employee ' + x.Codi);
-        //Ya está dado de alta en BC, se tiene que actualizar
+        if (!newCategories.data) return new Error('Failed post category');
+
+        categoryId = newCategories.data.id;
       } else {
         let z = res.data.value[0]['@odata.etag'];
-        let newEmployees = await axios
+        categoryId = res.data.value[0].id;
+
+        let newCategories = await axios
           .patch(
-            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/employees(${res.data.value[0].id})`,
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/itemCategories(${res.data.value[0].id})`,
             {
-              givenName: x.Nom,
-              middleName: '',
-              surname: x.Nom,
+              code: x.Code,
+              displayName: x.Nom,
             },
             {
               headers: {
@@ -102,9 +103,9 @@ export class employeesService {
             },
           )
           .catch((error) => {
-            throw new Error('Failed to patch employee ' + x.Codi);
+            throw new Error('Failed to update category');
           });
-        if (!newEmployees.data) return new Error('Failed to patch employee ' + x.Codi);
+        if (!newCategories.data) return new Error('Failed to update category');
       }
     }
     return true;

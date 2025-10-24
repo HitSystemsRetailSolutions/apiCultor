@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable prefer-const */
 import { Injectable } from '@nestjs/common';
-import { getTokenService } from '../connection/getToken.service';
-import { runSqlService } from 'src/connection/sqlConection.service';
+import { getTokenService } from 'src/connection/getToken.service';
+import { runSqlService } from 'src/connection/sqlConnection.service';
 import axios from 'axios';
 import { response } from 'express';
 const path = require('path');
@@ -24,7 +24,7 @@ export class empresasService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) {}
+  ) { }
   async crearEmpresa(name: string, displayName: string, client_id: string, client_secret: string, tenant: string, entorno: string, database: string, empresa_id: string, nif: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let id = 'e640b57a-f31c-ef11-9f88-002248a1f043';
