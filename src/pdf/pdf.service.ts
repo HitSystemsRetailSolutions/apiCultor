@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { getTokenService } from '../connection/getToken.service';
-import { runSqlService } from 'src/connection/sqlConection.service';
+import { getTokenService } from 'src/connection/getToken.service';
+import { runSqlService } from 'src/connection/sqlConnection.service';
 import * as nodemailer from 'nodemailer';
 import axios from 'axios';
 import * as mailgunTransport from 'nodemailer-mailgun-transport';
@@ -17,7 +17,7 @@ export class PdfService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
-  ) {}
+  ) { }
 
   async enviarCorreoConPdf(pdfData, mailTo) {
     try {

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { getTokenService } from '../connection/getToken.service';
-import { runSqlService } from 'src/connection/sqlConection.service';
-import { customersService } from 'src/customers/customers.service';
+import { getTokenService } from 'src/connection/getToken.service';
+import { runSqlService } from 'src/connection/sqlConnection.service';
+import { customersService } from 'src/maestros/customers/customers.service';
 import axios from 'axios';
 import * as mqtt from 'mqtt';
 

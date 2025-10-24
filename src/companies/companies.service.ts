@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { getTokenService } from '../connection/getToken.service';
-import { runSqlService } from 'src/connection/sqlConection.service';
+import { getTokenService } from 'src/connection/getToken.service';
+import { runSqlService } from 'src/connection/sqlConnection.service';
 import axios from 'axios';
 import * as mqtt from 'mqtt';
 
@@ -14,7 +14,7 @@ export class companiesService {
   constructor(
     private tokenService: getTokenService,
     private sqlService: runSqlService,
-  ) {}
+  ) { }
 
   async getCompaniesId(client_id: string, client_secret: string, tenant: string, entorno: string) {
     console.log('🔍 Obteniendo empresas de Business Central...');
