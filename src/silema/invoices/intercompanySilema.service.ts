@@ -65,7 +65,7 @@ export class intercompanySilemaService {
 
       salesData = await this.processInvoiceLines(salesData, database, idFactura, tabFacturacioDATA);
       // console.log(`Factura: `, salesData);
-      await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
+      await this.postToApi(tipo, salesData, tenant, entorno, companyID, token, database, idFactura);
     }
 
     return true;
@@ -253,7 +253,7 @@ export class intercompanySilemaService {
     this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
     console.error(message, error.response?.data || error.message);
   }
-  async postToApi(tipo, salesData, tenant, entorno, companyID, token) {
+  async postToApi(tipo, salesData, tenant, entorno, companyID, token, database?: string, idFactura?: string) {
     if (salesData.no.length > 20) salesData.no = salesData.no.slice(-20);
     if (salesData.locationCode.length > 10) salesData.locationCode = salesData.locationCode.slice(-10);
     if (salesData.shipToCode.length > 10) salesData.shipToCode = salesData.shipToCode.slice(-10);
@@ -287,6 +287,11 @@ export class intercompanySilemaService {
         );
         //console.log('Response:', response.data);
         console.log(`${tipo} subido con exito ${salesData.no}`);
+
+        if (database && idFactura) {
+          await this.deleteControlTableEntry(database, idFactura);
+          console.log(`🗑️ Registro eliminado de recordsFacturacioBC para la factura ${idFactura}`);
+        }
       } catch (error) {
         salesData.salesLinesBuffer = [];
         console.log(JSON.stringify(salesData, null, 2));
@@ -302,5 +307,9 @@ export class intercompanySilemaService {
     input = input.toUpperCase();
     const match = input.match(/[TM]--(\d{3})/);
     return match ? match[1] : null;
+  }
+  async deleteControlTableEntry(database: string, idFactura: string) {
+    let sqlDelete = `DELETE FROM recordsFacturacioBC WHERE IdFactura = '${idFactura}'`;
+    await this.sql.runSql(sqlDelete, database);
   }
 }

@@ -7,5 +7,6 @@ import { ConnectionModule } from 'src/connection/connection.module';
     imports: [ConnectionModule],
     controllers: [xmlController],
     providers: [xmlService],
+    exports: [xmlService],
 })
 export class xmlModule { }
