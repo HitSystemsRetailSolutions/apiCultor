@@ -278,15 +278,11 @@ export class salesSilemaRecapManualService {
       salesData.salesLinesBuffer.push(salesLine);
     }
     // console.log('factura:', salesData);
-    if (manual === 'false' || manual === false) {
+    if (manual === 'false' || manual === false || x.Pagado === 0) {
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token, database, idFactura);
       return true;
     } else {
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token);
-    }
-
-    if (x.Pagado === 0) {
-      return true;
     }
 
     // ---------------------------------Abono recap manual---------------------------------
