@@ -13,6 +13,10 @@ export class salesSilemaCierreService {
   ) { }
   //Sincroniza tickets HIT-BC, Ventas
   async syncSalesSilemaCierre(day, month, year, companyID, database, botiga, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    if (botiga === '225') {
+      // Esta licencia es de cocina no se tiene que pasar a BC
+      return true;
+    }
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let tipo = 'syncSalesSilemaCierre';
     let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
@@ -100,20 +104,34 @@ export class salesSilemaCierreService {
       const currentFinal = cambioFinalRow ? parseFloat(cambioFinalRow.Import) : 0;
       console.log(`Turno ${i + (Number(turno) === 2 ? 2 : 1)}: Cambio Inicial = ${currentInicial}, Cambio Final = ${currentFinal} (prevFinalAmount = ${prevFinalAmount})`);
       if (prevFinalAmount !== null && currentInicial !== prevFinalAmount) {
-        const diff = prevFinalAmount - currentInicial;
+        const diff = prevFinalAmount - currentInicial; // positivo => falta dinero, negativo => sobra dinero
         console.log(`Diferencia de cambio inicial: ${diff}`);
         cambioInicialRow!.Import = String(-prevFinalAmount);
-        const importe = Math.round(Math.abs(diff) * -1 * 100) / 100;
+        const importe = Math.round(Math.abs(diff) * 100) / 100;
         if (importe != 0) {
-          console.log(`Ajuste de cambio inicial: ${importe}`);
-          await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'AJUSTE_CAMBIO_INICIAL', `Ajuste de cambio inicial: ${importe}`, 'Cierre', companyID, entorno);
+          let tipoMovimiento: string;
+          let descripcion: string;
+          let importeSigno: number;
+          if (diff < 0) {
+            tipoMovimiento = 'Entrada';
+            descripcion = 'Modificación caja';
+            importeSigno = importe * -1;
+          } else {
+            tipoMovimiento = 'Salida cajon';
+            descripcion = 'Modificación caja salida';
+            importeSigno = importe;
+          }
+
+          console.log(`Ajuste de cambio inicial (${tipoMovimiento}): ${importeSigno}`);
+
+          await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'AJUSTE_CAMBIO_INICIAL', `Ajuste de cambio inicial (${tipoMovimiento}): ${importe}`, 'Cierre', companyID, entorno);
           rows.push({
             Botiga: cambioInicialRow!.Botiga,
             Data: cambioInicialRow!.Data,
-            Tipo_moviment: 'Entrada',
-            Import: importe,
+            Tipo_moviment: tipoMovimiento,
+            Import: importeSigno,
             documentType: '',
-            description: 'Modificación caja',
+            description: descripcion,
             Orden: 10,
           });
         }
@@ -266,7 +284,6 @@ export class salesSilemaCierreService {
         ((TotalVentas + TotalDeudas) * -1) AS Import,
         'Payment' AS documentType, 'Total' AS description, 1 AS Orden
     FROM Totales
-    WHERE CambioInicial <> 0
 
     UNION ALL
 
@@ -405,14 +422,12 @@ export class salesSilemaCierreService {
     SELECT 
         Botiga, CONVERT(Date, Data), 'Cambio Inicial', (CambioInicial * -1), '', 'Fondo caja inicial', 11
     FROM Totales
-    WHERE CambioInicial <> 0
 
     UNION ALL
 
     SELECT 
         Botiga, CONVERT(Date, Data), 'Cambio Final', CambioFinal, '', 'Fondo caja final', 12
     FROM Totales
-    WHERE CambioFinal <> 0
 
     ORDER BY Orden;`;
   }
@@ -489,6 +504,9 @@ export class salesSilemaCierreService {
           case 'Entrada':
             salesCierre.closingStoreType = 'Entries in Drawer';
             break;
+          case 'Salida cajon':
+            salesCierre.closingStoreType = 'Outputs in Drawer';
+            break;
           case 'Total':
             salesCierre.closingStoreType = 'Total invoice';
             await this.helpers.addLog(salesCierre.locationCode, salesCierre.postingDate, salesCierre.shift.replace('Shift_x0020_', ''), 'info', 'TOTAL_INVOICE', `Total invoice procesado: ${salesCierre.amount}`, 'Cierre', companyID, entorno);
@@ -543,7 +561,7 @@ export class salesSilemaCierreService {
         );
         //console.log('Response:', response.data);
         console.log(`${tipo} subido con exito ${salesData.documentNo}`);
-        await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'info', 'POST_OK', `${tipo} subido con exito ${salesData.documentNo} Linea: ${salesData.lineNo}`, 'Cierre', companyID, entorno);
+        // await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'info', 'POST_OK', `${tipo} subido con exito ${salesData.documentNo} Linea: ${salesData.lineNo}`, 'Cierre', companyID, entorno);
       } catch (error) {
         salesData.salesLinesBuffer = [];
         // console.log(JSON.stringify(salesData, null, 2));

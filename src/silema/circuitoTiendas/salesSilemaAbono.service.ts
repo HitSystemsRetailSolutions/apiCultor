@@ -13,6 +13,10 @@ export class salesSilemaAbonoService {
 
   //Abono
   async syncSalesSilemaAbono(day, month, year, companyID, database, botiga, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    if (botiga === '225') {
+      // Esta licencia es de cocina no se tiene que pasar a BC
+      return true;
+    }
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let tipo = 'syncSalesSilemaAbono';
     let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
