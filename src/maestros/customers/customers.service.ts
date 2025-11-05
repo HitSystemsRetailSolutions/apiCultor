@@ -270,6 +270,7 @@ export class customersService {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
 
     let customerId = '';
+    let customerNumber = '';
     let i = 1;
     for (const customer of customers.recordset) {
       try {
@@ -277,9 +278,9 @@ export class customersService {
         const payMethodId = await this.getPaymentMethodId(customer.FORMAPAGO, companyID, client_id, client_secret, tenant, entorno);
         const taxId = await this.getTaxAreaId(taxArea, companyID, client_id, client_secret, tenant, entorno);
         const payTermId = await this.getPaymentTermId(customer.TERMINOPAGO, companyID, client_id, client_secret, tenant, entorno);
-
+        customerNumber = `${this.normalizeNIF(customer.NIF)}`;
         const customerData1 = {
-          number: `${this.normalizeNIF(customer.NIF)}`,
+          number: customerNumber,
           displayName: `${customer.NOMBREFISCAL}` || `${customer.NOMBRE}`,
           type: 'Company',
           addressLine1: `${customer.DIRECCION}`,
@@ -289,7 +290,7 @@ export class customersService {
           phoneNumber: this.sanitizePhone(customer.TELEFONO),
           email: `${customer.EMAIL}`,
           taxAreaId: `${taxId}`,
-          taxRegistrationNumber: `${this.normalizeNIF(customer.NIF)}`,
+          taxRegistrationNumber: customerNumber,
           currencyCode: 'EUR',
           paymentMethodId: `${payMethodId}`,
           paymentTermsId: `${payTermId}`,
@@ -305,7 +306,7 @@ export class customersService {
         };
         let res;
         try {
-          res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${this.normalizeNIF(customer.NIF)}'`, {
+          res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${customerNumber}'`, {
             headers: {
               Authorization: 'Bearer ' + token,
               'Content-Type': 'application/json',
@@ -326,12 +327,12 @@ export class customersService {
           customerId = createCustomer.data.id;
           const customeretag = createCustomer.data['@odata.etag'];
           if (customer.DIAPAGO) {
-            await this.getPaymentDays(customer.DIAPAGO, `${this.normalizeNIF(customer.NIF)}`, companyID, client_id, client_secret, tenant, entorno);
+            await this.getPaymentDays(customer.DIAPAGO, customerNumber, companyID, client_id, client_secret, tenant, entorno);
           }
           // bankAccountCode depende del cliente y si no esta creado da error, por eso se crea primero el cliente y luego se actualiza
           let bankAccountCode = '';
           if (customer.IBAN) {
-            bankAccountCode = await this.getBankAccountCode(customer.IBAN, `${this.normalizeNIF(customer.NIF)}`, companyID, client_id, client_secret, tenant, entorno);
+            bankAccountCode = await this.getBankAccountCode(customer.IBAN, customerNumber, companyID, client_id, client_secret, tenant, entorno);
           }
           const customerData2 = {
             bankAccountCode: `${bankAccountCode}`,
@@ -347,7 +348,7 @@ export class customersService {
         } else {
           let bankAccountCode = '';
           if (customer.IBAN) {
-            bankAccountCode = await this.getBankAccountCode(customer.IBAN, `${this.normalizeNIF(customer.NIF)}`, companyID, client_id, client_secret, tenant, entorno);
+            bankAccountCode = await this.getBankAccountCode(customer.IBAN, customerNumber, companyID, client_id, client_secret, tenant, entorno);
           }
           const customerData = {
             ...customerData1,
@@ -374,13 +375,13 @@ export class customersService {
       i++;
     }
     if (codiHIT) {
-      return customerId;
+      return { customerNumber, customerId };
     }
     return true;
   }
 
   async getCustomerFromAPI(companyID, database, codiHIT, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    let customerId = '';
+    let customerData;
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
     try {
@@ -396,17 +397,22 @@ export class customersService {
     }
 
     if (res.data.value.length > 0) {
-      customerId = res.data.value[0].id;
+
       // Si el cliente ya existe, forzar sincronización para actualizar datos
-      await this.syncCustomers(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-      console.log('📘 Cliente existente en la API con ID:', customerId);
-      return customerId;
+      customerData = await this.syncCustomers(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+      console.log('📘 Cliente existente en la API con ID:', customerData.customerId);
+      return customerData;
     }
 
     const newCustomer = await this.syncCustomers(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-    console.log('📘 Nuevo cliente sincronizado con ID:', newCustomer);
-    customerId = String(newCustomer);
-    return customerId;
+    if (newCustomer && typeof newCustomer !== 'boolean') {
+      console.log('📘 Nuevo cliente sincronizado con ID:', newCustomer.customerId);
+      customerData = newCustomer;
+      return customerData;
+    } else {
+      console.log('⚠️ No se pudo sincronizar el nuevo cliente.');
+      return false;
+    }
   }
 
   private logError(message: string, error: any) {

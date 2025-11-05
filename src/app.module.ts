@@ -17,6 +17,7 @@ import { CircuitoTiendasModule } from './silema/circuitoTiendas/circuitoTiendas.
 import { SigningsModule } from './silema/signings/signings.module';
 import { TrabajadoresModule } from './silema/trabajadores/trabajadores.module';
 import { PeticionesMqttModule } from './webPeticionesMqtt/peticionesMqtt.module';
+import { noSerieModule } from './sales/noSerie/noSerie.module';
 
 
 @Module({
@@ -38,6 +39,7 @@ import { PeticionesMqttModule } from './webPeticionesMqtt/peticionesMqtt.module'
     SigningsModule,
     TrabajadoresModule,
     PeticionesMqttModule,
+    noSerieModule,
   ],
   controllers: [],
   providers: [],
