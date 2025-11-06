@@ -10,6 +10,8 @@ import * as pLimit from 'p-limit';
 import { error } from 'console';
 import { PdfService } from 'src/pdf/pdf.service';
 import { xmlService } from 'src/sales/xml/xml.service';
+import { noSerieService } from '../noSerie/noSerie.service';
+import { parseStringPromise } from "xml2js";
 
 let errores: string[] = [];
 @Injectable()
@@ -27,6 +29,7 @@ export class invoicesService {
     private locations: locationsService,
     private pdfService: PdfService,
     private xmlService: xmlService,
+    private noSerieService: noSerieService,
   ) { }
 
   async syncSalesFacturas(companyID: string, database: string, idFacturas: string[], tabla: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -54,7 +57,8 @@ export class invoicesService {
 
           const x = facturas.recordset[0];
 
-          num = x.Serie.length <= 0 ? x.NumFactura : x.Serie + x.NumFactura;
+          const serie = x.Serie || '';
+          num = serie.length <= 0 ? x.NumFactura : serie + x.NumFactura;
 
           endpoint = x.Total >= 0 ? 'salesInvoices' : 'salesCreditMemos';
           const endpointline = x.Total >= 0 ? 'salesInvoiceLines' : 'salesCreditMemoLines';
@@ -72,7 +76,10 @@ export class invoicesService {
 
           console.log(`-------------------SINCRONIZANDO FACTURA NÚMERO ${num} -----------------------`);
           let customerId;
-          customerId = await this.customers.getCustomerFromAPI(companyID, database, x.ClientNif, client_id, client_secret, tenant, entorno);
+          let customerNumber;
+          const customerData = await this.customers.getCustomerFromAPI(companyID, database, x.ClientNif, client_id, client_secret, tenant, entorno);
+          customerId = customerData.customerId;
+          customerNumber = customerData.customerNumber;
 
           let res;
           try {
@@ -93,6 +100,11 @@ export class invoicesService {
             i++;
             continue;
           }
+          if (serie && serie !== '') {
+            let noSerieExists = await this.noSerieService.getNoSerie(companyID, client_id, client_secret, tenant, entorno, serie);
+          } else {
+            let noSerieExists = await this.noSerieService.getNoSerie(companyID, client_id, client_secret, tenant, entorno, 'DEF');
+          }
 
           let invoiceData;
           if (x.Total >= 0) {
@@ -100,7 +112,7 @@ export class invoicesService {
               externalDocumentNumber: num.toString(),
               invoiceDate: invoiceDate,
               postingDate: invoiceDate,
-              customerId: customerId,
+              customerNumber: customerNumber,
               salesInvoiceLines: [],
             };
           } else {
@@ -108,7 +120,7 @@ export class invoicesService {
               externalDocumentNumber: num.toString(),
               creditMemoDate: invoiceDate,
               postingDate: invoiceDate,
-              customerId: customerId,
+              customerNumber: customerNumber,
               salesCreditMemoLines: [],
             };
           }
@@ -154,7 +166,8 @@ export class invoicesService {
             continue;
           }
           if (res.data.value.length === 0) {
-            facturaId_BC = await this.createInvoice(invoiceData, endpoint, x.ClientCodi, database, client_id, client_secret, token, tenant, entorno, companyID);
+            facturaId_BC = await this.createInvoice(serie, endpoint, invoiceData, x.ClientCodi, database, entorno, tenant, client_id, client_secret, companyID);
+            await this.createInvoiceLines(facturaId_BC, invoiceData, endpoint, token, tenant, entorno, companyID);
           } else {
             facturaId_BC = res.data.value[0]['id'];
             try {
@@ -169,7 +182,8 @@ export class invoicesService {
               this.logError(`❌ Error eliminando la factura existente ${num} de BC: ${deleteError.message}`, deleteError);
               throw deleteError;
             }
-            facturaId_BC = await this.createInvoice(invoiceData, endpoint, x.ClientCodi, database, client_id, client_secret, token, tenant, entorno, companyID);
+            facturaId_BC = await this.createInvoice(serie, endpoint, invoiceData, x.ClientCodi, database, entorno, tenant, client_id, client_secret, companyID);
+            await this.createInvoiceLines(facturaId_BC, invoiceData, endpoint, token, tenant, entorno, companyID);
           }
           if (x.Total < 0 && x.ClientNif != '22222222J') {
             await this.updateCorrectedInvoice(companyID, facturaId_BC, tenant, entorno, database, token, idFactura);
@@ -287,6 +301,11 @@ export class invoicesService {
                 let quantity = Math.abs(line.Quantitat);
                 let unitPrice = line.UnitPrice;
 
+                if (quantity === 0) {
+                  this.logError(`❌ La línea con producto ${line.Plu} tiene cantidad 0`, null);
+                  throw new Error(`La línea con producto ${line.Plu} tiene cantidad 0`);
+                }
+
                 if (endpointline === 'salesInvoiceLines' && line.Quantitat < 0) {
                   unitPrice *= -1;
                 }
@@ -358,111 +377,115 @@ export class invoicesService {
     }
   }
 
-  private async createInvoice(salesInvoiceData, endpoint, clientCodi, database, client_id, client_secret, token: string, tenant: string, entorno: string, companyID: string) {
+  async createInvoice(serie: string, docType: string, invoiceData, clientCodi: string, database: string, entorno: string, tenant: string, client_id: string, client_secret: string, companyId: string) {
+    console.log(`📡 Enviando factura ${invoiceData.externalDocumentNumber} a la API SOAP de Business Central...`);
+    if (!serie || serie === '') {
+      serie = 'DEF';
+    }
+    let token = await this.token.getToken2(client_id, client_secret, tenant);
+    const getcompanyName = await axios.get(
+      `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyId})`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    const companyName = getcompanyName.data.name;
+    // Escapar correctamente los valores para XML
+    const safeSerie = this.escapeXml(serie);
+    const safeDocNO = this.escapeXml(invoiceData.externalDocumentNumber);
+    const safeDocType = this.escapeXml(docType);
+    const safeCustomerNo = this.escapeXml(invoiceData.customerNumber);
+    const safeInvoiceDate = this.escapeXml(invoiceData.invoiceDate || invoiceData.creditMemoDate);
+    let safeLocationCode = '';
+
+    const esTienda = await this.sql.runSql(`SELECT * FROM ParamsHw WHERE codi = ${clientCodi}`, database);
+    if (esTienda.recordset && esTienda.recordset.length > 0) {
+      console.log(`📄 Es una factura para una tienda, asignando almacén...`);
+      safeLocationCode = this.escapeXml(clientCodi);
+      await this.locations.getLocationFromAPI(companyId, database, clientCodi, client_id, client_secret, tenant, entorno);
+    }
+
+    const soapEnvelope = `
+      <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:tns="urn:microsoft-dynamics-schemas/codeunit/CreateInvoice">
+        <soap:Header/>
+        <soap:Body>
+          <tns:CreateInvoice>
+            <tns:serie>${safeSerie}</tns:serie>
+            <tns:docType>${safeDocType}</tns:docType>
+            <tns:externalDocNo>${safeDocNO}</tns:externalDocNo>
+            <tns:invoiceDate>${safeInvoiceDate}</tns:invoiceDate>
+            <tns:customerNo>${safeCustomerNo}</tns:customerNo>
+            <tns:locationCode>${safeLocationCode}</tns:locationCode>
+          </tns:CreateInvoice>
+        </soap:Body>
+      </soap:Envelope>`.trim();
+
+    const url = `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/WS/${companyName}/Codeunit/CreateInvoice`;
+    // Realizar la solicitud SOAP
+    const response = await axios.post(
+      url,
+      soapEnvelope,
+      {
+        headers: {
+          Authorization: "Bearer " + token,
+          "Content-Type": "text/xml; charset=utf-8",
+          SOAPAction:
+            "urn:microsoft-dynamics-schemas/codeunit/CreateInvoice:CreateInvoice",
+        },
+      }
+    );
+    console.log("✅ Respuesta de BC:", response.data);
+    // Parsear XML a JSON
+    const parsed = await parseStringPromise(response.data, { explicitArray: false });
+
+    // Extraer el valor del ID
+    const id =
+      parsed["Soap:Envelope"]?.["Soap:Body"]?.["CreateInvoice_Result"]?.["return_value"];
+
+    console.log("🆔 ID de la factura:", id);
+    const cleanId = id.replace(/[{}]/g, '');
+
+    return cleanId;
+  }
+
+  private async createInvoiceLines(id, salesInvoiceData, endpoint, token: string, tenant: string, entorno: string, companyID: string) {
     try {
-      const numLineas =
-        salesInvoiceData.salesInvoiceLines?.length ||
-        salesInvoiceData.salesCreditMemoLines?.length ||
-        0;
-
-      let factura;
-
-      if (numLineas <= 100) {
-        console.log(`📄 Creando factura en 1 sola llamada porque solo tiene ${numLineas} líneas...`);
-
-        factura = await axios.post(
-          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}`,
-          salesInvoiceData,
-          {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
+      let allLines;
+      let lineEndpoint;
+      if (endpoint === "salesInvoices") {
+        allLines = salesInvoiceData.salesInvoiceLines;
+        lineEndpoint = `salesInvoiceLines`;
+      } else if (endpoint === "salesCreditMemos") {
+        allLines = salesInvoiceData.salesCreditMemoLines;
+        lineEndpoint = `salesCreditMemoLines`;
       } else {
-        console.log(`📄 Factura con ${numLineas} líneas. Usando proceso en bloques...`);
-
-        const invoiceHeader = {
-          externalDocumentNumber: salesInvoiceData.externalDocumentNumber,
-          invoiceDate: salesInvoiceData.invoiceDate,
-          postingDate: salesInvoiceData.postingDate,
-          customerId: salesInvoiceData.customerId,
-        };
-
-        factura = await axios.post(
-          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}`,
-          invoiceHeader,
-          {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-
-        console.log(`✅ Cabecera creada con ID: ${factura.data.id}`);
-
-        let allLines;
-        let lineEndpoint;
-        if (endpoint === "salesInvoices") {
-          allLines = salesInvoiceData.salesInvoiceLines;
-          lineEndpoint = `salesInvoiceLines`;
-        } else if (endpoint === "salesCreditMemos") {
-          allLines = salesInvoiceData.salesCreditMemoLines;
-          lineEndpoint = `salesCreditMemoLines`;
-        } else {
-          throw new Error("Endpoint desconocido. No se puede insertar líneas.");
-        }
-
-        const chunkSize = 100;
-        for (let i = 0; i < allLines.length; i += chunkSize) {
-          const chunk = allLines.slice(i, i + chunkSize);
-
-          for (const line of chunk) {
-            await axios.post(
-              `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${factura.data.id})/${lineEndpoint}`,
-              line,
-              {
-                headers: {
-                  Authorization: 'Bearer ' + token,
-                  'Content-Type': 'application/json',
-                },
-              }
-            );
-          }
-
-          console.log(`✅ Bloque de líneas ${i + 1} a ${i + chunk.length} insertado.`);
-        }
-
-        console.log(`✅ Todas las líneas insertadas.`);
+        throw new Error("Endpoint desconocido. No se puede insertar líneas.");
       }
 
-      const esTienda = await this.sql.runSql(`SELECT * FROM ParamsHw WHERE codi = ${clientCodi}`, database);
-      if (esTienda.recordset && esTienda.recordset.length > 0) {
-        console.log(`📄 Es una factura para una tienda, asignando almacén...`);
-        let salesInvoiceData2 = {
-          LocationCode: `${clientCodi}`,
-        };
-        await this.locations.getLocationFromAPI(companyID, database, clientCodi, client_id, client_secret, tenant, entorno);
-        if (errores.length > 0) {
-          for (const errorMsg of errores) {
-            await this.logBCError(salesInvoiceData.externalDocumentNumber, errorMsg, client_id, client_secret, tenant, entorno, companyID);
-          }
-          throw error;
+      const chunkSize = 100;
+      for (let i = 0; i < allLines.length; i += chunkSize) {
+        const chunk = allLines.slice(i, i + chunkSize);
+
+        for (const line of chunk) {
+          await axios.post(
+            `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${id})/${lineEndpoint}`,
+            line,
+            {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
         }
-        await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/salesHeader(${factura.data.id})`, salesInvoiceData2, {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-            'If-Match': '*',
-          },
-        });
+
+        console.log(`✅ Bloque de líneas ${i + 1} a ${i + chunk.length} insertado.`);
       }
-
-      console.log(`✅ Factura creada con ID: ${factura.data.id}`);
-
-      return factura.data.id;
+      console.log(`✅ Todas las líneas insertadas.`);
     } catch (error) {
       this.logError('❌ Error al crear la factura', error);
       throw error;
@@ -757,49 +780,6 @@ export class invoicesService {
     }
 
   }
-  async callAPI_XML(documentNO: string, entorno: string, tenant: string, client_id: string, client_secret: string, companyId: string) {
-    console.log(`📡 Enviando factura ${documentNO} a la API SOAP de Business Central...`);
-    let token = await this.token.getToken2(client_id, client_secret, tenant);
-    const getcompanyName = await axios.get(
-      `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyId})`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    const companyName = getcompanyName.data.name;
-    // Escapar correctamente los valores para XML
-    const safeDocNO = this.escapeXml(documentNO);
-
-    const soapEnvelope = `
-      <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-                    xmlns:tns="urn:microsoft-dynamics-schemas/codeunit/SendAPI">
-        <soap:Header/>
-        <soap:Body>
-          <tns:SendSalesDocument>
-            <tns:documentNo>${safeDocNO}</tns:documentNo>
-            <tns:forceFormatCode></tns:forceFormatCode>
-          </tns:SendSalesDocument>
-        </soap:Body>
-      </soap:Envelope>`.trim();
-    const url = `https://api.businesscentral.dynamics.com/v2.0/${tenant}/${entorno}/WS/${companyName}/Codeunit/SendAPI`;
-    // Realizar la solicitud SOAP
-    const response = await axios.post(
-      url,
-      soapEnvelope,
-      {
-        headers: {
-          Authorization: "Bearer " + token,
-          "Content-Type": "text/xml; charset=utf-8",
-          SOAPAction:
-            "urn:microsoft-dynamics-schemas/codeunit/SendAPI:SendSalesDocument",
-        },
-      }
-    );
-    console.log("✅ Respuesta de BC:", response.data);
-  }
   async getInvoiceByNumber(companyID: string, invoiceNumber: string, client_id: string, client_secret: string, tenant: string, entorno: string, database: string) {
     const endpoint = invoiceNumber.startsWith('RE/') ? 'salesCreditMemos' : 'salesInvoices';
     try {
@@ -856,6 +836,7 @@ export class invoicesService {
     });
   }
   private escapeXml(unsafe: string): string {
+    if (unsafe == null) return '';
     return unsafe
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
