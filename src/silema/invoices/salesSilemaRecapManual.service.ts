@@ -290,7 +290,7 @@ export class salesSilemaRecapManualService {
     salesData.documentType = 'Credit_x0020_Memo';
     salesData.externalDocumentNo = `${locationCodeDocNo}_${fechaFormateada}_ARM${n}`;
     salesData.vatRegistrationNo = `${x.NifTienda}`;
-    salesData.shipToCode = `${locationCode}`;
+    salesData.shipToCode = locationCode === 'REC' ? '' : `${locationCode}`;
     salesData.salesLinesBuffer = [];
 
     countLines = 1;

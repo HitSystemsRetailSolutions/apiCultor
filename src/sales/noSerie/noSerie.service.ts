@@ -31,7 +31,6 @@ export class noSerieService {
 
             // Verificar si existe noSerie+
             const urlSerieReg = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/noSeries?$filter=code eq '${noSerie}_R'`;
-            console.log(`Verificando existencia de No Serie+: ${urlSerieReg}`);
             const responseSerieReg = await axios.get(urlSerieReg, {
                 headers: {
                     Authorization: `Bearer ${token}`,
