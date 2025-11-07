@@ -64,6 +64,7 @@ export class invoicesService {
           const endpointline = x.Total >= 0 ? 'salesInvoiceLines' : 'salesCreditMemoLines';
 
           const datePart = x.DataFactura.toISOString().split('T')[0];
+          const yearPart = datePart.split('-')[0];
           const lastPostingDate = await this.getLastDate(client_id, client_secret, tenant, entorno, companyID, endpoint);
           const facturaDate = new Date(datePart);
           const lastDate = lastPostingDate ? new Date(lastPostingDate) : null;
@@ -101,9 +102,9 @@ export class invoicesService {
             continue;
           }
           if (serie && serie !== '') {
-            let noSerieExists = await this.noSerieService.getNoSerie(companyID, client_id, client_secret, tenant, entorno, serie);
+            await this.noSerieService.getNoSerie(companyID, client_id, client_secret, tenant, entorno, serie);
           } else {
-            let noSerieExists = await this.noSerieService.getNoSerie(companyID, client_id, client_secret, tenant, entorno, 'DEF');
+            await this.noSerieService.getNoSerie(companyID, client_id, client_secret, tenant, entorno, yearPart);
           }
 
           let invoiceData;
@@ -380,7 +381,7 @@ export class invoicesService {
   async createInvoice(serie: string, docType: string, invoiceData, clientCodi: string, database: string, entorno: string, tenant: string, client_id: string, client_secret: string, companyId: string) {
     console.log(`📡 Enviando factura ${invoiceData.externalDocumentNumber} a la API SOAP de Business Central...`);
     if (!serie || serie === '') {
-      serie = 'DEF';
+      serie = invoiceData.invoiceDate.split('-')[0];
     }
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     const getcompanyName = await axios.get(

@@ -15,7 +15,6 @@ bootstrap();
 
 const axios = require('axios');
 axios.defaults.baseURL = 'http://localhost:3333';
-var test = false; //test: call functions
 var debug = true; //debug: mqtt publish
 const mqtt = require('mqtt');
 const { config } = require('process');
