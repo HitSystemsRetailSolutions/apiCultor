@@ -114,6 +114,7 @@ export class invoicesService {
               invoiceDate: invoiceDate,
               postingDate: invoiceDate,
               customerNumber: customerNumber,
+              invoiceType: serie.includes('RC/') ? "F3" : "F1",
               salesInvoiceLines: [],
             };
           } else {
@@ -122,6 +123,7 @@ export class invoicesService {
               creditMemoDate: invoiceDate,
               postingDate: invoiceDate,
               customerNumber: customerNumber,
+              creditMemoType: "R4",
               salesCreditMemoLines: [],
             };
           }
@@ -197,8 +199,6 @@ export class invoicesService {
             await this.pdfService.esperaYVeras();
             await this.updateRegistro(companyID, database, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
             await this.pdfService.reintentarSubidaPdf([facturaId_BC], database, client_id, client_secret, tenant, entorno, companyID, endpoint);
-            const docNo = await this.getSaleFromAPI(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno);
-            // await this.callAPI_XML(docNo.data.number, entorno, tenant, client_id, client_secret, companyID);
             await this.xmlService.getXML(companyID, database, client_id, client_secret, tenant, entorno, facturaId_BC, endpoint);
           }
         } catch (error) {
@@ -400,6 +400,7 @@ export class invoicesService {
     const safeDocType = this.escapeXml(docType);
     const safeCustomerNo = this.escapeXml(invoiceData.customerNumber);
     const safeInvoiceDate = this.escapeXml(invoiceData.invoiceDate || invoiceData.creditMemoDate);
+    const safeType = this.escapeXml(invoiceData.invoiceType || invoiceData.creditMemoType);
     let safeLocationCode = '';
 
     const esTienda = await this.sql.runSql(`SELECT * FROM ParamsHw WHERE codi = ${clientCodi}`, database);
@@ -421,6 +422,7 @@ export class invoicesService {
             <tns:invoiceDate>${safeInvoiceDate}</tns:invoiceDate>
             <tns:customerNo>${safeCustomerNo}</tns:customerNo>
             <tns:locationCode>${safeLocationCode}</tns:locationCode>
+            <tns:type>${safeType}</tns:type>
           </tns:CreateInvoice>
         </soap:Body>
       </soap:Envelope>`.trim();
@@ -447,8 +449,8 @@ export class invoicesService {
     const id =
       parsed["Soap:Envelope"]?.["Soap:Body"]?.["CreateInvoice_Result"]?.["return_value"];
 
-    console.log("🆔 ID de la factura:", id);
     const cleanId = id.replace(/[{}]/g, '');
+    console.log("🆔 ID de la factura:", cleanId);
 
     return cleanId;
   }
