@@ -470,9 +470,11 @@ export class salesSilemaCierreService {
             break;
           case 'Tarjeta':
             salesCierre.closingStoreType = 'Card';
+            salesCierre.amount = Math.abs(salesCierre.amount); // Asegurarse de que la cantidad sea positiva
             break;
           case 'Tarjeta 3G':
             salesCierre.closingStoreType = '3G Card';
+            salesCierre.amount = Math.abs(salesCierre.amount); // Asegurarse de que la cantidad sea positiva
             break;
           case 'Ticket Restaurante':
             salesCierre.closingStoreType = 'Restaurant Ticket';
