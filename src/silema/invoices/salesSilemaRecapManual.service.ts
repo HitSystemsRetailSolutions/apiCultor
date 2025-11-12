@@ -10,7 +10,7 @@ export class salesSilemaRecapManualService {
     private sql: runSqlService,
   ) { }
 
-  async getDatosSalesSilemaRecapitulativaManual(idFactura: string[], tabla: string, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string, manual) {
+  async getDatosSalesSilemaRecapitulativaManual(idFactura: string[], tabla: string, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     for (let i = 0; i < idFactura.length; i++) {
       let sqlQ = `SELECT * FROM [FACTURACIO_${tabla}_IVA] WHERE idFactura = '${idFactura[i]}'`;
       let data = await this.sql.runSql(sqlQ, database);
@@ -38,12 +38,12 @@ export class salesSilemaRecapManualService {
         TicketsArray.push(dataTickets.recordset[j].NumTick);
       }
 
-      await this.syncSalesSilemaRecapitulativaManual(TicketsArray, client, dataInici, dataFi, dataFactura, companyID, database, client_id, client_secret, tenant, entorno, manual, idFactura[i]);
+      await this.syncSalesSilemaRecapitulativaManual(TicketsArray, client, dataInici, dataFi, dataFactura, companyID, database, client_id, client_secret, tenant, entorno, idFactura[i]);
     }
     return true;
   }
 
-  async syncSalesSilemaRecapitulativaManual(TicketsArray: Array<String>, client, dataInici, dataFi, dataFactura, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string, manual, idFactura: string) {
+  async syncSalesSilemaRecapitulativaManual(TicketsArray: Array<String>, client, dataInici, dataFi, dataFactura, companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string, idFactura: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let tipo = 'syncSalesSilemaRecapitulativaManual';
     // let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
@@ -169,7 +169,7 @@ export class salesSilemaRecapManualService {
     //console.log(datosPlanos.length);
 
     let x = datosPlanos[0];
-
+    const manual = x.Pagado === 1;
     let partes = dataFactura.split('-');
     let fechaFormateada = `${partes[2]}-${partes[1]}-${partes[0].toString().slice(-2)}`;
     const codis = Array.from(new Set(datosPlanos.map((x) => this.extractNumber(x.TIENDA))));
@@ -178,7 +178,7 @@ export class salesSilemaRecapManualService {
 
     // Calculamos `n` basado en las facturas recapitulativas existentes
     let url
-    if (manual === 'true' || manual === true) {
+    if (manual) {
       url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${locationCodeDocNo}_${fechaFormateada}_RM')`;
     } else {
       url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/salesHeadersBuffer?$filter=contains(no,'${locationCodeDocNo}_${fechaFormateada}_R')`;
@@ -186,7 +186,7 @@ export class salesSilemaRecapManualService {
     let n = (await this.getNumberOfRecap(url, token)) || 1;
     let paymentMethodCode = `${x.FORMAPAGO}`;
     let salesData
-    if (manual === 'true' || manual === true) {
+    if (manual) {
       salesData = {
         no: `${locationCodeDocNo}_${fechaFormateada}_RM${n}`, // Nº factura
         documentType: 'Invoice', // Tipo de documento
@@ -206,8 +206,6 @@ export class salesSilemaRecapManualService {
         invoiceEndDate: `${dataFi}`, // Fecha fin facturación
         documentDate: `${dataInici}`, // Fecha de documento
         shipToCode: '',
-        debtorIntercompany: x.Pagado === 0 && x.TipoFactura === 'SETMANAL' ? true : false,
-        debtorRecap: x.Pagado === 0 && x.TipoFactura !== 'SETMANAL' ? true : false,
         salesLinesBuffer: [], // Array vacío para las líneas de ventas
       };
     } else {
@@ -241,7 +239,7 @@ export class salesSilemaRecapManualService {
       let partesAlbaran = isoDate.split('-');
       let formattedDateAlbaran = `${partesAlbaran[2]}/${partesAlbaran[1]}/${partesAlbaran[0]}`;
       let currentAlbaranDescription = `albaran nº ${x.TICKET} ${formattedDateAlbaran}`;
-      if (salesData.debtorIntercompany === false || salesData.debtorIntercompany === undefined) {
+      if (x.TipoFactura !== 'SETMANAL') {
         if (currentAlbaranDescription !== lastAlbaranDescription) {
           let salesLineAlbaran = {
             documentNo: `${salesData.no}`,
@@ -278,7 +276,7 @@ export class salesSilemaRecapManualService {
       salesData.salesLinesBuffer.push(salesLine);
     }
     // console.log('factura:', salesData);
-    if (manual === 'false' || manual === false || x.Pagado === 0) {
+    if (!manual) {
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token, database, idFactura);
       return true;
     } else {
