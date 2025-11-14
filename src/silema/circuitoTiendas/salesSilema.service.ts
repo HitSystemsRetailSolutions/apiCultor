@@ -80,7 +80,7 @@ export class salesSilemaService {
   // Funcion que pasandole un dia de inicio y otro de fin sincroniza los datos de ventas de silema
   async syncSalesSilemaDateTurno(dayStart, dayEnd, month, year, companyID, database, botigas: Array<String>, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
-            await this.helpers.cleanOldLogs();
+      await this.helpers.cleanOldLogs();
       for (const botiga of botigas) {
         for (let day = dayStart; day <= dayEnd; day++) {
           const formattedDay = String(day).padStart(2, '0');

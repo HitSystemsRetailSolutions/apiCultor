@@ -12,6 +12,7 @@ import { PdfService } from 'src/pdf/pdf.service';
 import { xmlService } from 'src/sales/xml/xml.service';
 import { noSerieService } from '../noSerie/noSerie.service';
 import { parseStringPromise } from "xml2js";
+import { verifactuService } from '../verifactu/verifactu.service';
 
 let errores: string[] = [];
 @Injectable()
@@ -30,6 +31,7 @@ export class invoicesService {
     private pdfService: PdfService,
     private xmlService: xmlService,
     private noSerieService: noSerieService,
+    private verifactu: verifactuService,
   ) { }
 
   async syncSalesFacturas(companyID: string, database: string, idFacturas: string[], tabla: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -195,6 +197,9 @@ export class invoicesService {
           await this.updateSQLSale(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno, x.IdFactura, database);
           const post = await this.postInvoice(companyID, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
           if (post.status === 204) {
+            const facturaData = await this.getSaleFromAPI(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno);
+            await this.verifactu.generarHuella(facturaData.data.number, endpoint, entorno, tenant, client_id, client_secret, companyID);
+            await this.verifactu.updateURL(companyID, facturaData.data.number, endpoint, tenant, entorno, client_id, client_secret);
             console.log(`✅ Factura ${num} sincronizada correctamente.`);
             await this.pdfService.esperaYVeras();
             await this.updateRegistro(companyID, database, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
@@ -262,7 +267,7 @@ export class invoicesService {
         for (const albara in groupedByAlbara) {
           const albaraLines = groupedByAlbara[albara];
 
-          // Agrupar por cliente dentro del albara
+          // Agrupar por cliente dentro del albarán
           const groupedByClient = albaraLines.reduce((acc, line) => {
             const clientKey = line.Client || 'NO_CLIENT';
             if (!acc[clientKey]) acc[clientKey] = [];
@@ -271,27 +276,47 @@ export class invoicesService {
           }, {});
 
           let lastClientComment = null;
+          const maxLength = 100; // máximo de caracteres por comentario
+
+          // Función para dividir y agregar comentarios
+          const pushCommentLines = (text) => {
+            const words = text.split(' ');
+            let currentLine = '';
+            const lines = [];
+
+            for (const word of words) {
+              if ((currentLine + word).length > maxLength) {
+                lines.push(currentLine.trim());
+                currentLine = word + ' ';
+              } else {
+                currentLine += word + ' ';
+              }
+            }
+
+            if (currentLine.trim().length > 0) {
+              lines.push(currentLine.trim());
+            }
+
+            for (const line of lines) {
+              salesInvoiceData[endpointline].push({
+                lineType: 'Comment',
+                description: line,
+              });
+            }
+          };
 
           for (const client in groupedByClient) {
             const clientLines = groupedByClient[client];
             const firstLine = clientLines[0];
-            let lineData;
 
-            if (albara !== 'NO_IDALBARA') {
-              lineData = {
-                lineType: 'Comment',
-                description: `ALBARÀ: ${albara} - (${firstLine.Client}) - ${date}`,
-              };
-            } else {
-              lineData = {
-                lineType: 'Comment',
-                description: `(${firstLine.Client}) - ${date}`,
-              };
-            }
+            // Crear comentario de cabecera del cliente/albarà
+            const headerComment = albara !== 'NO_IDALBARA'
+              ? `ALBARÀ: ${albara} - (${firstLine.Client}) - ${date}`
+              : `(${firstLine.Client}) - ${date}`;
 
-            if (lineData.description !== lastClientComment) {
-              salesInvoiceData[endpointline].push(lineData);
-              lastClientComment = lineData.description;
+            if (headerComment !== lastClientComment) {
+              pushCommentLines(headerComment);
+              lastClientComment = headerComment;
             }
 
             const promises = clientLines.map((line) =>
@@ -336,33 +361,11 @@ export class invoicesService {
                   });
                 }
 
-                // Comentarios por línea (si existen y distintos)
+                // Comentarios por línea
                 if (line.Comentario) {
-                  const text = line.Comentario;
-                  const maxLength = 100;
-                  const words = text.split(' ');
-                  let currentLine = '';
-
-                  for (const word of words) {
-                    if ((currentLine + word).length > maxLength) {
-                      salesInvoiceData[endpointline].push({
-                        lineType: 'Comment',
-                        description: currentLine.trim(),
-                      });
-                      currentLine = word + ' ';
-                    } else {
-                      currentLine += word + ' ';
-                    }
-                  }
-
-                  if (currentLine.trim().length > 0) {
-                    salesInvoiceData[endpointline].push({
-                      lineType: 'Comment',
-                      description: currentLine.trim(),
-                    });
-                  }
+                  pushCommentLines(line.Comentario);
                 }
-              }),
+              })
             );
 
             await Promise.all(promises);
