@@ -15,9 +15,8 @@ export class salesSilemaRecapManualController {
     @Query('client_secret') client_secret: string,
     @Query('tenant') tenant: string,
     @Query('entorno') entorno: string,
-    @Query('manual') manual: boolean,
   ) {
-    let res = await this.salesSilemaRecapManualService.getDatosSalesSilemaRecapitulativaManual(idFactura, tabla, companyID, database, client_id, client_secret, tenant, entorno, manual);
+    let res = await this.salesSilemaRecapManualService.getDatosSalesSilemaRecapitulativaManual(idFactura, tabla, companyID, database, client_id, client_secret, tenant, entorno);
     if (res == true) return 'Se han sincronizado los tickets correctamente';
     else return 'Ha habido un error al sincronizar los tickets';
   }

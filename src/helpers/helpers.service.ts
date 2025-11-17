@@ -47,4 +47,60 @@ export class helpersService {
             release();
         }
     }
+    async cleanOldLogs() {
+        console.log("🧹 Limpiando logs antiguos...");
+        const release = await helpersService.logMutex.acquire();
+        try {
+            const logsPath = this.logsPath;
+
+            try {
+                await access(logsPath, constants.F_OK);
+            } catch {
+                return; // No existe el archivo, nada que limpiar
+            }
+
+            // Leer logs actuales
+            let logs: any[] = [];
+            try {
+                const data = await readFile(logsPath, 'utf8');
+                logs = JSON.parse(data);
+            } catch {
+                // Si está corrupto, intentar restaurar backup
+                try {
+                    const backup = await readFile(logsPath + '.bak', 'utf8');
+                    logs = JSON.parse(backup);
+                } catch {
+                    logs = [];
+                }
+            }
+
+            if (!Array.isArray(logs) || logs.length === 0) return;
+
+            const now = new Date();
+            const twoWeeksMs = 14 * 24 * 60 * 60 * 1000;
+
+            // Filtrar logs que sean más recientes que 2 semanas
+            const filteredLogs = logs.filter(log => {
+                try {
+                    // Convertir el timestamp local (es-ES) a Date
+                    const logDate = new Date(log.timestamp);
+                    if (isNaN(logDate.getTime())) return true; // Si no se puede parsear, mantener
+                    return now.getTime() - logDate.getTime() <= twoWeeksMs;
+                } catch {
+                    return true;
+                }
+            });
+
+            // Crear backup antes de escribir
+            try {
+                await copyFile(logsPath, logsPath + '.bak');
+            } catch { }
+
+            // Guardar los logs filtrados
+            await writeFile(logsPath, JSON.stringify(filteredLogs, null, 2), 'utf8');
+
+        } finally {
+            release();
+        }
+    }
 }
