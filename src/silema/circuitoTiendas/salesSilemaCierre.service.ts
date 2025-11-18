@@ -320,7 +320,7 @@ export class salesSilemaCierreService {
     SELECT 
         Botiga, CONVERT(Date, Data), 'Ticket Restaurante Exceso', TicketRestauranteExcs, '', 'Exceso Ticket Restaurante', 6
     FROM Totales
-    WHERE TicketRestaurante <> 0
+    WHERE TicketRestauranteExcs <> 0
 
     UNION ALL
 
