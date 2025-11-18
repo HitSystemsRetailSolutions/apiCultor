@@ -13,7 +13,7 @@ export class salesSilemaAbonoService {
 
   //Abono
   async syncSalesSilemaAbono(day, month, year, companyID, database, botiga, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    if (botiga === '225') {
+    if (botiga === '225' || botiga === '842') {
       // Esta licencia es de cocina no se tiene que pasar a BC
       return true;
     }
