@@ -66,7 +66,7 @@ export class itemsService {
         //Datos para crear el artículo
         const itemData1 = {
           number: `${item.Codi}`,
-          displayName: `${item.Nom}`,
+          displayName: `${item.Nom.substring(0, 100)}`,
           type: 'Non_x002D_Inventory',
           baseUnitOfMeasureCode: `${baseUnitOfMeasure}`,
           unitPrice: item.Preu,
@@ -177,7 +177,7 @@ export class itemsService {
     return value === 0 ? 'KG' : 'UDS';
   }
 
-  async getItemFromAPI(companyID: string, database: string, codiHIT: string, client_id: string, client_secret: string, tenant: string, entorno: string,): Promise<string | false> {
+  async getItemFromAPI(companyID: string, database: string, codiHIT: string, client_id: string, client_secret: string, tenant: string, entorno: string, retry = false): Promise<string | false> {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
     try {
@@ -197,15 +197,19 @@ export class itemsService {
     if (res.data.value.length > 0) {
       const item = res.data.value[0];
       const itemId = item.id;
-      if (!item.generalProductPostingGroupCode?.trim() || item.type !== 'Non_x002D_Inventory' || !item.VATProductPostingGroup?.trim()) {
-        const updatedItemId = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-        return updatedItemId ? String(updatedItemId) : false;
-      }
-      return itemId;
-    }
+      const needsUpdate = !item.generalProductPostingGroupCode?.trim() || item.type !== 'Non_x002D_Inventory' || !item.VATProductPostingGroup?.trim();
 
-    const newItemId = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-    return newItemId ? String(newItemId) : false;
+      if (needsUpdate) {
+        if (!retry) {
+          await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+          return await this.getItemFromAPI(companyID, database, codiHIT, client_id, client_secret, tenant, entorno, true);
+        }
+        return itemId;
+      }
+
+      const newItemId = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+      return newItemId ? String(newItemId) : false;
+    }
   }
 
   private logError(message: string, error: any) {
