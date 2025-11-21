@@ -43,13 +43,17 @@ export class vendorsSilemaService {
           codi: res.data.value[i].number || '',
           FormaPago: res.data.value[i].paymentMethodCode || '',
           FormaPagoValor: 0,
+          vencimiento: res.data.value[i].paymentTermsCode || '',
         };
 
+        //1= Domiciliación, 2=Cheque, 3=Efectivo, 4=Transferencia, 5=Pago bloqueado, 6=Tarjeta
+
         const formaPagoMap = {
-          RebutDomiciliat: 1,
-          PROV_CHEQUE: 2,
-          PROV_EFECTIVO: 3,
-          PROV_TRANS: 4,
+          PRO_CHEQU: 2,
+          PRO_DOM: 1,
+          PRO_REM_20: 1,
+          PRO_TR_CON: 4,
+          PRO_TRANS: 4,
         };
         proveedor.FormaPagoValor = formaPagoMap[proveedor.FormaPago] || 0;
 
@@ -120,6 +124,7 @@ export class vendorsSilemaService {
     try {
       await this.sql.runSql(sqlInsert, database);
       await this.sql.runSql(sqlSincroIds, database);
+      if (proveedor.vencimiento != '') await this.sqlProveedoresExtes(proveedor.id, 'VencimientoDias', proveedor.vencimiento, 2, database);
       await this.marcarProcesado(proveedor.id, token, companyID, tenant, entorno);
       console.log('Vendor procesado');
     } catch (error) {
@@ -148,21 +153,51 @@ export class vendorsSilemaService {
                       tipoCobro = '${proveedor.FormaPagoValor}'
                       WHERE id = '${proveedor.id}';`;
       if (accion == 1) {
+        await this.sqlProveedoresExtes(proveedor.id, '', '', 5, database);
         await this.sql.runSql(sqlUpdate, database);
+        if (proveedor.vencimiento != '') await this.sqlProveedoresExtes(proveedor.id, 'VencimientoDias', proveedor.vencimiento, 2, database);
         await this.marcarProcesado(proveedor.id, token, companyID, tenant, entorno);
         console.log('Vendor actualizado');
       } else if (accion == 2) {
         let tipoDato = 'proveedor';
         let sqlSincroIds = `INSERT INTO BC_SincroIds (TmSt, TipoDato, IdBc, IdHit, IdEmpresaBc, IdEmpresaHit) 
           VALUES (GETDATE(), '${tipoDato}', '${proveedor.codi}', '${proveedor.id}', '${companyID}', '${database}')`;
+        await this.sqlProveedoresExtes(proveedor.id, '', '', 5, database);
         await this.sql.runSql(sqlUpdate, database);
         await this.sql.runSql(sqlSincroIds, database);
+        if (proveedor.vencimiento != '') await this.sqlProveedoresExtes(proveedor.id, 'VencimientoDias', proveedor.vencimiento, 2, database);
         await this.marcarProcesado(proveedor.id, token, companyID, tenant, entorno);
         console.log('Vendor actualizado');
       }
     } catch (error) {
       console.error(`Error al actualizar el vendor: ID=${proveedor.id}, Nombre=${proveedor.nombre}, CompanyID=${companyID}`);
       console.error(error);
+    }
+  }
+  async sqlProveedoresExtes(Codi, Variable, Valor, query, database) {
+    /*
+    query = 1 //SELECT
+    query = 2 //INSERT
+    query = 3 //UPDATE
+    query = 4 //DELETE
+    query = 5 //DELETE ALL from Codi
+    */
+    if (query == 1) {
+      let sql = `SELECT * FROM ccProveedoresExtes WHERE id = ${Codi} and nom = ${Variable}`;
+      let sqlQuery = await this.sql.runSql(sql, database);
+      return sqlQuery.length;
+    } else if (query == 2) {
+      let sql = `INSERT INTO ccProveedoresExtes (id, nom, valor) VALUES ('${Codi}', '${Variable}', '${Valor}')`;
+      let sqlQuery = await this.sql.runSql(sql, database);
+    } else if (query == 3) {
+      let sql = `UPDATE ccProveedoresExtes SET valor = '${Valor}' WHERE id = ${Codi} and nom = ${Variable}`;
+      let sqlQuery = await this.sql.runSql(sql, database);
+    } else if (query == 4) {
+      let sql = `DELETE FROM ccProveedoresExtes WHERE id = ${Codi} and nom = ${Variable}`;
+      let sqlQuery = await this.sql.runSql(sql, database);
+    } else if (query == 5) {
+      let sql = `DELETE FROM ccProveedoresExtes WHERE id = ${Codi}`;
+      let sqlQuery = await this.sql.runSql(sql, database);
     }
   }
 
