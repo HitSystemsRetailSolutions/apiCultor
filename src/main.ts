@@ -143,19 +143,10 @@ client.on('message', async function (topic, message) {
         silemaVendors: () => callSync('syncVendorsSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de proveedores Silema acabada'),
         silemaLocations: () => callSync('syncLocationSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de almacenes Silema acabada'),
         maestros: async () => {
-          await callSync('syncContactsSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de contactos Silema acabada');
           await callSync('syncCustomersSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de clientes Silema acabada');
           await callSync('syncVendorsSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de proveedores Silema acabada');
           await callSync('syncLocationSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de almacenes Silema acabada');
         },
-        maestrosItems: async () => {
-          await callSync('syncItemsSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de artículos Silema acabada');
-          await callSync('syncContactsSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de contactos Silema acabada');
-          await callSync('syncCustomersSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de clientes Silema acabada');
-          await callSync('syncVendorsSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de proveedores Silema acabada');
-          await callSync('syncLocationSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de almacenes Silema acabada');
-        }
-
       };
 
       // Ejecutar acción según el mensaje
