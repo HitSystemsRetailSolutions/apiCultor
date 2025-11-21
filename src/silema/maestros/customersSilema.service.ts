@@ -223,7 +223,8 @@ export class customersSilemaService {
         },
       });
     } catch (error) {
-      throw new Error('Failed to put customer');
+      console.error(`Error al marcar el customer como procesado: ID=${id}, CompanyID=${companyID}`);
+      console.log(error.response.data);
     }
   }
   escapeSqlString(value) {
