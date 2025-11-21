@@ -183,20 +183,20 @@ export class vendorsSilemaService {
     query = 5 //DELETE ALL from Codi
     */
     if (query == 1) {
-      let sql = `SELECT * FROM ccProveedoresExtes WHERE id = ${Codi} and nom = ${Variable}`;
+      let sql = `SELECT * FROM ccProveedoresExtes WHERE id = '${Codi}' and nom = '${Variable}'`;
       let sqlQuery = await this.sql.runSql(sql, database);
       return sqlQuery.length;
     } else if (query == 2) {
       let sql = `INSERT INTO ccProveedoresExtes (id, nom, valor) VALUES ('${Codi}', '${Variable}', '${Valor}')`;
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 3) {
-      let sql = `UPDATE ccProveedoresExtes SET valor = '${Valor}' WHERE id = ${Codi} and nom = ${Variable}`;
+      let sql = `UPDATE ccProveedoresExtes SET valor = '${Valor}' WHERE id = '${Codi}' and nom = '${Variable}'`;
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 4) {
-      let sql = `DELETE FROM ccProveedoresExtes WHERE id = ${Codi} and nom = ${Variable}`;
+      let sql = `DELETE FROM ccProveedoresExtes WHERE id = '${Codi}' and nom = '${Variable}'`;
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 5) {
-      let sql = `DELETE FROM ccProveedoresExtes WHERE id = ${Codi}`;
+      let sql = `DELETE FROM ccProveedoresExtes WHERE id = '${Codi}'`;
       let sqlQuery = await this.sql.runSql(sql, database);
     }
   }
