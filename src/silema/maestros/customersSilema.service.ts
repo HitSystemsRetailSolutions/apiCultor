@@ -39,39 +39,35 @@ export class customersSilemaService {
           Adresa: res.data.value[i].address || '', // Dirección o cadena vacía
           Ciutat: res.data.value[i].city || '', // Ciudad o cadena vacía
           Cp: res.data.value[i].postCode || 0, // Código postal como entero o 0
+          Provincia: res.data.value[i].county || '',
           NomLlarg: res.data.value[i].name || '', // Nombre largo concatenado
           eMail: res.data.value[i].eMail || '',
           phone: res.data.value[i].phoneNo || '',
           FormaPago: res.data.value[i].paymentMethodCode || '',
           FormaPagoValor: 0,
-          primaryContactNo: res.data.value[i].primaryContactNo || '',
-          IdHitCFINAL: '',
+          Vencimiento: res.data.value[i].paymentTermsCode || '',
+          // primaryContactNo: res.data.value[i].primaryContactNo || '',
+          // IdHitCFINAL: '',
           pagaEnTienda: res.data.value[i].payInStore || true,
           IdBc: res.data.value[i].id || '',
           numberBC: res.data.value[i].number || '',
         };
         //Comprobar que paymentMethodCode es
-        switch (customer.FormaPago) {
-          case 'RebutDomiciliat':
-            customer.FormaPagoValor = 1;
-            break;
-          case 'Cheque':
-            customer.FormaPagoValor = 2;
-            break;
-          case 'CLI_EFECTIVO':
-            customer.FormaPagoValor = 3;
-            break;
-          case 'CLI_TRANSF':
-            customer.FormaPagoValor = 4;
-            break;
-        }
-        if (customer.primaryContactNo != '') {
-          let sqlCFINAL = `SELECT * FROM BC_SincroIds WHERE IdBc = '${customer.primaryContactNo}' AND IdEmpresaBc = '${companyID}' AND IdEmpresaHit = '${database}' AND TipoDato = 'contacto'`;
-          // console.log(sqlCFINAL);
-          let queryCFINAL = await this.sql.runSql(sqlCFINAL, database);
-          if (queryCFINAL.recordset.length > 0 && queryCFINAL.recordset[0].IdHit != null) customer.IdHitCFINAL = queryCFINAL.recordset[0].IdHit;
-          else console.log(`El "clientFinal" con IdBc *${customer.primaryContactNo}* no existe en la base de datos o no tiene un IdHit`);
-        }
+        // 1= Domiciliación, 2=Cheque, 3=Efectivo, 4=Transferencia
+        const formaPagoMap = {
+          CLI_TRANSF: 4,
+          REMESA: 1,
+          REMESA_D20: 1,
+        };
+        customer.FormaPagoValor = formaPagoMap[customer.FormaPago] || 0;
+
+        // if (customer.primaryContactNo != '') {
+        //   let sqlCFINAL = `SELECT * FROM BC_SincroIds WHERE IdBc = '${customer.primaryContactNo}' AND IdEmpresaBc = '${companyID}' AND IdEmpresaHit = '${database}' AND TipoDato = 'contacto'`;
+        //   // console.log(sqlCFINAL);
+        //   let queryCFINAL = await this.sql.runSql(sqlCFINAL, database);
+        //   if (queryCFINAL.recordset.length > 0 && queryCFINAL.recordset[0].IdHit != null) customer.IdHitCFINAL = queryCFINAL.recordset[0].IdHit;
+        //   else console.log(`El "clientFinal" con IdBc *${customer.primaryContactNo}* no existe en la base de datos o no tiene un IdHit`);
+        // }
         let sqlSincroIds = `SELECT * FROM BC_SincroIds WHERE IdBc = '${customer.IdBc}' AND IdEmpresaBc = '${companyID}' AND IdEmpresaHit = '${database}' AND TipoDato = 'customer'`;
         let querySincro = await this.sql.runSql(sqlSincroIds, database);
         try {
@@ -134,7 +130,9 @@ export class customersSilemaService {
       if (customer.phone != '') await this.sqlConstantClient(customer.Codi, 'Tel', customer.phone, 2, database);
       if (customer.FormaPagoValor) await this.sqlConstantClient(customer.Codi, 'FormaPagoLlista', customer.FormaPagoValor, 2, database);
       if (!customer.pagaEnTienda) await this.sqlConstantClient(customer.Codi, 'NoPagaEnTienda', 'NoPagaEnTienda', 2, database);
-      if (customer.IdHitCFINAL != '') await this.sqlConstantClient(customer.Codi, 'CFINAL', customer.IdHitCFINAL, 2, database);
+      if (customer.Vencimiento != '') await this.sqlConstantClient(customer.Codi, 'Venciment', customer.Vencimiento, 2, database);
+      if (customer.Provincia != '') await this.sqlConstantClient(customer.Codi, 'Provincia', customer.Provincia, 2, database);
+      // if (customer.IdHitCFINAL != '') await this.sqlConstantClient(customer.Codi, 'CFINAL', customer.IdHitCFINAL, 2, database);
       this.marcaProcesado(customer.IdBc, token, companyID, tenant, entorno);
     } catch (error) {
       console.log('Error al insertar el cliente:', error);
@@ -158,7 +156,9 @@ export class customersSilemaService {
         if (customer.phone != '') await this.sqlConstantClient(customer.Codi, 'Tel', customer.phone, 2, database);
         if (customer.FormaPagoValor) await this.sqlConstantClient(customer.Codi, 'FormaPagoLlista', customer.FormaPagoValor, 2, database);
         if (!customer.pagaEnTienda) await this.sqlConstantClient(customer.Codi, 'NoPagaEnTienda', 'NoPagaEnTienda', 2, database);
-        if (customer.IdHitCFINAL != '') await this.sqlConstantClient(customer.Codi, 'CFINAL', customer.IdHitCFINAL, 2, database);
+        if (customer.Vencimiento != '') await this.sqlConstantClient(customer.Codi, 'Venciment', customer.Vencimiento, 2, database);
+        if (customer.Provincia != '') await this.sqlConstantClient(customer.Codi, 'Provincia', customer.Provincia, 2, database);
+        // if (customer.IdHitCFINAL != '') await this.sqlConstantClient(customer.Codi, 'CFINAL', customer.IdHitCFINAL, 2, database);
         this.marcaProcesado(customer.IdBc, token, companyID, tenant, entorno);
         console.log('Customer actualizado');
       } else if (accion == 2) {
@@ -174,7 +174,9 @@ export class customersSilemaService {
         if (customer.phone != '') await this.sqlConstantClient(customer.Codi, 'Tel', customer.phone, 2, database);
         if (customer.FormaPagoValor) await this.sqlConstantClient(customer.Codi, 'FormaPagoLlista', customer.FormaPagoValor, 2, database);
         if (!customer.pagaEnTienda) await this.sqlConstantClient(customer.Codi, 'NoPagaEnTienda', 'NoPagaEnTienda', 2, database);
-        if (customer.IdHitCFINAL != '') await this.sqlConstantClient(customer.Codi, 'CFINAL', customer.IdHitCFINAL, 2, database);
+        if (customer.Vencimiento != '') await this.sqlConstantClient(customer.Codi, 'Venciment', customer.Vencimiento, 2, database);
+        if (customer.Provincia != '') await this.sqlConstantClient(customer.Codi, 'Provincia', customer.Provincia, 2, database);
+        // if (customer.IdHitCFINAL != '') await this.sqlConstantClient(customer.Codi, 'CFINAL', customer.IdHitCFINAL, 2, database);
         this.marcaProcesado(customer.IdBc, token, companyID, tenant, entorno);
         console.log('Customer actualizado');
       }
@@ -191,17 +193,17 @@ export class customersSilemaService {
     query = 5 //DELETE ALL from Codi
     */
     if (query == 1) {
-      let sql = `SELECT * FROM constantClient WHERE Codi = ${Codi} and Variable = ${Variable}`;
+      let sql = `SELECT * FROM constantClient WHERE Codi = ${Codi} and Variable = '${Variable}'`;
       let sqlQuery = await this.sql.runSql(sql, database);
       return sqlQuery.length;
     } else if (query == 2) {
       let sql = `INSERT INTO constantsclient (Codi, Variable, Valor) VALUES ('${Codi}', '${Variable}', '${Valor}')`;
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 3) {
-      let sql = `UPDATE constantsclient SET Valor = '${Valor}' WHERE Codi = ${Codi} and Variable = ${Variable}`;
+      let sql = `UPDATE constantsclient SET Valor = '${Valor}' WHERE Codi = ${Codi} and Variable = '${Variable}'`;
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 4) {
-      let sql = `DELETE FROM constantsclient WHERE Codi = ${Codi} and Variable = ${Variable}`;
+      let sql = `DELETE FROM constantsclient WHERE Codi = ${Codi} and Variable = '${Variable}'`;
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 5) {
       let sql = `DELETE FROM constantsclient WHERE Codi = ${Codi}`;
