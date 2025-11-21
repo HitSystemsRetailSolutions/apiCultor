@@ -49,11 +49,11 @@ export class vendorsSilemaService {
         //1= Domiciliación, 2=Cheque, 3=Efectivo, 4=Transferencia, 5=Pago bloqueado, 6=Tarjeta
 
         const formaPagoMap = {
-          PRO_CHEQU: 2,
-          PRO_DOM: 1,
-          PRO_REM_20: 1,
-          PRO_TR_CON: 4,
-          PRO_TRANS: 4,
+          PROV_CHEQU: 2,
+          PROV_DOM: 1,
+          PROV_REM_20: 1,
+          PROV_TR_CON: 4,
+          PROV_TRANS: 4,
         };
         proveedor.FormaPagoValor = formaPagoMap[proveedor.FormaPago] || 0;
 
