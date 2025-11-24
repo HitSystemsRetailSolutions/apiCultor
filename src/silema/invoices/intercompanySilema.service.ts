@@ -80,7 +80,7 @@ export class intercompanySilemaService {
                               f.Iva,
                               f.ProducteNom AS Nombre,
                               c.Nom AS Client,
-                              f.Preu,
+                              COALESCE(f.Preu,0) as Preu,
                               f.Referencia,
                               CAST(f.Producte AS VARCHAR(20)) AS Plu,
                               SUM(
