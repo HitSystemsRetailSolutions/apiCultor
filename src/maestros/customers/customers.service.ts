@@ -208,7 +208,8 @@ export class customersService {
                 LEFT JOIN ConstantsClient c2_UT ON c2_UT.codi = c1.codi AND c2_UT.variable = 'UnitatTramitadora'
                 LEFT JOIN ConstantsClient c2_OC ON c2_OC.codi = c1.codi AND c2_OC.variable = 'OficinaComptable'
                 LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
-                WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9 and c1.Nif = '${codiHIT}'
+                LEFT JOIN ConstantsClient c2_desactiva ON c2_desactiva.codi = c1.codi AND c2_desactiva.variable = 'DesactivaFacturacio'
+                WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9 and c1.Nif = '${codiHIT}' AND (c2_desactiva.valor IS NULL OR c2_desactiva.valor <> 'DesactivaFacturacio')
               )
               SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma, OG, UT, OC
               FROM ClientesFiltrados
