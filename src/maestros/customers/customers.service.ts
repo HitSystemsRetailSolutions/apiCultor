@@ -194,6 +194,7 @@ export class customersService {
                       CASE WHEN COALESCE(NULLIF(ph.Valor1, ''), NULL) IS NULL THEN 'NO' ELSE 'SI' END AS esTienda,
                       CASE c1.[Tipus Iva] WHEN '2' THEN 'si' ELSE 'no' END AS recargo, c2_idioma.valor as idioma,
                       c2_OG.Valor AS OG, c2_UT.Valor AS UT, c2_OC.Valor AS OC,
+                      c2_comercial.valor AS COMERCIAL,
                       ROW_NUMBER() OVER (PARTITION BY c1.Nif ORDER BY c1.nom) AS rn
                 FROM ClienteMare cm
                 JOIN Clients c1 ON c1.codi = cm.CODIGO_MARE
@@ -209,9 +210,10 @@ export class customersService {
                 LEFT JOIN ConstantsClient c2_OC ON c2_OC.codi = c1.codi AND c2_OC.variable = 'OficinaComptable'
                 LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
                 LEFT JOIN ConstantsClient c2_desactiva ON c2_desactiva.codi = c1.codi AND c2_desactiva.variable = 'DesactivaFacturacio'
+                LEFT JOIN ConstantsClient c2_comercial ON c2_comercial.codi = c1.codi AND c2_comercial.variable = 'comercial'
                 WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9 and c1.Nif = '${codiHIT}' AND (c2_desactiva.valor IS NULL OR c2_desactiva.valor <> 'DesactivaFacturacio')
               )
-              SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma, OG, UT, OC
+              SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma, OG, UT, OC, COMERCIAL
               FROM ClientesFiltrados
               WHERE rn = 1
               ORDER BY codi;`,
@@ -234,6 +236,7 @@ export class customersService {
                     CASE WHEN COALESCE(NULLIF(ph.Valor1, ''), NULL) IS NULL THEN 'NO' ELSE 'SI' END AS esTienda,
                     CASE c1.[Tipus Iva] WHEN '2' THEN 'si' ELSE 'no' END AS recargo, c2_idioma.valor as idioma,
                     c2_OG.Valor AS OG, c2_UT.Valor AS UT, c2_OC.Valor AS OC,
+                    c2_comercial.valor AS COMERCIAL,
                     ROW_NUMBER() OVER (PARTITION BY c1.Nif ORDER BY c1.nom) AS rn
               FROM ClienteMare cm
               JOIN Clients c1 ON c1.codi = cm.CODIGO_MARE
@@ -248,9 +251,11 @@ export class customersService {
               LEFT JOIN ConstantsClient c2_UT ON c2_UT.codi = c1.codi AND c2_UT.variable = 'UnitatTramitadora'
               LEFT JOIN ConstantsClient c2_OC ON c2_OC.codi = c1.codi AND c2_OC.variable = 'OficinaComptable'
               LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
-              WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9
+              LEFT JOIN ConstantsClient c2_desactiva ON c2_desactiva.codi = c1.codi AND c2_desactiva.variable = 'DesactivaFacturacio'
+              LEFT JOIN ConstantsClient c2_comercial ON c2_comercial.codi = c1.codi AND c2_comercial.variable = 'comercial'
+              WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9  AND (c2_desactiva.valor IS NULL OR c2_desactiva.valor <> 'DesactivaFacturacio')
             )
-            SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma, OG, UT, OC
+            SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma, OG, UT, OC, COMERCIAL
             FROM ClientesFiltrados
             WHERE rn = 1
             ORDER BY codi;`,
@@ -272,6 +277,7 @@ export class customersService {
 
     let customerId = '';
     let customerNumber = '';
+    let customerComercial = '';
     let i = 1;
     for (const customer of customers.recordset) {
       try {
@@ -280,6 +286,7 @@ export class customersService {
         const taxId = await this.getTaxAreaId(taxArea, companyID, client_id, client_secret, tenant, entorno);
         const payTermId = await this.getPaymentTermId(customer.TERMINOPAGO, companyID, client_id, client_secret, tenant, entorno);
         customerNumber = `${this.normalizeNIF(customer.NIF)}`;
+        customerComercial = customer.COMERCIAL || '';
         const customerData1 = {
           number: customerNumber,
           displayName: `${customer.NOMBREFISCAL}` || `${customer.NOMBRE}`,
@@ -376,7 +383,7 @@ export class customersService {
       i++;
     }
     if (codiHIT) {
-      return { customerNumber, customerId };
+      return { customerNumber, customerId, customerComercial };
     }
     return true;
   }
