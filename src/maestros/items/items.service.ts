@@ -166,6 +166,7 @@ export class itemsService {
       i++;
     }
     if (codiHIT) {
+      bar.stop();
       return itemId;
     }
     bar.stop();
@@ -177,8 +178,8 @@ export class itemsService {
     return value === 0 ? 'KG' : 'UDS';
   }
 
-  async getItemFromAPI(companyID: string, database: string, codiHIT: string, client_id: string, client_secret: string, tenant: string, entorno: string, retry = false): Promise<string | false> {
-    const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
+  async getItemFromAPI(companyID: string, database: string, codiHIT: string, client_id: string, client_secret: string, tenant: string, entorno: string,): Promise<string | false> {
+    let token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
     try {
       res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq '${codiHIT}'`,
@@ -190,7 +191,7 @@ export class itemsService {
         },
       );
     } catch (error) {
-      this.logError(`❌ Error consultando item con plu ${codiHIT}`, error);
+      this.logError(`❌ Error consultando item con codiHIT ${codiHIT}`, error);
       throw error;
     }
 
@@ -200,16 +201,18 @@ export class itemsService {
       const needsUpdate = !item.generalProductPostingGroupCode?.trim() || item.type !== 'Non_x002D_Inventory' || !item.VATProductPostingGroup?.trim();
 
       if (needsUpdate) {
-        if (!retry) {
-          await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-          return await this.getItemFromAPI(companyID, database, codiHIT, client_id, client_secret, tenant, entorno, true);
-        }
-        return itemId;
+        const updatedItemId = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+        return updatedItemId ? String(updatedItemId) : itemId;
       }
-
-      const newItemId = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-      return newItemId ? String(newItemId) : false;
+      return itemId;
     }
+
+    const newItemId = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+    if (!newItemId) {
+      console.warn(`⚠️ No se pudo crear el artículo con codiHIT ${codiHIT}`);
+      return false;
+    }
+    return String(newItemId);
   }
 
   private logError(message: string, error: any) {
