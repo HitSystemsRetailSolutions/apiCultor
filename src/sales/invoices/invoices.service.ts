@@ -13,6 +13,7 @@ import { xmlService } from 'src/sales/xml/xml.service';
 import { noSerieService } from '../noSerie/noSerie.service';
 import { parseStringPromise } from "xml2js";
 import { verifactuService } from '../verifactu/verifactu.service';
+import { salespersonService } from 'src/maestros/salesperson/salesperson.service';
 
 let errores: string[] = [];
 @Injectable()
@@ -32,6 +33,7 @@ export class invoicesService {
     private xmlService: xmlService,
     private noSerieService: noSerieService,
     private verifactu: verifactuService,
+    private salesperson: salespersonService,
   ) { }
 
   async syncSalesFacturas(companyID: string, database: string, idFacturas: string[], tabla: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -80,10 +82,15 @@ export class invoicesService {
           console.log(`-------------------SINCRONIZANDO FACTURA NÚMERO ${num} -----------------------`);
           let customerId;
           let customerNumber;
+          let customerComercial;
           const customerData = await this.customers.getCustomerFromAPI(companyID, database, x.ClientNif, client_id, client_secret, tenant, entorno);
           customerId = customerData.customerId;
           customerNumber = customerData.customerNumber;
-
+          customerComercial = customerData.customerComercial;
+          console.log(customerComercial)
+          if (customerComercial) {
+            await this.salesperson.syncSalespersons(companyID, database, client_id, client_secret, tenant, entorno, customerComercial);
+          }
           let res;
           try {
             res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=externalDocumentNumber eq '${num}' and totalAmountIncludingTax ne 0`, {
@@ -117,6 +124,7 @@ export class invoicesService {
               postingDate: invoiceDate,
               customerNumber: customerNumber,
               invoiceType: serie.includes('RC/') ? "F3" : "F1",
+              customerComercial: customerComercial || '',
               salesInvoiceLines: [],
             };
           } else {
@@ -126,6 +134,7 @@ export class invoicesService {
               postingDate: invoiceDate,
               customerNumber: customerNumber,
               creditMemoType: "R4",
+              customerComercial: customerComercial || '',
               salesCreditMemoLines: [],
             };
           }
@@ -404,6 +413,7 @@ export class invoicesService {
     const safeCustomerNo = this.escapeXml(invoiceData.customerNumber);
     const safeInvoiceDate = this.escapeXml(invoiceData.invoiceDate || invoiceData.creditMemoDate);
     const safeType = this.escapeXml(invoiceData.invoiceType || invoiceData.creditMemoType);
+    const safeCustomerComercial = this.escapeXml(invoiceData.customerComercial || '');
     let safeLocationCode = '';
 
     const esTienda = await this.sql.runSql(`SELECT * FROM ParamsHw WHERE codi = ${clientCodi}`, database);
@@ -426,6 +436,7 @@ export class invoicesService {
             <tns:customerNo>${safeCustomerNo}</tns:customerNo>
             <tns:locationCode>${safeLocationCode}</tns:locationCode>
             <tns:type>${safeType}</tns:type>
+            <tns:salespersonCode>${safeCustomerComercial}</tns:salespersonCode>
           </tns:CreateInvoice>
         </soap:Body>
       </soap:Envelope>`.trim();
