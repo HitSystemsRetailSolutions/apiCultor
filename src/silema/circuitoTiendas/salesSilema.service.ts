@@ -5,6 +5,7 @@ import { salesSilemaCierreService } from './salesSilemaCierre.service';
 import { salesSilemaAbonoService } from './salesSilemaAbono.service';
 import axios from 'axios';
 import { helpersService } from 'src/helpers/helpers.service';
+import { checksService } from './checks.service';
 
 @Injectable()
 export class salesSilemaService {
@@ -14,6 +15,7 @@ export class salesSilemaService {
     private salesSilemaCierre: salesSilemaCierreService,
     private salesSilemaAbono: salesSilemaAbonoService,
     private helpers: helpersService,
+    private checks: checksService,
   ) { }
   // Funcion que pasandole un dia de inicio y otro de fin sincroniza los datos de ventas de silema
   async syncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, database, botigas: Array<String>, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -35,7 +37,11 @@ export class salesSilemaService {
 
           try {
             console.log('Iniciando syncSalesSilema...');
-            await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
+            const okSales = await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
+            if (!okSales) {
+              console.log("Ventas NO validadas → NO se harán abonos ni cierres.");
+              continue;
+            }
             console.log('syncSalesSilema completado.');
           } catch (error) {
             console.error(`Error en syncSalesSilema para ${formattedDay}/${formattedMonth}/${formattedYear}, tienda ${botiga}:`, error);
@@ -94,7 +100,11 @@ export class salesSilemaService {
 
           try {
             errorWhere = 'syncSalesSilema';
-            await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
+            const okSales = await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
+            if (!okSales) {
+              console.log("Ventas NO validadas → NO se harán abonos ni cierres.");
+              continue;
+            }
           } catch (error) {
             console.error(`Error en ${errorWhere} para el día ${day}/${month}/${year}, tienda ${botiga}:`, error);
             success = false;
@@ -213,7 +223,12 @@ export class salesSilemaService {
         await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'warning', 'SKIP_TURNO', `Turno ${i + (Number(turno) === 2 ? 2 : 1)} omitido por cierre Z con importe 0 o inexistente`, 'Ventas', companyID, entorno);
         continue;
       }
-
+      const checkResults = await this.checks.validaCaja(botiga, year, month, day, formattedHoraInicio, formattedHoraFin, database, turno);
+      if (!checkResults) {
+        await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'warning', 'VALIDATION_FAIL', `El turno NO pasó las validaciones. Se omite el traspaso.`, 'Ventas', companyID, entorno);
+        return false;
+      }
+      console.log(`Turno ${turno} validado correctamente. Procesando ventas...`);
       await this.processTurnoSalesSilema(i + (Number(turno) === 2 ? 2 : 1), botiga, day, month, year, formattedHoraInicio, formattedHoraFin, database, tipo, tenant, entorno, companyID, token);
     }
     return true;
