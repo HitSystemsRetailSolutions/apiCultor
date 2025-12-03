@@ -60,15 +60,6 @@ export class salespersonService {
           'Content-Type': 'application/json',
         },
       });
-    } else {
-      let etag = res.data.value[0]['@odata.etag'];
-      await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/employees(${res.data.value[0].id})`, salesPersonData, {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-          'if-Match': etag,
-        },
-      });
     }
     return true;
   }
