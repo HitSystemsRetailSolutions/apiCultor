@@ -207,8 +207,7 @@ export class invoicesService {
           const post = await this.postInvoice(companyID, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
           if (post.status === 204) {
             const facturaData = await this.getSaleFromAPI(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno);
-            await this.verifactu.generarHuella(facturaData.data.number, endpoint, entorno, tenant, client_id, client_secret, companyID);
-            await this.verifactu.updateURL(companyID, facturaData.data.number, endpoint, tenant, entorno, client_id, client_secret);
+            await this.verifactu.verifactu(facturaData.data.number, endpoint, entorno, tenant, client_id, client_secret, companyID);
             console.log(`✅ Factura ${num} sincronizada correctamente.`);
             await this.pdfService.esperaYVeras();
             await this.updateRegistro(companyID, database, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);

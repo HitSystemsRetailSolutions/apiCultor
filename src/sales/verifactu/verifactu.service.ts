@@ -2,6 +2,7 @@ import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import axios from 'axios';
 import * as mqtt from 'mqtt';
 import { getTokenService } from 'src/connection/getToken.service';
+import { runSqlService } from 'src/connection/sqlConnection.service';
 
 @Injectable()
 export class verifactuService {
@@ -13,9 +14,38 @@ export class verifactuService {
 
     constructor(
         private token: getTokenService,
+        private sql: runSqlService,
     ) { }
+    async verifactu(docNo: string, endpoint: string, entorno: string, tenant: string, client_id: string, client_secret: string, companyId: string) {
+        console.log('📡 Iniciando verificación de factura en Verifactu...');
+        const token = await this.token.getToken2(client_id, client_secret, tenant);
 
-    async generarHuella(docNo: string, docType: string, entorno: string, tenant: string, client_id: string, client_secret: string, companyId: string) {
+        const urlNIF = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyId})/companyInformation`
+        const responseNIF = await axios.get(urlNIF, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+        });
+        const nif = responseNIF.data.value[0].taxRegistrationNumber;
+        const query = await this.sql.runSql(
+            `select * from VERIFACTU where NIF = '${nif}' and Verifactu = 1`, 'Hit'
+        );
+        const verifactuEnabled = query.recordset.length > 0;
+
+        if (verifactuEnabled) {
+            console.log(`✅ NIF ${nif} encontrado en Verifactu. Generando huella con Verifactu...`);
+            // Aquí iría la lógica para generar la huella con Verifactu de momento solo se simula
+            await this.generarHuellaNoVerifactu(docNo, endpoint, entorno, tenant, client_id, client_secret, companyId);
+            await this.updateURLNoVerifactu(docNo, endpoint, entorno, tenant, client_id, client_secret, companyId, nif);
+        } else {
+            console.log(`⚠️ NIF ${nif} no encontrado en Verifactu. Generando huella sin Verifactu...`);
+            await this.generarHuellaNoVerifactu(docNo, endpoint, entorno, tenant, client_id, client_secret, companyId);
+            await this.updateURLNoVerifactu(docNo, endpoint, entorno, tenant, client_id, client_secret, companyId, nif);
+        }
+
+    }
+    async generarHuellaNoVerifactu(docNo: string, docType: string, entorno: string, tenant: string, client_id: string, client_secret: string, companyId: string) {
         console.log(`📡 Enviando factura ${docNo} a la API SOAP de Business Central...`);
 
         let token = await this.token.getToken2(client_id, client_secret, tenant);
@@ -63,14 +93,13 @@ export class verifactuService {
         console.log("✅ Respuesta de BC:", response.data);
     }
 
-    async updateURL(companyID, invoiceNumber, endpoint, tenant, entorno, client_id: string, client_secret: string) {
+    async updateURLNoVerifactu(invoiceNumber, endpoint, entorno, tenant, client_id: string, client_secret: string, companyID, nif) {
         let factura;
         console.log(`📡 Actualizando la URL de la factura ${invoiceNumber} en Business Central...`);
         try {
             const token = await this.token.getToken2(client_id, client_secret, tenant);
             const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=number eq '${invoiceNumber}'`;
             const urlID = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/InvoiceHashes?$filter=no eq '${invoiceNumber}'`;
-            const urlNIF = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/companyInformation`
             const response = await axios.get(url, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -85,12 +114,6 @@ export class verifactuService {
                 },
             });
 
-            const responseNIF = await axios.get(urlNIF, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                },
-            });
 
             factura = response.data.value[0];
             const id = responseID.data.value[0].Id;
@@ -101,7 +124,6 @@ export class verifactuService {
                 const year = d.getFullYear();
                 return `${day}-${month}-${year}`;
             }
-            const nif = responseNIF.data.value[0].taxRegistrationNumber;
             const importe = factura.totalAmountIncludingTax.toFixed(2);
             const updateData = {
                 url: `https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR?nif=${nif}&numserie=${factura.number}&fecha=${formatDate(factura.postingDate)}&importe=${importe}`,
