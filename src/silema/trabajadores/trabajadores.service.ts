@@ -140,8 +140,8 @@ export class trabajadoresService {
       let icona = '';
       let hiEditemHoraris = 1;
       let tid = '';
-      let fechaAlta = trabajador.altaContrato || new Date().toISOString();
-      let fechaAct = trabajador.altaContrato || new Date().toISOString();
+      let fechaAlta = this.sanitizeFecha(trabajador.altaContrato) || new Date().toISOString().split("T")[0];
+      let fechaAct = this.sanitizeFecha(trabajador.altaContrato) || new Date().toISOString().split("T")[0];
       const tipoGDT = categoriaTipoGDTMap[trabajador.categoria] || 'DEPENDENTA';
 
       const inserts = [
@@ -170,8 +170,12 @@ export class trabajadoresService {
         let sqlInsert = ` INSERT INTO dependentes ( CODI, NOM, MEMO, ADREÇA, Icona, [Hi Editem Horaris], Tid) 
         VALUES ( '${codi}', '${this.escapeSqlString(nom)}', '${this.escapeSqlString(memo)}', '${this.escapeSqlString(adreca)}', '${icona}', ${hiEditemHoraris}, '${tid}'); `;
         await this.sql.runSql(sqlInsert, database);
-        let sqlCalendario = `insert into CdpCalendariLaboral_${year} (id, fecha, idEmpleado, estado, observaciones, timestamp) values (NEWID(), '${fechaAlta}', '${codi}', 'INICIO CONTRATO', '', getdate())`;
-        await this.sql.runSql(sqlCalendario, database);
+        if (fechaAlta) {
+          let sqlCalendario = `insert into CdpCalendariLaboral_${year} (id, fecha, idEmpleado, estado, observaciones, timestamp) values (NEWID(), '${fechaAlta}', '${codi}', 'INICIO CONTRATO', '', getdate())`;
+          await this.sql.runSql(sqlCalendario, database);
+        } else {
+          console.warn(`⛔ Fecha inválida para trabajador ${trabajador.documento}, no se inserta en calendario.`);
+        }
         for (const { nom, valor } of inserts) {
           // Salta la inserción si el valor está vacío, null, undefined o solo espacios
           if (valor == null || valor.toString().trim() === '') continue;
@@ -228,5 +232,15 @@ export class trabajadoresService {
   escapeSqlString(value) {
     if (value == null) return '';
     return String(value).replace(/'/g, '´');
+  }
+  sanitizeFecha(fecha: string): string {
+    if (!fecha) return null;
+    try {
+      const year = parseInt(fecha.split("-")[0]);
+      if (year < 1900) return null; // o una fecha por defecto
+      return fecha;
+    } catch {
+      return null;
+    }
   }
 }
