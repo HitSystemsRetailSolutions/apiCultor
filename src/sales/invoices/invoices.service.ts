@@ -392,7 +392,9 @@ export class invoicesService {
   async createInvoice(serie: string, docType: string, invoiceData, clientCodi: string, database: string, entorno: string, tenant: string, client_id: string, client_secret: string, companyId: string) {
     console.log(`📡 Enviando factura ${invoiceData.externalDocumentNumber} a la API SOAP de Business Central...`);
     if (!serie || serie === '') {
-      serie = invoiceData.invoiceDate.split('-')[0];
+      serie = invoiceData.invoiceDate
+        ? invoiceData.invoiceDate.split('-')[0]
+        : invoiceData.creditMemoDate.split('-')[0];
     }
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     const getcompanyName = await axios.get(
