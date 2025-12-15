@@ -164,6 +164,9 @@
 
       <label for="mes">Mes (tabla de la factura):</label>
       <input type="number" id="mes" min="1" max="12" required />
+
+      <label for="anio">Año (tabla de la factura):</label>
+      <input type="number" id="anio" min="2020" max="2030" required />
       <label>Facturas:</label>
       <div id="facturas">
         <label><input type="radio" name="factura" id="facFilapena" value="filapena" /> Filapeña</label>
@@ -195,17 +198,14 @@
       <label for="mes2">Mes:</label>
       <input type="number" id="mes2" min="1" max="12" required />
 
+      <label for="anio2">Año:</label>
+      <input type="number" id="anio2" min="2020" max="2030" required />
+
       <label for="turno">Turno (0: Todo el día, 1: Mañana, 2: Tarde):</label>
       <input type="number" id="turno" min="0" max="2" required />
 
-      <label>Tiendas:</label>
-      <div id="tiendas">
-        <label><input type="checkbox" id="seleccionarTodas" /> Seleccionar todas</label>
-        <label><input type="checkbox" id="tienda1" value="115" /> T--101</label>
-        <label><input type="checkbox" id="tienda2" value="764" /> T--076</label>
-        <label><input type="checkbox" id="tienda3" value="864" /> T--152</label>
-        <label><input type="checkbox" id="tienda4" value="960" /> T--210</label>
-      </div>
+      <label for="tiendaFilapeña">Tiendas (pon la licencia, si no pones nada se envían todas):</label>
+      <input type="text" id="tiendaFilapeña" required />
 
       <label for="companyID2">Company ID:</label>
       <input type="text" id="companyID2" required />
@@ -229,6 +229,9 @@
 
       <label for="mes3">Mes:</label>
       <input type="number" id="mes3" min="1" max="12" required />
+
+      <label for="anio3">Año:</label>
+      <input type="number" id="anio3" min="2020" max="2030" required />
 
       <label for="turno1">Turno (0: Todo el día, 1: Mañana, 2: Tarde):</label>
       <input type="number" id="turno1" min="0" max="2" required />
@@ -294,6 +297,7 @@
       async function enviarIntercompany() {
         const dia = document.getElementById('dia').value.padStart(2, '0');
         const mes = document.getElementById('mes').value.padStart(2, '0');
+        const anio = document.getElementById('anio').value.padStart(4, '0');
         const companyID = document.getElementById('companyID').value.trim();
         const entorno = document.getElementById('entorno').value.trim();
         const boton = document.getElementById('btnIntercompany');
@@ -305,7 +309,7 @@
           return;
         }
 
-        const url = `http://omniserver.nubehit.com:3333/syncIntercompanySilemaByDate?companyID=${companyID}&day=${dia}&month=${mes}&entorno=${entorno}&factura=${factura}`;
+        const url = `http://omniserver.nubehit.com:3333/syncIntercompanySilemaByDate?companyID=${companyID}&day=${dia}&month=${mes}&anio=${anio}&entorno=${entorno}&factura=${factura}`;
 
         try {
           boton.disabled = true;
@@ -327,11 +331,9 @@
         const diaInicio = document.getElementById('diaInicio').value.padStart(2, '0');
         const diaFin = document.getElementById('diaFin').value.padStart(2, '0');
         const mes = document.getElementById('mes2').value.padStart(2, '0');
+        const anio = document.getElementById('anio2').value.padStart(4, '0');
         const turno = document.getElementById('turno').value;
-        const tiendas = Array.from(document.querySelectorAll('#tiendas input[type="checkbox"]:checked'))
-          .filter((cb) => cb.id !== 'seleccionarTodas')
-          .map((cb) => cb.value)
-          .join(',');
+        const tiendaFilapeña = document.getElementById('tiendaFilapeña').value.trim();
         const companyID2 = document.getElementById('companyID2').value.trim();
         const entorno = document.getElementById('entornoVC').value.trim();
         const boton = document.getElementById('btnVentas');
@@ -342,7 +344,7 @@
           return;
         }
 
-        const url = `http://omniserver.nubehit.com:3333/syncSilemaDate?diaInicio=${diaInicio}&diaFin=${diaFin}&mes=${mes}&turno=${turno}&tiendas=${tiendas}&companyID=${companyID2}&entorno=${entorno}&empresa=filapena`;
+        const url = `http://omniserver.nubehit.com:3333/syncSilemaDate?diaInicio=${diaInicio}&diaFin=${diaFin}&mes=${mes}&anio=${anio}&turno=${turno}&tiendas=${tiendas}&companyID=${companyID2}&entorno=${entorno}&empresa=filapena`;
 
         try {
           boton.disabled = true;
@@ -364,6 +366,7 @@
         const diaInicio = document.getElementById('diaInicio1').value.padStart(2, '0');
         const diaFin = document.getElementById('diaFin1').value.padStart(2, '0');
         const mes = document.getElementById('mes3').value.padStart(2, '0');
+        const anio = document.getElementById('anio3').value.padStart(4, '0');
         const turno = document.getElementById('turno1').value;
         const tiendaImeMil = document.getElementById('tiendaImeMil').value.trim();
         const companyID3 = document.getElementById('companyID3').value.trim();
@@ -376,7 +379,7 @@
           return;
         }
 
-        const url = `http://omniserver.nubehit.com:3333/syncSilemaDate?diaInicio=${diaInicio}&diaFin=${diaFin}&mes=${mes}&turno=${turno}&tiendas=${tiendaImeMil}&companyID=${companyID3}&entorno=${entorno}&empresa=imeMil`;
+        const url = `http://omniserver.nubehit.com:3333/syncSilemaDate?diaInicio=${diaInicio}&diaFin=${diaFin}&mes=${mes}&anio=${anio}&turno=${turno}&tiendas=${tiendaImeMil}&companyID=${companyID3}&entorno=${entorno}&empresa=imeMil`;
 
         try {
           boton.disabled = true;
