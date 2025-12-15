@@ -204,8 +204,8 @@
       <label for="turno">Turno (0: Todo el día, 1: Mañana, 2: Tarde):</label>
       <input type="number" id="turno" min="0" max="2" required />
 
-      <label for="tiendaFilapeña">Tiendas (pon la licencia, si no pones nada se envían todas):</label>
-      <input type="text" id="tiendaFilapeña" required />
+      <label for="tiendaFilapena">Tiendas (pon la licencia, si no pones nada se envían todas):</label>
+      <input type="text" id="tiendaFilapena" required />
 
       <label for="companyID2">Company ID:</label>
       <input type="text" id="companyID2" required />
@@ -333,7 +333,7 @@
         const mes = document.getElementById('mes2').value.padStart(2, '0');
         const anio = document.getElementById('anio2').value.padStart(4, '0');
         const turno = document.getElementById('turno').value;
-        const tiendaFilapeña = document.getElementById('tiendaFilapeña').value.trim();
+        const tiendaFilapena = document.getElementById('tiendaFilapena').value.trim();
         const companyID2 = document.getElementById('companyID2').value.trim();
         const entorno = document.getElementById('entornoVC').value.trim();
         const boton = document.getElementById('btnVentas');
@@ -344,7 +344,7 @@
           return;
         }
 
-        const url = `http://omniserver.nubehit.com:3333/syncSilemaDate?diaInicio=${diaInicio}&diaFin=${diaFin}&mes=${mes}&anio=${anio}&turno=${turno}&tiendas=${tiendas}&companyID=${companyID2}&entorno=${entorno}&empresa=filapena`;
+        const url = `http://omniserver.nubehit.com:3333/syncSilemaDate?diaInicio=${diaInicio}&diaFin=${diaFin}&mes=${mes}&anio=${anio}&turno=${turno}&tiendas=${tiendaFilapena}&companyID=${companyID2}&entorno=${entorno}&empresa=filapena`;
 
         try {
           boton.disabled = true;
