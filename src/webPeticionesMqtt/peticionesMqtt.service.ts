@@ -13,16 +13,17 @@ export class peticionesMqttService {
     private sql: runSqlService,
   ) { }
 
-  async syncIntercompanyByDate(companyID: string, entorno: string, day: string, month: string, factura: string) {
+  async syncIntercompanyByDate(companyID: string, entorno: string, day: string, month: string, anio: string, factura: string) {
     let query = '';
+    const tabla = `${anio}-${month}`;
     if (factura == 'filapena') {
-      query = `select IdFactura from [facturacio_2025-${month}_iva] where clientnif ='B66567470' and empnif = 'B64990906' and day(DataEmissio)=${day}`
+      query = `select IdFactura from [facturacio_${tabla}_iva] where clientnif ='B66567470' and empnif = 'B64990906' and day(DataEmissio)=${day}`
     } else if (factura == 'ime_mil') {
-      query = `select IdFactura from [facturacio_2025-${month}_iva] where clientnif ='B61957189' and empnif = 'B64990906' and day(DataEmissio)=${day}`
+      query = `select IdFactura from [facturacio_${tabla}_iva] where clientnif ='B61957189' and empnif = 'B64990906' and day(DataEmissio)=${day}`
     } else if (factura == 'franquicias') {
-      query = `select IdFactura from [facturacio_2025-${month}_iva] where clientnif not in ('B66567470','B61957189','B64990906') and ClientCodi in (select codi from ParamsHw) and empnif = 'B64990906' and day(DataEmissio)=${day}`
+      query = `select IdFactura from [facturacio_${tabla}_iva] where clientnif not in ('B66567470','B61957189','B64990906') and ClientCodi in (select codi from ParamsHw) and empnif = 'B64990906' and day(DataEmissio)=${day}`
     } else if (factura == 'todas') {
-      query = `select IdFactura from [facturacio_2025-${month}_iva] where empnif = 'B64990906' and ClientCodi in (select codi from ParamsHw) and day(DataEmissio)=${day}`
+      query = `select IdFactura from [facturacio_${tabla}_iva] where empnif = 'B64990906' and ClientCodi in (select codi from ParamsHw) and day(DataEmissio)=${day}`
     } else {
       console.log(`No se ha seleccionado ninguna factura válida.`);
       return false;
@@ -38,7 +39,7 @@ export class peticionesMqttService {
       idFactura: [
         ...idFacturas.recordset.map((item) => item.IdFactura),
       ],
-      tabla: `2025-${month}`,
+      tabla: `${tabla}`,
       database: "fac_tena",
       tenant: process.env.tenaTenant,
       companyID: companyID,
@@ -51,17 +52,17 @@ export class peticionesMqttService {
     return true;
 
   }
-  async syncSilemaDate(diaInicio: string, diaFin: string, mes: string, turno: number, companyID: string, entorno: string, empresa: string, tiendas: string = "") {
+  async syncSilemaDate(diaInicio: string, diaFin: string, mes: string, anio: string, turno: number, companyID: string, entorno: string, empresa: string, tiendas: string = "") {
 
     let tiendasArray: number[] = [];
     if (empresa == 'imeMil' && tiendas === '') {
       const query = `select codi from clients where codi in (select codi from ParamsHw) and nif = 'B61957189' and nom not like 'no%' order by codi`
       const listaTiendas = await this.sql.runSql(query, 'fac_tena');
       tiendasArray = listaTiendas.recordset.map((item) => item.codi);
-    } else {
-      tiendasArray = Array.isArray(tiendas)
-        ? tiendas.map(Number)
-        : tiendas.split(',').map(Number);
+    } else if (empresa == 'filapena' && tiendas === '') {
+      const query = `select codi from clients where codi in (select codi from ParamsHw) and nif = 'B66567470' and nom not like 'no%' order by codi`
+      const listaTiendas = await this.sql.runSql(query, 'fac_tena');
+      tiendasArray = listaTiendas.recordset.map((item) => item.codi);
     }
 
     console.log(tiendasArray);
@@ -73,7 +74,7 @@ export class peticionesMqttService {
       dayStart: diaInicio,
       dayEnd: diaFin,
       month: mes,
-      year: `2025`,
+      year: anio,
       database: "fac_tena",
       tenant: process.env.tenaTenant,
       companyID: companyID,

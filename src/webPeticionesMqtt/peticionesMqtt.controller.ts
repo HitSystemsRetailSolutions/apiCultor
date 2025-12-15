@@ -11,9 +11,10 @@ export class peticionesMqttController {
     @Query('entorno') entorno: string,
     @Query('day') day: string,
     @Query('month') month: string,
+    @Query('anio') anio: string,
     @Query('factura') factura: string,
   ) {
-    let res = await this.peticionesMqttService.syncIntercompanyByDate(companyID, entorno, day, month, factura);
+    let res = await this.peticionesMqttService.syncIntercompanyByDate(companyID, entorno, day, month, anio, factura);
     if (res == true) {
       return 'Petición de sincronización de facturas intercompany recibida';
     } else {
@@ -28,11 +29,12 @@ export class peticionesMqttController {
     @Query('diaInicio') diaInicio: string,
     @Query('diaFin') diaFin: string,
     @Query('mes') mes: string,
+    @Query('anio') anio: string,
     @Query('turno') turno: number,
     @Query('tiendas') tiendas: string,
     @Query('empresa') empresa: string,
   ) {
-    let res = await this.peticionesMqttService.syncSilemaDate(diaInicio, diaFin, mes, turno, companyID, entorno, empresa, tiendas);
+    let res = await this.peticionesMqttService.syncSilemaDate(diaInicio, diaFin, mes, anio, turno, companyID, entorno, empresa, tiendas);
     if (res == true) {
       return 'Petición de sincronización de ventas y cierres recibida';
     } else {
