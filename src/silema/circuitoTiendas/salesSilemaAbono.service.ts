@@ -406,7 +406,9 @@ export class salesSilemaAbonoService {
       } catch (error) {
         salesData.salesLinesBuffer = [];
         console.log(JSON.stringify(salesData, null, 2));
-        await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'error', 'POST_ERROR', `Error al subir ${tipo} ${salesData.no}: ${error.response?.data || error.message}`, 'Abonos', companyID, entorno);
+        await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'error', 'POST_ERROR', `Error al subir ${tipo} ${salesData.no}: ${typeof error.response?.data === 'object'
+          ? JSON.stringify(error.response.data)
+          : error.response?.data || error.message}`, 'Abonos', companyID, entorno);
         console.error(`Error posting sales ${tipo} data:`, error.response?.data || error.message);
         return;
       }
