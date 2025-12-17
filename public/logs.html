@@ -233,21 +233,19 @@
     }
 
     // 🔹 Convierte fecha + timestamp a Date para ordenar correctamente
-    function parseFechaYHora(fecha, timestamp) {
-      if (!fecha) return new Date(0);
+    function parseTimestamp(ts) {
+      if (!ts) return new Date(0);
 
-      // Fecha: dd-mm-yyyy
-      const [dia, mes, año] = fecha.split('-');
-      // Hora: extraer de timestamp
-      let hora = '00', minuto = '00', segundo = '00';
-      if (timestamp) {
-        const match = timestamp.match(/\d{1,2}:\d{2}:\d{2}/);
-        if (match) {
-          [hora, minuto, segundo] = match[0].split(':');
-        }
-      }
-      // Crear Date
-      const parsed = new Date(`${año}-${mes}-${dia}T${hora.padStart(2, '0')}:${minuto}:${segundo}`);
+      // Extrae fecha y hora del formato "dd/mm/yyyy, H:MM:SS"
+      const parts = ts.split(','); // ["17/12/2025", " 9:30:29"]
+      if (parts.length !== 2) return new Date(0);
+
+      const [fecha, hora] = parts.map(p => p.trim());
+      const [dia, mes, año] = fecha.split('/');
+      const [hh, mm, ss] = hora.split(':');
+
+      // Crear Date ISO
+      const parsed = new Date(`${año}-${mes}-${dia}T${hh.padStart(2, '0')}:${mm}:${ss}`);
       return isNaN(parsed.getTime()) ? new Date(0) : parsed;
     }
 
@@ -304,12 +302,8 @@
         );
       });
 
-      // 🔹 Ordenar por fecha + timestamp (más reciente primero)
-      filteredLogs.sort((a, b) => {
-        const fechaA = parseFechaYHora(a.fecha, a.timestamp);
-        const fechaB = parseFechaYHora(b.fecha, b.timestamp);
-        return fechaB - fechaA; // descendente (recientes primero)
-      });
+      // 🔹 Ordenar por timestamp más reciente primero
+      filteredLogs.sort((a, b) => parseTimestamp(b.timestamp) - parseTimestamp(a.timestamp));
 
       currentPage = 1;
       renderTable();
