@@ -526,53 +526,58 @@ export class salesSilemaCierreService {
   }
 
   async postToApiCierre(tipo, salesData, tenant, entorno, companyID, token) {
-    let url1;
-    const validTypes = ['Cash', 'Card', '3G Card', 'Restaurant Ticket', 'Excess Restaurant Ticket', 'Drawer Opening', 'Drawer Closing', 'Discrepancy', 'Total invoice'];
-    if (validTypes.includes(salesData.closingStoreType)) {
-      url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/journalLinesBuffer?$filter=contains(documentNo,'${salesData.documentNo}') and closingStoreType eq '${salesData.closingStoreType}'`;
-    }
-    else {
-      url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/journalLinesBuffer?$filter=contains(documentNo,'${salesData.documentNo}') and lineNo eq ${salesData.lineNo}`;
-    }
-    //console.log(url1);
-    let resGet1 = await axios
-      .get(url1, {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
-      })
-      .catch((error) => {
-        console.log(`Url ERROR: ${url1}`);
-        throw new Error('Failed to obtain sale');
-      });
-
-    if (!resGet1.data) throw new Error('Failed to get factura line');
-    if (resGet1.data.value.length === 0) {
-      let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/journalLinesBuffer`;
-      try {
-        const response = await axios.post(
-          url2,
-          salesData, // Envía salesData directamente
-          {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-            },
-          },
-        );
-        //console.log('Response:', response.data);
-        console.log(`${tipo} subido con exito ${salesData.documentNo}`);
-        // await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'info', 'POST_OK', `${tipo} subido con exito ${salesData.documentNo} Linea: ${salesData.lineNo}`, 'Cierre', companyID, entorno);
-      } catch (error) {
-        salesData.salesLinesBuffer = [];
-        // console.log(JSON.stringify(salesData, null, 2));
-        await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'error', 'POST_ERROR', `Error subiendo ${tipo} ${salesData.documentNo} Linea: ${salesData.lineNo} - ${error.response?.data || error.message}`, 'Cierre', companyID, entorno);
-        console.error(`Error posting sales ${tipo} data:`, error.response?.data || error.message);
-        return;
+    try {
+      let url1;
+      const validTypes = ['Cash', 'Card', '3G Card', 'Restaurant Ticket', 'Excess Restaurant Ticket', 'Drawer Opening', 'Drawer Closing', 'Discrepancy', 'Total invoice'];
+      if (validTypes.includes(salesData.closingStoreType)) {
+        url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/journalLinesBuffer?$filter=contains(documentNo,'${salesData.documentNo}') and closingStoreType eq '${salesData.closingStoreType}'`;
       }
-    } else {
-      console.log(`Ya existe la ${tipo}: ${salesData.documentNo} Linea: ${salesData.lineNo}`);
+      else {
+        url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/journalLinesBuffer?$filter=contains(documentNo,'${salesData.documentNo}') and lineNo eq ${salesData.lineNo}`;
+      }
+      //console.log(url1);
+      let resGet1 = await axios
+        .get(url1, {
+          headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+        })
+
+      if (!resGet1.data) throw new Error('Failed to get factura line');
+      if (resGet1.data.value.length === 0) {
+        let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/journalLinesBuffer`;
+        try {
+          const response = await axios.post(
+            url2,
+            salesData, // Envía salesData directamente
+            {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json',
+              },
+            },
+          );
+          //console.log('Response:', response.data);
+          console.log(`${tipo} subido con exito ${salesData.documentNo}`);
+          // await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'info', 'POST_OK', `${tipo} subido con exito ${salesData.documentNo} Linea: ${salesData.lineNo}`, 'Cierre', companyID, entorno);
+        } catch (error) {
+          salesData.salesLinesBuffer = [];
+          // console.log(JSON.stringify(salesData, null, 2));
+          await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'error', 'POST_ERROR', `Error subiendo ${tipo} ${salesData.documentNo} Linea: ${salesData.lineNo} - ${typeof error.response?.data === 'object'
+            ? JSON.stringify(error.response.data)
+            : error.response?.data || error.message}`, 'Cierre', companyID, entorno);
+          console.error(`Error posting sales ${tipo} data:`, error.response?.data || error.message);
+          return;
+        }
+      } else {
+        console.log(`Ya existe la ${tipo}: ${salesData.documentNo} Linea: ${salesData.lineNo}`);
+      }
+    } catch (error) {
+      await this.helpers.addLog(salesData.locationCode, salesData.postingDate, salesData.shift.replace('Shift_x0020_', ''), 'error', 'POST_ERROR', `Error subiendo ${tipo} ${salesData.documentNo} Linea: ${salesData.lineNo} - ${typeof error.response?.data === 'object'
+        ? JSON.stringify(error.response.data)
+        : error.response?.data || error.message}`, 'Cierre', companyID, entorno);
+      console.error(`Error en postToApiCierre para ${tipo} ${salesData.documentNo} Linea: ${salesData.lineNo}:`, error.message);
     }
   }
 
