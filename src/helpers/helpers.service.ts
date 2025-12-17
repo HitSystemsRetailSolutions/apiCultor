@@ -82,9 +82,11 @@ export class helpersService {
             // Filtrar logs que sean más recientes que 2 semanas
             const filteredLogs = logs.filter(log => {
                 try {
-                    // Convertir el timestamp local (es-ES) a Date
-                    const logDate = new Date(log.timestamp);
-                    if (isNaN(logDate.getTime())) return true; // Si no se puede parsear, mantener
+                    if (!log.timestamp) return true;
+
+                    const logDate = this.parseEsTimestamp(log.timestamp);
+                    if (!logDate || isNaN(logDate.getTime())) return true;
+
                     return now.getTime() - logDate.getTime() <= twoWeeksMs;
                 } catch {
                     return true;
@@ -102,5 +104,35 @@ export class helpersService {
         } finally {
             release();
         }
+    }
+    parseEsTimestamp(ts: string): Date | null {
+        if (!ts) return null;
+
+        ts = ts.trim();
+
+        const match = ts.match(
+            /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:,?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/
+        );
+
+        if (!match) return null;
+
+        const [
+            ,
+            dd,
+            mm,
+            yyyy,
+            hh = '0',
+            mi = '0',
+            ss = '0'
+        ] = match;
+
+        return new Date(
+            Number(yyyy),
+            Number(mm) - 1,
+            Number(dd),
+            Number(hh),
+            Number(mi),
+            Number(ss)
+        );
     }
 }
