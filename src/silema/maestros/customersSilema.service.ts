@@ -150,14 +150,14 @@ export class customersSilemaService {
             WHERE Codi = ${customer.Codi};`;
 
       if (accion == 1) {
-        await this.sqlConstantClient(customer.Codi, '', '', 5, database);
-        await this.sql.runSql(sqlUpdate, database);
-        if (customer.eMail != '') await this.sqlConstantClient(customer.Codi, 'eMail', customer.eMail, 2, database);
-        if (customer.phone != '') await this.sqlConstantClient(customer.Codi, 'Tel', customer.phone, 2, database);
-        if (customer.FormaPagoValor) await this.sqlConstantClient(customer.Codi, 'FormaPagoLlista', customer.FormaPagoValor, 2, database);
-        if (!customer.pagaEnTienda) await this.sqlConstantClient(customer.Codi, 'NoPagaEnTienda', 'NoPagaEnTienda', 2, database);
-        if (customer.Vencimiento != '') await this.sqlConstantClient(customer.Codi, 'Venciment', customer.Vencimiento, 2, database);
-        if (customer.Provincia != '') await this.sqlConstantClient(customer.Codi, 'Provincia', customer.Provincia, 2, database);
+        // await this.sqlConstantClient(customer.Codi, '', '', 5, database);
+        // await this.sql.runSql(sqlUpdate, database);
+        // if (customer.eMail != '') await this.sqlConstantClient(customer.Codi, 'eMail', customer.eMail, 2, database);
+        // if (customer.phone != '') await this.sqlConstantClient(customer.Codi, 'Tel', customer.phone, 2, database);
+        // if (customer.FormaPagoValor) await this.sqlConstantClient(customer.Codi, 'FormaPagoLlista', customer.FormaPagoValor, 2, database);
+        // if (!customer.pagaEnTienda) await this.sqlConstantClient(customer.Codi, 'NoPagaEnTienda', 'NoPagaEnTienda', 2, database);
+        // if (customer.Vencimiento != '') await this.sqlConstantClient(customer.Codi, 'Venciment', customer.Vencimiento, 2, database);
+        // if (customer.Provincia != '') await this.sqlConstantClient(customer.Codi, 'Provincia', customer.Provincia, 2, database);
         // if (customer.IdHitCFINAL != '') await this.sqlConstantClient(customer.Codi, 'CFINAL', customer.IdHitCFINAL, 2, database);
         this.marcaProcesado(customer.IdBc, token, companyID, tenant, entorno);
         console.log('Customer actualizado');
@@ -167,15 +167,15 @@ export class customersSilemaService {
         let sqlSincroIds = `INSERT INTO BC_SincroIds 
             (TmSt, TipoDato, IdBc, IdHit, IdEmpresaBc, IdEmpresaHit) VALUES
             (GETDATE(), '${TipoDato}', '${customer.numberBC}', '${customer.Codi}', '${companyID}', '${database}')`;
-        await this.sqlConstantClient(customer.Codi, '', '', 5, database);
+        // await this.sqlConstantClient(customer.Codi, '', '', 5, database);
         await this.sql.runSql(sqlSincroIds, database);
-        await this.sql.runSql(sqlUpdate, database);
-        if (customer.eMail != '') await this.sqlConstantClient(customer.Codi, 'eMail', customer.eMail, 2, database);
-        if (customer.phone != '') await this.sqlConstantClient(customer.Codi, 'Tel', customer.phone, 2, database);
-        if (customer.FormaPagoValor) await this.sqlConstantClient(customer.Codi, 'FormaPagoLlista', customer.FormaPagoValor, 2, database);
-        if (!customer.pagaEnTienda) await this.sqlConstantClient(customer.Codi, 'NoPagaEnTienda', 'NoPagaEnTienda', 2, database);
-        if (customer.Vencimiento != '') await this.sqlConstantClient(customer.Codi, 'Venciment', customer.Vencimiento, 2, database);
-        if (customer.Provincia != '') await this.sqlConstantClient(customer.Codi, 'Provincia', customer.Provincia, 2, database);
+        // await this.sql.runSql(sqlUpdate, database);
+        // if (customer.eMail != '') await this.sqlConstantClient(customer.Codi, 'eMail', customer.eMail, 2, database);
+        // if (customer.phone != '') await this.sqlConstantClient(customer.Codi, 'Tel', customer.phone, 2, database);
+        // if (customer.FormaPagoValor) await this.sqlConstantClient(customer.Codi, 'FormaPagoLlista', customer.FormaPagoValor, 2, database);
+        // if (!customer.pagaEnTienda) await this.sqlConstantClient(customer.Codi, 'NoPagaEnTienda', 'NoPagaEnTienda', 2, database);
+        // if (customer.Vencimiento != '') await this.sqlConstantClient(customer.Codi, 'Venciment', customer.Vencimiento, 2, database);
+        // if (customer.Provincia != '') await this.sqlConstantClient(customer.Codi, 'Provincia', customer.Provincia, 2, database);
         // if (customer.IdHitCFINAL != '') await this.sqlConstantClient(customer.Codi, 'CFINAL', customer.IdHitCFINAL, 2, database);
         this.marcaProcesado(customer.IdBc, token, companyID, tenant, entorno);
         console.log('Customer actualizado');
