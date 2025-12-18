@@ -153,19 +153,19 @@ export class vendorsSilemaService {
                       tipoCobro = '${proveedor.FormaPagoValor}'
                       WHERE id = '${proveedor.id}';`;
       if (accion == 1) {
-        await this.sqlProveedoresExtes(proveedor.id, '', '', 5, database);
-        await this.sql.runSql(sqlUpdate, database);
-        if (proveedor.vencimiento != '') await this.sqlProveedoresExtes(proveedor.id, 'VencimientoDias', proveedor.vencimiento, 2, database);
+        // await this.sqlProveedoresExtes(proveedor.id, '', '', 5, database);
+        // await this.sql.runSql(sqlUpdate, database);
+        // if (proveedor.vencimiento != '') await this.sqlProveedoresExtes(proveedor.id, 'VencimientoDias', proveedor.vencimiento, 2, database);
         await this.marcarProcesado(proveedor.id, token, companyID, tenant, entorno);
         console.log('Vendor actualizado');
       } else if (accion == 2) {
         let tipoDato = 'proveedor';
         let sqlSincroIds = `INSERT INTO BC_SincroIds (TmSt, TipoDato, IdBc, IdHit, IdEmpresaBc, IdEmpresaHit) 
           VALUES (GETDATE(), '${tipoDato}', '${proveedor.codi}', '${proveedor.id}', '${companyID}', '${database}')`;
-        await this.sqlProveedoresExtes(proveedor.id, '', '', 5, database);
-        await this.sql.runSql(sqlUpdate, database);
+        // await this.sqlProveedoresExtes(proveedor.id, '', '', 5, database);
+        // await this.sql.runSql(sqlUpdate, database);
         await this.sql.runSql(sqlSincroIds, database);
-        if (proveedor.vencimiento != '') await this.sqlProveedoresExtes(proveedor.id, 'VencimientoDias', proveedor.vencimiento, 2, database);
+        // if (proveedor.vencimiento != '') await this.sqlProveedoresExtes(proveedor.id, 'VencimientoDias', proveedor.vencimiento, 2, database);
         await this.marcarProcesado(proveedor.id, token, companyID, tenant, entorno);
         console.log('Vendor actualizado');
       }
