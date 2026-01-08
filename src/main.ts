@@ -129,7 +129,6 @@ client.on('message', async function (topic, message) {
         SyncTrabajadores: () => callSync('syncTrabajadores', { database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de trabajadores acabada'),
         trabajadores: () => callSync('syncTrabajadores', { database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de trabajadores acabada'),
 
-        silemaDate: () => callSync('syncSalesSilemaDate', { dayStart: msgJson.dayStart, dayEnd: msgJson.dayEnd, month: msgJson.month, year: msgJson.year, companyID, database, botiga: msgJson.botiga, client_id, client_secret, tenant, entorno }, '✅ Sincronización de ventas Silema por fecha acabada'),
         silemaDateTurno: () => callSync('syncSalesSilemaDateTurno', { dayStart: msgJson.dayStart, dayEnd: msgJson.dayEnd, month: msgJson.month, year: msgJson.year, companyID, database, botiga: msgJson.botiga, turno, client_id, client_secret, tenant, entorno }, '✅ Sincronización de ventas Silema por fecha y turno acabada'),
         silema: () => callSync('syncSalesSilema', { day: msgJson.day, month: msgJson.month, year: msgJson.year, companyID, database, botiga: msgJson.botiga, turno, client_id, client_secret, tenant, entorno }, '✅ Sincronización de ventas Silema acabada'),
         silemaAbono: () => callSync('syncSalesSilemaAbono', { day: msgJson.day, month: msgJson.month, year: msgJson.year, companyID, database, botiga: msgJson.botiga, turno, client_id, client_secret, tenant, entorno }, '✅ Sincronización de abonos Silema acabada'),

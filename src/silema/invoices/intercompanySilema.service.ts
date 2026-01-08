@@ -33,6 +33,16 @@ export class intercompanySilemaService {
       }
 
       const x = cabecerafacturas.recordset[0];
+
+      const cutoffDate = new Date(2026, 0, 1); // 01/01/2026
+      const facturaDate = new Date(x.DataFactura);
+
+      if (facturaDate < cutoffDate) {
+        console.log(`⏭️ Factura ${idFactura} con fecha ${facturaDate.toISOString().substring(0, 10)} anterior a 01/01/2026. Se omite sincronización y se elimina control.`);
+        await this.deleteControlTableEntry(database, idFactura);
+        continue;
+      }
+
       let num = x.Serie.length <= 0 ? x.NumFactura : x.Serie + x.NumFactura;
       let dataFi = x.DataFi.toISOString().substring(0, 10);
       let dataInici = x.DataInici.toISOString().substring(0, 10);
