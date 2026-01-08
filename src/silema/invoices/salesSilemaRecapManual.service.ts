@@ -26,6 +26,15 @@ export class salesSilemaRecapManualService {
         let dataFi = data.recordset[0].DataFi.toISOString().split('T')[0];
         let dataFactura = data.recordset[0].DataFactura.toISOString().split('T')[0];
 
+        const cutoffDate = new Date(2026, 0, 1); // 01/01/2026
+        const facturaDate = new Date(data.recordset[0].DataFactura);
+
+        if (facturaDate < cutoffDate) {
+          console.log(`⏭️ Factura ${idFactura[i]} con fecha ${dataFactura} anterior a 01/01/2026. Se elimina control sin sincronizar.`);
+          await this.deleteControlTableEntry(database, idFactura[i]);
+          continue;
+        }
+
         const tablaYear = tabla.split('-')[0];
         let sqlTickets = `SELECT  NumTick, DataTick, Botiga FROM Tiquets_Recapitulativa_${tablaYear} WHERE IdFactura = '${idFactura[i]}' order by NumTick`;
         let dataTickets = await this.sql.runSql(sqlTickets, database);

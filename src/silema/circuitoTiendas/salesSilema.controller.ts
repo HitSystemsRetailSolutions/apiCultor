@@ -5,26 +5,7 @@ import fs = require('fs');
 // GET ---> SOLO ESPERAS RESPUESTA (LA HORA)
 @Controller()
 export class salesSilemaController {
-  constructor(private readonly salesSilemaService: salesSilemaService) {}
-
-  @Get('syncSalesSilemaDate')
-  async salesSilemaDate(
-    @Query('dayStart') dayStart: string,
-    @Query('dayEnd') dayEnd: string,
-    @Query('month') month: string,
-    @Query('year') year: string,
-    @Query('companyID') companyID: string,
-    @Query('database') database: string,
-    @Query('botiga') botigas: Array<String>,
-    @Query('client_id') client_id: string,
-    @Query('client_secret') client_secret: string,
-    @Query('tenant') tenant: string,
-    @Query('entorno') entorno: string,
-  ) {
-    let res = await this.salesSilemaService.syncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, database, botigas, client_id, client_secret, tenant, entorno);
-    if (res == true) return 'Se han sincronizado los tickets correctamente';
-    else return 'Ha habido un error al sincronizar los tickets';
-  }
+  constructor(private readonly salesSilemaService: salesSilemaService) { }
 
   @Get('syncSalesSilemaDateTurno')
   async salesSilemaDateTurno(

@@ -17,82 +17,25 @@ export class salesSilemaService {
     private helpers: helpersService,
     private checks: checksService,
   ) { }
-  // Funcion que pasandole un dia de inicio y otro de fin sincroniza los datos de ventas de silema
-  async syncSalesSilemaDate(dayStart, dayEnd, month, year, companyID, database, botigas: Array<String>, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    try {
-      await this.helpers.cleanOldLogs();
-      for (const botiga of botigas) {
-        // Itera desde el día inicial hasta el día final
-        for (let day = dayStart; day <= dayEnd; day++) {
-          // Formatea el día y el mes para asegurarse de que tengan 2 dígitos
-          const formattedDay = String(day).padStart(2, '0');
-          const formattedMonth = String(month).padStart(2, '0');
-          const formattedYear = String(year);
-
-          console.log(`Procesando ventas para el día: ${formattedDay}/${formattedMonth}/${formattedYear} | Tienda: ${botiga}`);
-
-          let success = true;
-          let errorWhere = '';
-          const turno = 0;
-
-          try {
-            console.log('Iniciando syncSalesSilema...');
-            const okSales = await this.syncSalesSilema(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
-            if (!okSales) {
-              console.log("Ventas NO validadas → NO se harán abonos ni cierres.");
-              continue;
-            }
-            console.log('syncSalesSilema completado.');
-          } catch (error) {
-            console.error(`Error en syncSalesSilema para ${formattedDay}/${formattedMonth}/${formattedYear}, tienda ${botiga}:`, error);
-            success = false;
-          }
-
-          try {
-            console.log('Iniciando syncSalesSilemaAbono...');
-            await this.salesSilemaAbono.syncSalesSilemaAbono(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
-            console.log('syncSalesSilemaAbono completado.');
-          } catch (error) {
-            console.error(`Error en syncSalesSilemaAbono para ${formattedDay}/${formattedMonth}/${formattedYear}, tienda ${botiga}:`, error);
-            success = false;
-          }
-
-          try {
-            console.log('Iniciando syncSalesSilemaCierre...');
-            await this.salesSilemaCierre.syncSalesSilemaCierre(formattedDay, formattedMonth, formattedYear, companyID, database, botiga, turno, client_id, client_secret, tenant, entorno);
-            console.log('syncSalesSilemaCierre completado.');
-          } catch (error) {
-            console.error(`Error en syncSalesSilemaCierre para ${formattedDay}/${formattedMonth}/${formattedYear}, tienda ${botiga}:`, error);
-            success = false;
-          }
-
-          if (success) {
-            try {
-              console.log('Ejecutando DELETE en tabla de control...');
-              await this.deleteControlTableEntry(formattedDay, formattedMonth, formattedYear, botiga, database);
-              console.log('DELETE ejecutado correctamente.');
-            } catch (deleteError) {
-              console.error('Error al ejecutar el DELETE:', deleteError);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error general en syncSalesSilemaDate:', error);
-    }
-    return true;
-  }
 
   // Funcion que pasandole un dia de inicio y otro de fin sincroniza los datos de ventas de silema
   async syncSalesSilemaDateTurno(dayStart, dayEnd, month, year, companyID, database, botigas: Array<String>, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
     try {
       await this.helpers.cleanOldLogs();
+      const cutoffDate = new Date(2026, 0, 1); // 01/01/2026
+
       for (const botiga of botigas) {
         for (let day = dayStart; day <= dayEnd; day++) {
+          const currentDate = new Date(year, month - 1, day); // Mes 0-indexado
           const formattedDay = String(day).padStart(2, '0');
           const formattedMonth = String(month).padStart(2, '0');
           const formattedYear = String(year);
 
+          if (currentDate < cutoffDate) {
+            console.log(`La fecha ${formattedDay}/${formattedMonth}/${formattedYear} es anterior al 01/01/2026, solo se eliminará el registro de control.`);
+            await this.deleteControlTableEntry(formattedDay, formattedMonth, formattedYear, botiga, database, turno);
+            continue; // Salta a la siguiente iteración sin sincronizar
+          }
           console.log(`Procesando ventas para el día: ${formattedDay}/${formattedMonth}/${formattedYear} | Tienda: ${botiga} | Turno: ${turno}`);
 
           let success = true;
