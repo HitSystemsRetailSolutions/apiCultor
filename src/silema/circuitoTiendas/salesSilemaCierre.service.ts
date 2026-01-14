@@ -76,20 +76,22 @@ export class salesSilemaCierreService {
       const formattedHoraFin = horaFin.toISOString().substr(11, 8); // Formato HH:mm:ss
       await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'PROCESS_TURNO', `Procesando turno ${i + (Number(turno) === 2 ? 2 : 1)}: ${formattedHoraInicio} - ${formattedHoraFin}`, 'Cierre', companyID, entorno);
       console.log(`Turno ${i + (Number(turno) === 2 ? 2 : 1)}: ${formattedHoraInicio} - ${formattedHoraFin}`);
-      const sqlCheckZ = `
-      SELECT TOP 1 Import 
+      const sqlCheckActividad = `
+      SELECT 
+      SUM(CASE WHEN Tipus_moviment = 'Z' AND Import <> 0 THEN 1 ELSE 0 END) AS HayVentas,
+      SUM(CASE WHEN Tipus_moviment IN ('O','A') AND Import <> 0 THEN 1 ELSE 0 END) AS HayMovCaja
       FROM [V_Moviments_${year}-${month}]
       WHERE botiga = ${botiga}
-      AND Tipus_moviment = 'Z'
       AND DAY(Data) = ${day}
       AND CONVERT(Time, Data) BETWEEN '${formattedHoraInicio}' AND '${formattedHoraFin}'
-      AND Import > 0
-     `;
-      const resultZ = await this.sql.runSql(sqlCheckZ, database);
+      `;
+      const actividad = await this.sql.runSql(sqlCheckActividad, database);
 
-      if (resultZ.recordset.length === 0) {
-        console.log(`Turno ${i + (Number(turno) === 2 ? 2 : 1)} omitido por cierre Z con importe 0 o inexistente`);
-        await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'warning', 'SKIP_TURNO', `Turno ${i + (Number(turno) === 2 ? 2 : 1)} omitido por cierre Z con importe 0 o inexistente`, 'Cierre', companyID, entorno);
+      const hayVentas = actividad.recordset[0].HayVentas > 0;
+      const hayMovCaja = actividad.recordset[0].HayMovCaja > 0;
+      if (!hayVentas && !hayMovCaja) {
+        console.log(`Turno ${i + 1} omitido: Z=0 y sin movimientos reales`);
+        await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'SKIP_TURNO', 'Turno omitido: sin ventas ni movimientos reales de caja', 'Cierre', companyID, entorno);
         continue;
       }
       const sqlQ = this.getSQLQuerySalesSilemaCierre(botiga, day, month, year, formattedHoraInicio, formattedHoraFin);
@@ -283,7 +285,7 @@ export class salesSilemaCierreService {
         Botiga, CONVERT(Date, Data) AS Data, 'Total' AS Tipo_moviment,
         ((TotalVentas + TotalDeudas) * -1) AS Import,
         'Payment' AS documentType, 'Total' AS description, 1 AS Orden
-    FROM Totales
+    FROM Totales WHERE ((TotalVentas + TotalDeudas) * -1) <> 0
 
     UNION ALL
 
