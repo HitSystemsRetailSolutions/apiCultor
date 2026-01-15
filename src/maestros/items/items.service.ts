@@ -22,21 +22,17 @@ export class itemsService {
     if (tenant === process.env.tenaTenant) return;
     let items;
     try {
-      if (codiHIT) {
-        items = await this.sqlService.runSql(
-          `SELECT a.Codi, a.Nom, a.Preu/(1+(t.Iva/100)) PreuSinIva, a.Preu, LEFT(a.Familia, 20) Familia, a.EsSumable, t.Iva 
-           FROM (SELECT codi, nom, preu, familia, esSumable, tipoIva FROM Articles UNION ALL SELECT codi, nom, preu, familia, esSumable, tipoIva FROM articles_Zombis) a 
-           LEFT JOIN tipusIva2012 t ON a.Tipoiva=t.Tipus WHERE a.codi= ${codiHIT}`,
-          database,
-        );
-      } else {
-        items = await this.sqlService.runSql(
-          `SELECT a.Codi, a.Nom, a.Preu/(1+(t.Iva/100)) PreuSinIva, a.Preu, LEFT(a.Familia, 20) Familia, a.EsSumable, t.Iva 
-         FROM (SELECT codi, nom, preu, familia, esSumable, tipoIva FROM Articles UNION ALL SELECT codi, nom, preu, familia, esSumable, tipoIva FROM articles_Zombis) a 
-         LEFT JOIN tipusIva2012 t ON a.Tipoiva=t.Tipus ORDER BY a.codi`,
-          database,
-        );
-      }
+      const sqlQuery = `
+        SELECT a.Codi, a.Nom, a.Preu/(1+(t.Iva/100)) PreuSinIva, a.Preu, LEFT(a.Familia, 20) Familia, a.EsSumable, t.Iva 
+        FROM (
+          SELECT codi, nom, preu, familia, esSumable, tipoIva FROM Articles 
+          UNION ALL 
+          SELECT codi, nom, preu, familia, esSumable, tipoIva FROM articles_Zombis
+        ) a 
+        LEFT JOIN tipusIva2012 t ON a.Tipoiva=t.Tipus 
+        ${codiHIT ? `WHERE a.codi = ${codiHIT}` : 'ORDER BY a.codi'}
+      `;
+      items = await this.sqlService.runSql(sqlQuery, database);
     } catch (error) {
       this.logError(`❌ Error al ejecutar la consulta SQL en la base de datos '${database}'`, error);
       return false;
