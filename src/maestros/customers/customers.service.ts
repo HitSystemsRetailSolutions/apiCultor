@@ -60,12 +60,24 @@ export class customersService {
     if (res.data.value.length === 0) {
       let paymentTerm;
       try {
-        const dueDateCalculation = pTermCode.substring(0, pTermCode.length - 5);
+        let dueDateCalculation = '';
+        // Extraer la parte antes de ' DÍAS'
+        const formulaPart = pTermCode.replace(' DÍAS', '').trim();
+        // Si es 'CON', la fórmula de fecha en BC debe ser '0D'
+        if (formulaPart === 'CON') {
+          dueDateCalculation = '0D';
+        } else if (/^[0-9]+$/.test(formulaPart)) {
+          // Si es solo un número, le añadimos 'D'.
+          dueDateCalculation = `${formulaPart}D`;
+        } else {
+          // Si ya tiene una unidad de tiempo (D, W, M, Q, Y), lo dejamos tal cual.
+          dueDateCalculation = formulaPart;
+        }
 
         const paymentTermData = {
           code: `${pTermCode}`,
           displayName: `Neto ${pTermCode}`,
-          dueDateCalculation: `${dueDateCalculation}D`,
+          dueDateCalculation: dueDateCalculation,
           discountDateCalculation: '',
           discountPercent: 0,
           calculateDiscountOnCreditMemos: true,
