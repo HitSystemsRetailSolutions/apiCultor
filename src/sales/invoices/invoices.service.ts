@@ -887,10 +887,10 @@ export class invoicesService {
     return response.data.value[0]?.postingDate || null;
   }
 
-  async rellenarBCSyncSales(companyID: string, database: string, ids: string[], client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async rellenarBCSyncSales(companyID: string, database: string, ids: string[], client_id: string, client_secret: string, tenant: string, entorno: string, year: string) {
     const token = await this.token.getToken2(client_id, client_secret, tenant);
     for (const id2 of ids) {
-      const getNumSql = `SELECT HIT_NumFactura, HIT_SerieFactura, HIT_Total FROM [BC_SyncSales_2025] WHERE HIT_IdFactura = '${id2}'`;
+      const getNumSql = `SELECT HIT_NumFactura, HIT_SerieFactura, HIT_Total FROM [BC_SyncSales_${year}] WHERE HIT_IdFactura = '${id2}'`;
       const numResult = await this.sql.runSql(getNumSql, database);
       const externalDocumentNumber = `${numResult.recordset[0].HIT_SerieFactura}${numResult.recordset[0].HIT_NumFactura}`;
       let endpoint;

@@ -69,9 +69,10 @@ export class invoicesController {
     @Query('client_id') client: string,
     @Query('client_secret') secret: string,
     @Query('tenant') tenant: string,
-    @Query('entorno') entorno: string
+    @Query('entorno') entorno: string,
+    @Query('year') year: string
   ) {
-    let res = await this.invoicesService.rellenarBCSyncSales(companyID, database, idFactura, client, secret, tenant, entorno);
+    let res = await this.invoicesService.rellenarBCSyncSales(companyID, database, idFactura, client, secret, tenant, entorno, year);
     if (!res) return 'Ha habido un error al actualizar el registro';
     return 'Se han actualizado las facturas correctamente';
   }
