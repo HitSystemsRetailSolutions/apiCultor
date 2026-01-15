@@ -189,91 +189,47 @@ export class customersService {
     if (tenant === process.env.tenaTenant) return;
     let customers;
     try {
-      if (codiHIT) {
-        customers = await this.sqlService.runSql(
-          `;WITH ClienteMare AS (
-                SELECT c1.codi AS CODIGO, 
-                      CASE WHEN c2_agrup.valor = 'agruparFacturas' AND c2_empMareFac.variable = 'empMareFac' THEN c2_empMareFac.valor ELSE c1.codi END AS CODIGO_MARE
-                FROM Clients c1
-                LEFT JOIN ConstantsClient c2_agrup ON c2_agrup.codi = c1.codi AND c2_agrup.variable = 'agruparFacturas'
-                LEFT JOIN ConstantsClient c2_empMareFac ON c2_empMareFac.codi = c1.codi AND c2_empMareFac.variable = 'empMareFac'
-              ),
-              ClientesFiltrados AS (
-                SELECT c1.codi, c1.[Nom Llarg], c1.[Nom], c1.Nif, c1.Adresa, c1.Ciutat, c1.Cp, c2_email.valor AS EMAIL, c2_tel.valor AS TELEFONO, c2_IBAN.valor AS IBAN,
-                      CASE cc4.valor WHEN '1' THEN 'DOM.' WHEN '2' THEN 'CHEQUE' WHEN '3' THEN 'EFECTIVO' WHEN '4' THEN 'TRANSF.' ELSE 'UNDEFINED' END AS FORMAPAGO, 
-                      c2_diaPago.Valor AS DIAPAGO,
-                      CASE c2_venciment.valor WHEN '' THEN 'CON' ELSE c2_venciment.valor + ' DÍAS' END AS TERMINOPAGO, 
-                      CASE WHEN COALESCE(NULLIF(ph.Valor1, ''), NULL) IS NULL THEN 'NO' ELSE 'SI' END AS esTienda,
-                      CASE c1.[Tipus Iva] WHEN '2' THEN 'si' ELSE 'no' END AS recargo, c2_idioma.valor as idioma,
-                      c2_OG.Valor AS OG, c2_UT.Valor AS UT, c2_OC.Valor AS OC,
-                      c2_comercial.valor AS COMERCIAL,
-                      ROW_NUMBER() OVER (PARTITION BY c1.Nif ORDER BY c1.nom) AS rn
-                FROM ClienteMare cm
-                JOIN Clients c1 ON c1.codi = cm.CODIGO_MARE
-                LEFT JOIN ConstantsClient c2_email ON c2_email.codi = c1.codi AND c2_email.variable = 'eMail'
-                LEFT JOIN ConstantsClient c2_tel ON c2_tel.codi = c1.codi AND c2_tel.variable = 'tel'
-                LEFT JOIN ConstantsClient cc4 ON cc4.codi = c1.codi AND cc4.variable = 'FormaPagoLlista'
-                LEFT JOIN ConstantsClient c2_IBAN ON c2_IBAN.codi = c1.codi AND c2_IBAN.variable = 'CompteCorrent'
-                LEFT JOIN ConstantsClient c2_diaPago ON c2_diaPago.codi = c1.codi AND c2_diaPago.variable = 'DiaPagament'
-                LEFT JOIN ConstantsClient c2_venciment ON c2_venciment.codi = c1.codi AND c2_venciment.variable = 'Venciment'
-                LEFT JOIN ConstantsClient c2_idioma ON c2_idioma.codi = c1.codi AND c2_idioma.variable = 'IDIOMA'
-                LEFT JOIN ConstantsClient c2_OG ON c2_OG.codi = c1.codi AND c2_OG.variable = 'OrganGestor'
-                LEFT JOIN ConstantsClient c2_UT ON c2_UT.codi = c1.codi AND c2_UT.variable = 'UnitatTramitadora'
-                LEFT JOIN ConstantsClient c2_OC ON c2_OC.codi = c1.codi AND c2_OC.variable = 'OficinaComptable'
-                LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
-                LEFT JOIN ConstantsClient c2_desactiva ON c2_desactiva.codi = c1.codi AND c2_desactiva.variable = 'DesactivaFacturacio'
-                LEFT JOIN ConstantsClient c2_comercial ON c2_comercial.codi = c1.codi AND c2_comercial.variable = 'comercial'
-                WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9 and c1.Nif = '${codiHIT}' AND (c2_desactiva.valor IS NULL OR c2_desactiva.valor <> 'DesactivaFacturacio')
-              )
-              SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma, OG, UT, OC, COMERCIAL
-              FROM ClientesFiltrados
-              WHERE rn = 1
-              ORDER BY codi;`,
-          database,
-        );
-      } else {
-        customers = await this.sqlService.runSql(
-          `;WITH ClienteMare AS (
-              SELECT c1.codi AS CODIGO, 
-                    CASE WHEN c2_agrup.valor = 'agruparFacturas' AND c2_empMareFac.variable = 'empMareFac' THEN c2_empMareFac.valor ELSE c1.codi END AS CODIGO_MARE
-              FROM Clients c1
-              LEFT JOIN ConstantsClient c2_agrup ON c2_agrup.codi = c1.codi AND c2_agrup.variable = 'agruparFacturas'
-              LEFT JOIN ConstantsClient c2_empMareFac ON c2_empMareFac.codi = c1.codi AND c2_empMareFac.variable = 'empMareFac'
-            ),
-            ClientesFiltrados AS (
-              SELECT c1.codi, c1.[Nom Llarg], c1.[Nom], c1.Nif, c1.Adresa, c1.Ciutat, c1.Cp, c2_email.valor AS EMAIL, c2_tel.valor AS TELEFONO, c2_IBAN.valor AS IBAN,
-                    CASE cc4.valor WHEN '1' THEN 'DOM.' WHEN '2' THEN 'CHEQUE' WHEN '3' THEN 'EFECTIVO' WHEN '4' THEN 'TRANSF.' ELSE 'UNDEFINED' END AS FORMAPAGO, 
-                    c2_diaPago.Valor AS DIAPAGO,
-                    CASE c2_venciment.valor WHEN '' THEN 'CON' ELSE c2_venciment.valor + ' DÍAS' END AS TERMINOPAGO, 
-                    CASE WHEN COALESCE(NULLIF(ph.Valor1, ''), NULL) IS NULL THEN 'NO' ELSE 'SI' END AS esTienda,
-                    CASE c1.[Tipus Iva] WHEN '2' THEN 'si' ELSE 'no' END AS recargo, c2_idioma.valor as idioma,
-                    c2_OG.Valor AS OG, c2_UT.Valor AS UT, c2_OC.Valor AS OC,
-                    c2_comercial.valor AS COMERCIAL,
-                    ROW_NUMBER() OVER (PARTITION BY c1.Nif ORDER BY c1.nom) AS rn
-              FROM ClienteMare cm
-              JOIN Clients c1 ON c1.codi = cm.CODIGO_MARE
-              LEFT JOIN ConstantsClient c2_email ON c2_email.codi = c1.codi AND c2_email.variable = 'eMail'
-              LEFT JOIN ConstantsClient c2_tel ON c2_tel.codi = c1.codi AND c2_tel.variable = 'tel'
-              LEFT JOIN ConstantsClient cc4 ON cc4.codi = c1.codi AND cc4.variable = 'FormaPagoLlista'
-              LEFT JOIN ConstantsClient c2_IBAN ON c2_IBAN.codi = c1.codi AND c2_IBAN.variable = 'CompteCorrent'
-              LEFT JOIN ConstantsClient c2_diaPago ON c2_diaPago.codi = c1.codi AND c2_diaPago.variable = 'DiaPagament'
-              LEFT JOIN ConstantsClient c2_venciment ON c2_venciment.codi = c1.codi AND c2_venciment.variable = 'Venciment'
-              LEFT JOIN ConstantsClient c2_idioma ON c2_idioma.codi = c1.codi AND c2_idioma.variable = 'IDIOMA'
-              LEFT JOIN ConstantsClient c2_OG ON c2_OG.codi = c1.codi AND c2_OG.variable = 'OrganGestor'
-              LEFT JOIN ConstantsClient c2_UT ON c2_UT.codi = c1.codi AND c2_UT.variable = 'UnitatTramitadora'
-              LEFT JOIN ConstantsClient c2_OC ON c2_OC.codi = c1.codi AND c2_OC.variable = 'OficinaComptable'
-              LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
-              LEFT JOIN ConstantsClient c2_desactiva ON c2_desactiva.codi = c1.codi AND c2_desactiva.variable = 'DesactivaFacturacio'
-              LEFT JOIN ConstantsClient c2_comercial ON c2_comercial.codi = c1.codi AND c2_comercial.variable = 'comercial'
-              WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9  AND (c2_desactiva.valor IS NULL OR c2_desactiva.valor <> 'DesactivaFacturacio')
-            )
-            SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma, OG, UT, OC, COMERCIAL
-            FROM ClientesFiltrados
-            WHERE rn = 1
-            ORDER BY codi;`,
-          database,
-        );
-      }
+      const sqlQuery = `
+        ;WITH ClienteMare AS (
+          SELECT c1.codi AS CODIGO, 
+                CASE WHEN c2_agrup.valor = 'agruparFacturas' AND c2_empMareFac.variable = 'empMareFac' THEN c2_empMareFac.valor ELSE c1.codi END AS CODIGO_MARE
+          FROM Clients c1
+          LEFT JOIN ConstantsClient c2_agrup ON c2_agrup.codi = c1.codi AND c2_agrup.variable = 'agruparFacturas'
+          LEFT JOIN ConstantsClient c2_empMareFac ON c2_empMareFac.codi = c1.codi AND c2_empMareFac.variable = 'empMareFac'
+        ),
+        ClientesFiltrados AS (
+          SELECT c1.codi, c1.[Nom Llarg], c1.[Nom], c1.Nif, c1.Adresa, c1.Ciutat, c1.Cp, c2_email.valor AS EMAIL, c2_tel.valor AS TELEFONO, c2_IBAN.valor AS IBAN,
+                CASE cc4.valor WHEN '1' THEN 'DOM.' WHEN '2' THEN 'CHEQUE' WHEN '3' THEN 'EFECTIVO' WHEN '4' THEN 'TRANSF.' ELSE 'UNDEFINED' END AS FORMAPAGO, 
+                c2_diaPago.Valor AS DIAPAGO,
+                CASE c2_venciment.valor WHEN '' THEN 'CON' ELSE c2_venciment.valor + ' DÍAS' END AS TERMINOPAGO, 
+                CASE WHEN COALESCE(NULLIF(ph.Valor1, ''), NULL) IS NULL THEN 'NO' ELSE 'SI' END AS esTienda,
+                CASE c1.[Tipus Iva] WHEN '2' THEN 'si' ELSE 'no' END AS recargo, c2_idioma.valor as idioma,
+                c2_OG.Valor AS OG, c2_UT.Valor AS UT, c2_OC.Valor AS OC,
+                c2_comercial.valor AS COMERCIAL,
+                ROW_NUMBER() OVER (PARTITION BY c1.Nif ORDER BY c1.nom) AS rn
+          FROM ClienteMare cm
+          JOIN Clients c1 ON c1.codi = cm.CODIGO_MARE
+          LEFT JOIN ConstantsClient c2_email ON c2_email.codi = c1.codi AND c2_email.variable = 'eMail'
+          LEFT JOIN ConstantsClient c2_tel ON c2_tel.codi = c1.codi AND c2_tel.variable = 'tel'
+          LEFT JOIN ConstantsClient cc4 ON cc4.codi = c1.codi AND cc4.variable = 'FormaPagoLlista'
+          LEFT JOIN ConstantsClient c2_IBAN ON c2_IBAN.codi = c1.codi AND c2_IBAN.variable = 'CompteCorrent'
+          LEFT JOIN ConstantsClient c2_diaPago ON c2_diaPago.codi = c1.codi AND c2_diaPago.variable = 'DiaPagament'
+          LEFT JOIN ConstantsClient c2_venciment ON c2_venciment.codi = c1.codi AND c2_venciment.variable = 'Venciment'
+          LEFT JOIN ConstantsClient c2_idioma ON c2_idioma.codi = c1.codi AND c2_idioma.variable = 'IDIOMA'
+          LEFT JOIN ConstantsClient c2_OG ON c2_OG.codi = c1.codi AND c2_OG.variable = 'OrganGestor'
+          LEFT JOIN ConstantsClient c2_UT ON c2_UT.codi = c1.codi AND c2_UT.variable = 'UnitatTramitadora'
+          LEFT JOIN ConstantsClient c2_OC ON c2_OC.codi = c1.codi AND c2_OC.variable = 'OficinaComptable'
+          LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
+          LEFT JOIN ConstantsClient c2_desactiva ON c2_desactiva.codi = c1.codi AND c2_desactiva.variable = 'DesactivaFacturacio'
+          LEFT JOIN ConstantsClient c2_comercial ON c2_comercial.codi = c1.codi AND c2_comercial.variable = 'comercial'
+          WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9 ${codiHIT ? `AND c1.Nif = '${codiHIT}'` : ''} AND (c2_desactiva.valor IS NULL OR c2_desactiva.valor <> 'DesactivaFacturacio')
+        )
+        SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma, OG, UT, OC, COMERCIAL
+        FROM ClientesFiltrados
+        WHERE rn = 1
+        ORDER BY codi;
+      `;
+      customers = await this.sqlService.runSql(sqlQuery, database);
     } catch (error) {
       this.logError(`❌ Error al ejecutar la consulta SQL en la base de datos '${database}'`, error);
       throw error;
