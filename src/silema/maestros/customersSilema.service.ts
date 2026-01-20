@@ -46,11 +46,19 @@ export class customersSilemaService {
           FormaPago: res.data.value[i].paymentMethodCode || '',
           FormaPagoValor: 0,
           Vencimiento: res.data.value[i].paymentTermsCode || '',
-          // primaryContactNo: res.data.value[i].primaryContactNo || '',
-          // IdHitCFINAL: '',
           pagaEnTienda: res.data.value[i].payInStore || true,
           IdBc: res.data.value[i].id || '',
           numberBC: res.data.value[i].number || '',
+          Lliure: '',
+          TipusIva: 1,
+          PreuBase: 1,
+          DesconteProntoPago: 0,
+          Desconte1: 0,
+          Desconte2: 0,
+          Desconte3: 0,
+          Desconte4: 0,
+          Desconte5: 0,
+          AlbaraValorat: 'NULL',
         };
         //Comprobar que paymentMethodCode es
         // 1= Domiciliación, 2=Cheque, 3=Efectivo, 4=Transferencia
@@ -61,13 +69,6 @@ export class customersSilemaService {
         };
         customer.FormaPagoValor = formaPagoMap[customer.FormaPago] || 0;
 
-        // if (customer.primaryContactNo != '') {
-        //   let sqlCFINAL = `SELECT * FROM BC_SincroIds WHERE IdBc = '${customer.primaryContactNo}' AND IdEmpresaBc = '${companyID}' AND IdEmpresaHit = '${database}' AND TipoDato = 'contacto'`;
-        //   // console.log(sqlCFINAL);
-        //   let queryCFINAL = await this.sql.runSql(sqlCFINAL, database);
-        //   if (queryCFINAL.recordset.length > 0 && queryCFINAL.recordset[0].IdHit != null) customer.IdHitCFINAL = queryCFINAL.recordset[0].IdHit;
-        //   else console.log(`El "clientFinal" con IdBc *${customer.primaryContactNo}* no existe en la base de datos o no tiene un IdHit`);
-        // }
         let sqlSincroIds = `SELECT * FROM BC_SincroIds WHERE IdBc = '${customer.IdBc}' AND IdEmpresaBc = '${companyID}' AND IdEmpresaHit = '${database}' AND TipoDato = 'customer'`;
         let querySincro = await this.sql.runSql(sqlSincroIds, database);
         try {
@@ -110,14 +111,24 @@ export class customersSilemaService {
 
   async insertarCustomer(customer, token, database, companyID, tenant, entorno) {
     let sqlInsert = `INSERT INTO clients 
-              (Codi, Nom, Nif, Adresa, Ciutat, Cp, [Nom Llarg]) VALUES
+              (Codi, Nom, Nif, Adresa, Ciutat, Cp, [Nom Llarg], Lliure, [Tipus Iva], [Preu Base], [Desconte ProntoPago], [Desconte 1], [Desconte 2], [Desconte 3], [Desconte 4], [Desconte 5], AlbaraValorat) VALUES
               (${customer.Codi}, 
               '${this.escapeSqlString(customer.Nom)}', 
               '${customer.Nif}', 
               '${this.escapeSqlString(customer.Adresa)}', 
               '${this.escapeSqlString(customer.Ciutat)}', 
               '${customer.Cp}', 
-              '${this.escapeSqlString(customer.NomLlarg)}')`;
+              '${this.escapeSqlString(customer.NomLlarg)}',
+              '${customer.Lliure}',
+              ${customer.TipusIva},
+              ${customer.PreuBase},
+              ${customer.DesconteProntoPago},
+              ${customer.Desconte1},
+              ${customer.Desconte2},
+              ${customer.Desconte3},
+              ${customer.Desconte4},
+              ${customer.Desconte5},
+              ${customer.AlbaraValorat})`;
     let TipoDato = 'customer';
 
     let sqlSincroIds = `INSERT INTO BC_SincroIds 
