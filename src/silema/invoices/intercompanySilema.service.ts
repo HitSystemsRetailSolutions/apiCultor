@@ -50,7 +50,7 @@ export class intercompanySilemaService {
       let dueDate = x.DataVenciment.toISOString().substring(0, 10);
       console.log(`-------------------SINCRONIZANDO FACTURA NÚMERO ${num} -----------------------`);
 
-      const esTienda = await this.sql.runSql(`SELECT * FROM ParamsHw WHERE codi = '${x.clientcodi}'`, database);
+      const esTienda = await this.sql.runSql(`SELECT * FROM ParamsHw WHERE codi = '${x.ClientCodi}'`, database);
       const isShop = esTienda.recordset && esTienda.recordset.length > 0;
 
       let salesData = {
