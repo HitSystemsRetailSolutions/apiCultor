@@ -50,13 +50,16 @@ export class intercompanySilemaService {
       let dueDate = x.DataVenciment.toISOString().substring(0, 10);
       console.log(`-------------------SINCRONIZANDO FACTURA NÚMERO ${num} -----------------------`);
 
+      const esTienda = await this.sql.runSql(`SELECT * FROM ParamsHw WHERE codi = '${x.clientcodi}'`, database);
+      const isShop = esTienda.recordset && esTienda.recordset.length > 0;
+
       let salesData = {
         no: `${num}`, // Nº factura
         documentType: 'Invoice', // Tipo de documento
         dueDate: `${dueDate}`, // Fecha vencimiento
         externalDocumentNo: `${num}`, // Nº documento externo
         intercompanyGraellas: true, // Graella intercompany
-        locationCode: `${this.extractNumber(x.Nom)}`, // Cód. almacén
+        locationCode: isShop ? `${this.extractNumber(x.Nom)}` : '000', // Cód. almacén
         orderDate: `${dataInici}`, // Fecha pedido
         postingDate: `${dataFactura}`, // Fecha registro
         recapInvoice: false, // Factura recap //false
@@ -64,7 +67,7 @@ export class intercompanySilemaService {
         remainingAmount: 0, // Precio total incluyendo IVA por factura
         amountExclVat: 0, // Precio total sin IVA por factura
         vatAmount: 0, // IVA total por factura
-        shipToCode: `${this.extractNumber(x.Nom)}`, // Cód. dirección envío cliente
+        shipToCode: isShop ? `${this.extractNumber(x.Nom)}` : '', // Cód. dirección envío cliente
         storeInvoice: false, // Factura tienda
         vatRegistrationNo: `${x.ClientNif}`, // CIF/NIF
         invoiceStartDate: `${dataInici}`, // Fecha inicio facturación
@@ -73,7 +76,7 @@ export class intercompanySilemaService {
         salesLinesBuffer: [], // Array vacío para las líneas de ventas
       };
 
-      salesData = await this.processInvoiceLines(salesData, database, idFactura, tabFacturacioDATA);
+      salesData = await this.processInvoiceLines(salesData, database, idFactura, tabFacturacioDATA, isShop);
       // console.log(`Factura: `, salesData);
       await this.postToApi(tipo, salesData, tenant, entorno, companyID, token, database, idFactura);
     }
@@ -81,7 +84,7 @@ export class intercompanySilemaService {
     return true;
   }
 
-  async processInvoiceLines(salesData, database, idFactura, tabFacturacioDATA) {
+  async processInvoiceLines(salesData, database, idFactura, tabFacturacioDATA, isShop: boolean) {
     const sqlQ2 = `;WITH LineasBase AS (
                           SELECT 
                               f.Data,
@@ -209,7 +212,7 @@ export class intercompanySilemaService {
         vatProdPostingGroup: `${line.Iva}`,
         unitPrice: parseFloat(line.UnitPriceIVA),
         unitPriceExclVat: parseFloat(line.UnitPrice),
-        locationCode: `${this.extractNumber(line.Client)}`,
+        locationCode: isShop ? `${this.extractNumber(line.Client)}` : '000',
       };
       countLines++;
       salesData.salesLinesBuffer.push(salesLine);
@@ -243,7 +246,7 @@ export class intercompanySilemaService {
       vatProdPostingGroup: `IBEE`,
       unitPrice: totalBaseIBEE + totalCuotaIBEE,
       unitPriceExclVat: totalBaseIBEE,
-      locationCode: `${salesData.shipToCode}`,
+      locationCode: isShop ? `${salesData.shipToCode}` : '000',
     };
     salesData.salesLinesBuffer.push(salesIBEELine);
     countLines++;
