@@ -13,18 +13,25 @@ export class customersSilemaService {
   // Hay que sincronizar primero los clientes finales (contacts) antes que los clientes (customers)
   async syncCustomersSilema(companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
-    let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/customers?$filter=processHit eq true`;
-    let res = await axios
-      .get(url1, {
+    let res;
+    try {
+      let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/customers?$filter=processHit eq true`;
+      res = await axios.get(url1, {
         headers: {
           Authorization: 'Bearer ' + token,
           'Content-Type': 'application/json',
         },
       })
-      .catch((error) => {
-        console.error(`Error al obtener clientes: ${error.message}`);
-        throw new Error('Failed to obtain customers');
-      });
+    } catch (error) {
+      console.error(`Error al obtener los customers desde Silema: ${error.message},${error.response ? ' Response: ' + JSON.stringify(error.response.data) : ''}`);
+      return false;
+    }
+
+    if (res.data.value.length == 0) {
+      console.log('[Customer Sync] No hay clientes para sincronizar.');
+      return true;
+    }
+
     for (let i = 0; i < res.data.value.length; i++) {
       let bcrecord = res.data.value[i];
       if (bcrecord.processHIT) {
