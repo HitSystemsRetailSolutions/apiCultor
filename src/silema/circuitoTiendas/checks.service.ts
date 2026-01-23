@@ -40,6 +40,7 @@ export class checksService {
             const nTicks = countRes.recordset[0]?.nTicks ?? 0;
             const esperat = ultimTick - primerTick + 1;
             if (nTicks !== esperat) {
+                console.log('Saltos de ticket detectados', { primerTick, ultimTick, nTicks, esperat });
                 await this.updateControlTableEntry(day, month, year, botiga, database, turno);
                 return false;
             }
@@ -95,6 +96,7 @@ export class checksService {
         if (zMovements.recordset[0]) importZ = zMovements.recordset[0].import;
 
         if (Math.abs(importZ - importVenut) > 0.01) {
+            console.log('Importe de ventas y Z no coinciden', { importZ, importVenut });
             await this.updateControlTableEntry(day, month, year, botiga, database, turno);
             return false;
         }

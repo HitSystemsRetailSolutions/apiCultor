@@ -841,6 +841,7 @@ export class invoicesService {
         (newid(), newid(), '${factura.customerName}', '${clientNumber.recordset[0].Codi}', '${factura.id}', '${factura.number}', '${factura.postingDate}', '${factura.customerId}', ${factura.totalAmountIncludingTax}, 'Si');`;
         await this.sql.runSql(insertQuery, database);
         await this.pdfService.reintentarSubidaPdf([factura.id], database, client_id, client_secret, tenant, entorno, companyID, endpoint);
+        await this.xmlService.getXML(companyID, database, client_id, client_secret, tenant, entorno, factura.id, endpoint);
       }
       return true;
     } catch (error) {
