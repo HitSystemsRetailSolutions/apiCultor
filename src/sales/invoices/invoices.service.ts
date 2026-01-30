@@ -92,11 +92,11 @@ export class invoicesService {
             } else {
               invoiceDate = datePart;
             }
-            if (!serie || serie === '') {
+            if (!serie || serie === '' || serie === 'RE/') {
               if (endpoint === 'salesInvoices') {
                 serie = yearPart;
               } else if (endpoint === 'salesCreditMemos') {
-                serie = 'RE/';
+                serie = 'RE/' + yearPart;
               }
             }
             console.log(`-------------------SINCRONIZANDO FACTURA NÚMERO ${num} -----------------------`);
@@ -128,11 +128,7 @@ export class invoicesService {
               console.error(`❌ Error: La respuesta de la API no contiene datos válidos para la factura ${num}, pasamos a la siguiente factura.`);
               return;
             }
-            if (serie && serie !== '') {
-              await this.noSerieService.getNoSerie(companyID, client_id, client_secret, tenant, entorno, serie);
-            } else {
-              await this.noSerieService.getNoSerie(companyID, client_id, client_secret, tenant, entorno, yearPart);
-            }
+            await this.noSerieService.getNoSerie(companyID, client_id, client_secret, tenant, entorno, serie);
 
             let invoiceData;
             if (x.Total >= 0) {
@@ -537,6 +533,11 @@ export class invoicesService {
           'Content-Type': 'application/json',
         },
       });
+      if (correctedInvoice.data.value.length === 0) {
+        console.warn(`⚠️ No se encontró una factura rectificativa en BC con el número externo ${facturaComentari.recordset[0].rectificativa}.`);
+        return;
+      }
+
       const updateData = {
         CorrectedInvoiceNo: correctedInvoice.data.value[0].number,
         AppliesToDocType: 'Invoice',
