@@ -12,38 +12,51 @@ export class vendorsSilemaService {
 
   async syncVendorsSilema(companyID, database, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let token = await this.token.getToken2(client_id, client_secret, tenant);
-    let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/vendors?$filter=processHit eq true`;
-    let res = await axios
-      .get(url1, {
+    let res;
+    try {
+      let url1 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/vendors?$filter=processHit eq true`;
+      res = await axios.get(url1, {
         headers: {
           Authorization: 'Bearer ' + token,
           'Content-Type': 'application/json',
         },
       })
-      .catch((error) => {
-        console.log(`Url ERROR: ${url1}`);
-        throw new Error('Failed to obtain vendors');
-      });
+    } catch (error) {
+      console.error(`Error al obtener los proveedores desde Silema: ${error.message},${error.response ? ' Response: ' + JSON.stringify(error.response.data) : ''}`);
+      return false;
+    }
+
+    if (res.data.value.length == 0) {
+      console.log('[Vendors Sync] No hay proveedores para sincronizar.');
+      return true;
+    }
+
     for (let i = 0; i < res.data.value.length; i++) {
-      if (res.data.value[i].processHIT) {
+      let bcrecord = res.data.value[i];
+      if (!bcrecord.number || !bcrecord.name || !bcrecord.vatRegistrationNo) {
+        console.warn(`[Vendors Sync] Saltando registro ${i} por falta de campos obligatorios (Número o Nombre o NIF). BC ID: ${bcrecord.id}`);
+        continue;
+      }
+      if (bcrecord.processHIT) {
         const proveedor = {
-          id: res.data.value[i].id || '',
-          nombre: res.data.value[i].name || '',
-          nif: res.data.value[i].vatRegistrationNo || '',
-          direccion: res.data.value[i].address || '',
-          cp: res.data.value[i].postCode || '',
-          ciudad: res.data.value[i].city || '',
-          provincia: res.data.value[i].county || '',
-          pais: res.data.value[i].countryRegionCode || '',
-          tlf1: res.data.value[i].phoneNo || '',
-          tlf2: res.data.value[i].mobilePhoneNo || '',
-          alta: res.data.value[i].systemCreatedAt ? new Date(res.data.value[i].systemCreatedAt).toISOString().slice(0, 19).replace('T', ' ') : null,
+          idBC: bcrecord.id || '',
+          nombre: bcrecord.name || '',
+          nif: bcrecord.vatRegistrationNo || '',
+          direccion: bcrecord.address || '',
+          cp: bcrecord.postCode || '',
+          ciudad: bcrecord.city || '',
+          provincia: bcrecord.county || '',
+          pais: bcrecord.countryRegionCode || '',
+          tlf1: bcrecord.phoneNo || '',
+          tlf2: bcrecord.mobilePhoneNo || '',
+          alta: bcrecord.systemCreatedAt ? new Date(bcrecord.systemCreatedAt).toISOString().slice(0, 19).replace('T', ' ') : null,
           activo: 1,
-          eMail: res.data.value[i].eMail || '',
-          codi: res.data.value[i].number || '',
-          FormaPago: res.data.value[i].paymentMethodCode || '',
+          eMail: bcrecord.eMail || '',
+          codi: bcrecord.number || '',
+          FormaPago: bcrecord.paymentMethodCode || '',
           FormaPagoValor: 0,
-          vencimiento: res.data.value[i].paymentTermsCode || '',
+          vencimiento: bcrecord.paymentTermsCode || '',
+          id: bcrecord.id || '', // Inicialmente igual, pero se actualizará con el ID de HIT si existe
         };
 
         //1= Domiciliación, 2=Cheque, 3=Efectivo, 4=Transferencia, 5=Pago bloqueado, 6=Tarjeta
@@ -57,36 +70,41 @@ export class vendorsSilemaService {
         };
         proveedor.FormaPagoValor = formaPagoMap[proveedor.FormaPago] || 0;
 
-        let sqlSincroIds = `SELECT * FROM BC_SincroIds WHERE IdBc = '${proveedor.codi}' AND IdEmpresaBc = '${companyID}' AND IdEmpresaHit = '${database}' AND TipoDato = 'proveedor'`;
+        let sqlSincroIds = `SELECT * FROM BC_SincroIds WHERE IdBc = '${this.escapeSqlString(proveedor.codi)}' AND IdEmpresaBc = '${companyID}' AND IdEmpresaHit = '${database}' AND TipoDato = 'proveedor'`;
         let querySincro = await this.sql.runSql(sqlSincroIds, database);
-        if (proveedor.cp.length <= 5 && proveedor.nif) {
-          if (querySincro.recordset.length == 0) {
-            let sqlInserted = false;
-            let checks = [`SELECT * FROM ccProveedores WHERE nif = '${proveedor.nif}'`];
-            for (let sqlCheck of checks) {
-              let queryCheck = await this.sql.runSql(sqlCheck, database);
-              if (queryCheck.recordset.length == 0 && !sqlInserted) {
-                await this.insertarProveedor(proveedor, token, database, companyID, tenant, entorno);
-                sqlInserted = true;
-              }
-            }
-            if (!sqlInserted) {
-              console.log('El proveedor ya existe en la base de datos');
+        try {
+          if (proveedor.cp.length <= 5) {
+            if (querySincro.recordset.length == 0) {
 
-              let sqlGetCodi = `SELECT TOP 1 id FROM ccProveedores WHERE nif = '${proveedor.nif}'`;
-              let result = await this.sql.runSql(sqlGetCodi, database);
-              if (result.recordset.length > 0) {
-                proveedor.id = result.recordset[0].id;
+              let sqlFindCandidates = `SELECT * FROM ccProveedores WHERE nif = '${this.escapeSqlString(proveedor.nif)}'`;
+              let queryCandidates = await this.sql.runSql(sqlFindCandidates, database);
+              let candidateCodes = queryCandidates.recordset.map((r) => r.codi);
+              if (candidateCodes.length > 0) {
+                console.log(`Se han encontrado ${candidateCodes.length} proveedores para el NIF ${proveedor.nif}: ${candidateCodes.join(', ')}`);
+                for (let iCode = 0; iCode < candidateCodes.length; iCode++) {
+                  proveedor.codi = candidateCodes[iCode];
+                  // El primero crea el vínculo (accion 2), los demás solo se actualizan (accion 1)
+                  await this.actualizarProveedor(iCode === 0 ? 2 : 1, proveedor, token, database, companyID, tenant, entorno);
+                }
               } else {
-                console.warn(`No se pudo encontrar el Codi del cliente para actualizar: ${proveedor.nif}`);
-                continue;
+                // No existe ningún proveedor para este NIF. Insertamos nuevo proveedor y vinculamos.
+                await this.insertarProveedor(proveedor, token, database, companyID, tenant, entorno);
               }
-              await this.actualizarProveedor(2, proveedor, token, database, companyID, tenant, entorno);
+            } else {
+              let linkedCodi = querySincro.recordset[0].IdHit;
+              proveedor.id = linkedCodi;
+              await this.actualizarProveedor(1, proveedor, token, database, companyID, tenant, entorno);
+
+              let sqlFindOthers = `SELECT Id FROM ccProveedores WHERE nif = '${this.escapeSqlString(proveedor.nif)}' AND id <> '${this.escapeSqlString(linkedCodi)}'`;
+              let queryOthers = await this.sql.runSql(sqlFindOthers, database);
+              for (let row of queryOthers.recordset) {
+                proveedor.id = row.Id;
+                await this.actualizarProveedor(1, proveedor, token, database, companyID, tenant, entorno);
+              }
             }
-          } else {
-            proveedor.id = querySincro.recordset[0].IdHit;
-            await this.actualizarProveedor(1, proveedor, token, database, companyID, tenant, entorno);
           }
+        } catch (error) {
+          console.error(`[Vendors Sync] Error al procesar el vendor ${proveedor.codi} [${proveedor.nombre}]: ${error.message}`);
         }
       }
       console.log(`Synchronizing vendors... -> ${i}/${res.data.value.length} --- ${((i / res.data.value.length) * 100).toFixed(2)}%`);
@@ -98,80 +116,51 @@ export class vendorsSilemaService {
     let sqlInsert = `INSERT INTO ccProveedores 
                       (id, nombre, nombreCorto, nif, direccion, cp, ciudad, provincia, pais, tlf1, tlf2, alta, activo, eMail, codi, tipoCobro) 
                       VALUES (
-                        '${proveedor.id}', 
+                        '${this.escapeSqlString(proveedor.idBC)}', 
                         '${this.escapeSqlString(proveedor.nombre)}', 
                         '${this.escapeSqlString(proveedor.nombre)}', 
-                        '${proveedor.nif}', 
+                        '${this.escapeSqlString(proveedor.nif)}', 
                         '${this.escapeSqlString(proveedor.direccion)}', 
-                        '${proveedor.cp}', 
+                        '${this.escapeSqlString(proveedor.cp)}', 
                         '${this.escapeSqlString(proveedor.ciudad)}', 
                         '${this.escapeSqlString(proveedor.provincia)}', 
                         '${this.escapeSqlString(proveedor.pais)}', 
-                        '${proveedor.tlf1}', 
-                        '${proveedor.tlf2}', 
-                        '${proveedor.alta}', 
+                        '${this.escapeSqlString(proveedor.tlf1)}', 
+                        '${this.escapeSqlString(proveedor.tlf2)}', 
+                        '${this.escapeSqlString(proveedor.alta)}', 
                         ${proveedor.activo}, 
                         '${this.escapeSqlString(proveedor.eMail)}', 
-                        '${proveedor.codi}', 
+                        '${this.escapeSqlString(proveedor.codi)}', 
                         '${proveedor.FormaPagoValor}'
                       );`;
 
     let tipoDato = 'proveedor';
 
     let sqlSincroIds = `INSERT INTO BC_SincroIds (TmSt, TipoDato, IdBc, IdHit, IdEmpresaBc, IdEmpresaHit) 
-      VALUES (GETDATE(), '${tipoDato}', '${proveedor.codi}', '${proveedor.id}', '${companyID}', '${database}')`;
+      VALUES (GETDATE(), '${tipoDato}', '${this.escapeSqlString(proveedor.codi)}', '${this.escapeSqlString(proveedor.idBC)}', '${companyID}', '${database}')`;
 
     try {
       await this.sql.runSql(sqlInsert, database);
       await this.sql.runSql(sqlSincroIds, database);
-      if (proveedor.vencimiento != '') await this.sqlProveedoresExtes(proveedor.id, 'VencimientoDias', proveedor.vencimiento, 2, database);
-      await this.marcarProcesado(proveedor.id, token, companyID, tenant, entorno);
-      console.log('Vendor procesado');
+      if (proveedor.vencimiento && proveedor.vencimiento != '') await this.sqlProveedoresExtes(proveedor.idBC, 'VencimientoDias', proveedor.vencimiento, 2, database);
+      await this.marcarProcesado(proveedor.idBC, token, companyID, tenant, entorno);
     } catch (error) {
-      console.error(`Error al insertar el vendor: ID=${proveedor.id}, Nombre=${proveedor.nombre}, CompanyID=${companyID}`);
-      console.error(error);
+      console.error(`[Vendors Sync] Error al insertar el vendor: ID BC=${proveedor.idBC}, Nombre=${proveedor.nombre}. ${error.message}`);
     }
   }
 
   async actualizarProveedor(accion, proveedor, token, database, companyID, tenant, entorno) {
     try {
-      let sqlUpdate = `UPDATE ccProveedores SET 
-                      nombre = '${this.escapeSqlString(proveedor.nombre)}',
-                      nombreCorto = '${this.escapeSqlString(proveedor.nombre)}',
-                      nif = '${proveedor.nif}',
-                      direccion = '${this.escapeSqlString(proveedor.direccion)}',
-                      cp = '${proveedor.cp}',
-                      ciudad = '${this.escapeSqlString(proveedor.ciudad)}',
-                      provincia = '${this.escapeSqlString(proveedor.provincia)}',
-                      pais = '${this.escapeSqlString(proveedor.pais)}',
-                      tlf1 = '${proveedor.tlf1}',
-                      tlf2 = '${proveedor.tlf2}',
-                      alta = '${proveedor.alta}',
-                      activo = ${proveedor.activo},
-                      eMail = '${this.escapeSqlString(proveedor.eMail)}',
-                      codi = '${proveedor.codi}',
-                      tipoCobro = '${proveedor.FormaPagoValor}'
-                      WHERE id = '${proveedor.id}';`;
-      if (accion == 1) {
-        // await this.sqlProveedoresExtes(proveedor.id, '', '', 5, database);
-        // await this.sql.runSql(sqlUpdate, database);
-        // if (proveedor.vencimiento != '') await this.sqlProveedoresExtes(proveedor.id, 'VencimientoDias', proveedor.vencimiento, 2, database);
-        await this.marcarProcesado(proveedor.id, token, companyID, tenant, entorno);
-        console.log('Vendor actualizado');
-      } else if (accion == 2) {
+      // De momento no quieren que se actualicen los proveedores
+      if (accion == 2) {
         let tipoDato = 'proveedor';
         let sqlSincroIds = `INSERT INTO BC_SincroIds (TmSt, TipoDato, IdBc, IdHit, IdEmpresaBc, IdEmpresaHit) 
-          VALUES (GETDATE(), '${tipoDato}', '${proveedor.codi}', '${proveedor.id}', '${companyID}', '${database}')`;
-        // await this.sqlProveedoresExtes(proveedor.id, '', '', 5, database);
-        // await this.sql.runSql(sqlUpdate, database);
+          VALUES (GETDATE(), '${tipoDato}', '${this.escapeSqlString(proveedor.codi)}', '${this.escapeSqlString(proveedor.id)}', '${companyID}', '${database}')`;
         await this.sql.runSql(sqlSincroIds, database);
-        // if (proveedor.vencimiento != '') await this.sqlProveedoresExtes(proveedor.id, 'VencimientoDias', proveedor.vencimiento, 2, database);
-        await this.marcarProcesado(proveedor.id, token, companyID, tenant, entorno);
-        console.log('Vendor actualizado');
       }
+      await this.marcarProcesado(proveedor.idBC, token, companyID, tenant, entorno);
     } catch (error) {
-      console.error(`Error al actualizar el vendor: ID=${proveedor.id}, Nombre=${proveedor.nombre}, CompanyID=${companyID}`);
-      console.error(error);
+      console.error(`[Vendors Sync] Error al actualizar el vendor ${proveedor.codi} [${proveedor.nombre}]: ${error.message}`);
     }
   }
   async sqlProveedoresExtes(Codi, Variable, Valor, query, database) {
@@ -185,26 +174,27 @@ export class vendorsSilemaService {
     if (query == 1) {
       let sql = `SELECT * FROM ccProveedoresExtes WHERE id = '${Codi}' and nom = '${Variable}'`;
       let sqlQuery = await this.sql.runSql(sql, database);
-      return sqlQuery.length;
+      return sqlQuery.recordset.length;
     } else if (query == 2) {
-      let sql = `INSERT INTO ccProveedoresExtes (id, nom, valor) VALUES ('${Codi}', '${Variable}', '${Valor}')`;
+      let sql = `INSERT INTO ccProveedoresExtes (id, nom, valor) VALUES ('${this.escapeSqlString(Codi)}', '${this.escapeSqlString(Variable)}', '${this.escapeSqlString(Valor)}')`;
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 3) {
-      let sql = `UPDATE ccProveedoresExtes SET valor = '${Valor}' WHERE id = '${Codi}' and nom = '${Variable}'`;
+      let sql = `UPDATE ccProveedoresExtes SET valor = '${this.escapeSqlString(Valor)}' WHERE id = '${this.escapeSqlString(Codi)}' and nom = '${this.escapeSqlString(Variable)}'`;
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 4) {
-      let sql = `DELETE FROM ccProveedoresExtes WHERE id = '${Codi}' and nom = '${Variable}'`;
+      let sql = `DELETE FROM ccProveedoresExtes WHERE id = '${this.escapeSqlString(Codi)}' and nom = '${this.escapeSqlString(Variable)}'`;
       let sqlQuery = await this.sql.runSql(sql, database);
     } else if (query == 5) {
-      let sql = `DELETE FROM ccProveedoresExtes WHERE id = '${Codi}'`;
+      let sql = `DELETE FROM ccProveedoresExtes WHERE id = '${this.escapeSqlString(Codi)}'`;
       let sqlQuery = await this.sql.runSql(sql, database);
     }
   }
 
   async marcarProcesado(id, token, companyID, tenant, entorno) {
     try {
+      const cleanId = String(id).replace(/{|}/g, '');
       const data = { processedHIT: true };
-      let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/vendors(${id})`;
+      let url2 = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/abast/hitIntegration/v2.0/companies(${companyID})/vendors(${cleanId})`;
       await axios.patch(url2, data, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -213,8 +203,7 @@ export class vendorsSilemaService {
         },
       });
     } catch (error) {
-      console.error(`Error al marcar el vendor como procesado: ID=${id}, CompanyID=${companyID}`);
-      console.log(error.response.data);
+      console.error(`Error al marcar el vendor como procesado: ID=${id}. ${error.message}${error.response ? ' Response: ' + JSON.stringify(error.response.data) : ''}`);
     }
   }
   escapeSqlString(value) {
