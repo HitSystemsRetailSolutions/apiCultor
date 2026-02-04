@@ -3,6 +3,7 @@ import { getTokenService } from 'src/connection/getToken.service';
 import { runSqlService } from 'src/connection/sqlConnection.service';
 import axios from 'axios';
 import { helpersService } from 'src/helpers/helpers.service';
+import { checksService } from './checks.service';
 
 @Injectable()
 export class salesSilemaCierreService {
@@ -10,6 +11,7 @@ export class salesSilemaCierreService {
     private token: getTokenService,
     private sql: runSqlService,
     private helpers: helpersService,
+    private checks: checksService,
   ) { }
   //Sincroniza tickets HIT-BC, Ventas
   async syncSalesSilemaCierre(day, month, year, companyID, database, botiga, turno, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -19,10 +21,14 @@ export class salesSilemaCierreService {
     }
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let tipo = 'syncSalesSilemaCierre';
+
+    const locationCode = await this.checks.validateStore(botiga, day, month, year, turno, companyID, entorno, database, 'Cierre');
+    if (!locationCode) return false;
+
     let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
     let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
     if (queryFranquicia.recordset.length >= 1) return;
-    await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'INIT', `Iniciando sincronización de cierre`, 'Cierre', companyID, entorno);
+    await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'INIT', `Iniciando sincronización de cierre (Almacén: ${locationCode})`, 'Cierre', companyID, entorno);
     let sqlTurnos = `
     SELECT CONVERT(Time, Data) as hora, Tipus_moviment 
     FROM [V_Moviments_${year}-${month}] 
@@ -462,9 +468,15 @@ export class salesSilemaCierreService {
           postingDate: `${formattedDate2}`,
           shift: `Shift_x0020_${turno}`,
           dueDate: `${formattedDate2}`,
-          locationCode: `${this.extractNumber(x.Botiga)}`,
+          locationCode: `${this.checks.extractNumber(x.Botiga)}`,
           closingStoreType: '',
         };
+
+        if (salesCierre.locationCode === 'null' || !salesCierre.locationCode) {
+          await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'error', 'NULL_LOCATION', `Se ha detectado un locationCode nulo para la línea ${i + 1}. Abortando proceso.`, 'Cierre', companyID, entorno);
+          console.error(`locationCode nulo en línea ${i + 1} para ${x.Botiga}`);
+          return false;
+        }
 
         switch (x.Tipo_moviment) {
           case 'Efectivo':
@@ -601,12 +613,6 @@ export class salesSilemaCierreService {
       console.error(`Url ERROR: ${url}`, error);
       throw new Error('Failed to obtain sale count');
     }
-  }
-
-  extractNumber(input: string): string | null {
-    input = input.toUpperCase();
-    const match = input.match(/[TM]--(\d{3})/);
-    return match ? match[1] : null;
   }
 
   private capitalizarPrimeraLetra(texto: string): string {

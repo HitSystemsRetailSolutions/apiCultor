@@ -3,12 +3,14 @@ import { getTokenService } from 'src/connection/getToken.service';
 import { runSqlService } from 'src/connection/sqlConnection.service';
 import axios from 'axios';
 import { helpersService } from 'src/helpers/helpers.service';
+import { checksService } from './checks.service';
 @Injectable()
 export class salesSilemaAbonoService {
   constructor(
     private token: getTokenService,
     private sql: runSqlService,
     private helpers: helpersService,
+    private checks: checksService,
   ) { }
 
   //Abono
@@ -19,10 +21,14 @@ export class salesSilemaAbonoService {
     }
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let tipo = 'syncSalesSilemaAbono';
+
+    const locationCode = await this.checks.validateStore(botiga, day, month, year, turno, companyID, entorno, database, 'Abonos');
+    if (!locationCode) return false;
+
     let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
     let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
     if (queryFranquicia.recordset.length >= 1) return;
-    await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'INIT', `Iniciando sincronización de abonos`, 'Abonos', companyID, entorno);
+    await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'INIT', `Iniciando sincronización de abonos (Almacén: ${locationCode})`, 'Abonos', companyID, entorno);
     let sqlTurnos = `
     SELECT CONVERT(Time, Data) as hora, Tipus_moviment 
     FROM [V_Moviments_${year}-${month}] 
@@ -223,7 +229,7 @@ export class salesSilemaAbonoService {
         documentType: 'Credit_x0020_Memo', // Tipo de documento
         dueDate: `${formattedDate2}`, // Fecha vencimiento
         externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}`, // Nº documento externo
-        locationCode: `${this.extractNumber(x.Nom)}`, // Cód. almacén
+        locationCode: `${this.checks.extractNumber(x.Nom)}`, // Cód. almacén
         orderDate: `${formattedDate2}`, // Fecha pedido
         personalStoreInvoice: true,
         postingDate: `${formattedDate2}`, // Fecha registro
@@ -233,13 +239,20 @@ export class salesSilemaAbonoService {
         vatAmount: parseFloat(x.ATotalIVA.toFixed(2)), // IVA total por factura,
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
-        shipToCode: `${this.extractNumber(x.Nom).toUpperCase()}`, // Cód. dirección envío cliente
+        shipToCode: `${this.checks.extractNumber(x.Nom).toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
         vatRegistrationNo: `${x.NifTienda}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
         invoiceEndDate: `${formattedDate2}`, // Fecha fin facturación
         salesLinesBuffer: [], // Array vacío para las líneas de ventas
       };
+
+      if (salesData.locationCode === 'null' || !salesData.locationCode) {
+        await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'error', 'NULL_LOCATION', `Se ha detectado un locationCode nulo para el documento ${salesData.no}. Abortando proceso.`, 'Abonos', companyID, entorno);
+        console.error(`locationCode nulo para documento ${salesData.no}`);
+        return false;
+      }
+
       await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'CREATE_CREDIT_MEMO', `Procesando venta ${salesData.no} - Total: ${salesData.remainingAmount} - Lineas: ${data.recordset.length}`, 'Abonos', companyID, entorno);
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
@@ -259,7 +272,7 @@ export class salesSilemaAbonoService {
           vatProdPostingGroup: `${x.IVA}`,
           unitPrice: parseFloat(x.PreuUnitari),
           unitPriceExclVat: parseFloat(x.PreuUnitariSenseIVA),
-          locationCode: `${this.extractNumber(x.Nom)}`,
+          locationCode: `${this.checks.extractNumber(x.Nom)}`,
         };
 
         salesData.salesLinesBuffer.push(salesLine);
@@ -279,7 +292,7 @@ export class salesSilemaAbonoService {
         documentType: 'Order', // Tipo de documento
         dueDate: `${formattedDate2}`, // Fecha vencimiento
         externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}_${cliente}`, // Nº documento externo
-        locationCode: `${this.extractNumber(x.Nom)}`, // Cód. almacén
+        locationCode: `${this.checks.extractNumber(x.Nom)}`, // Cód. almacén
         orderDate: `${formattedDate2}`, // Fecha pedido
         personalStoreInvoice: true,
         postingDate: `${formattedDate2}`, // Fecha registro
@@ -289,7 +302,7 @@ export class salesSilemaAbonoService {
         vatAmount: parseFloat(x.TotalIVA.toFixed(2)), // IVA total por factura
         sellToCustomerNo: `${sellToCustomerNo}`, // COSO
         shift: `Shift_x0020_${turno}`, // Turno
-        shipToCode: `${this.extractNumber(x.Nom).toUpperCase()}`, // Cód. dirección envío cliente
+        shipToCode: `${this.checks.extractNumber(x.Nom).toUpperCase()}`, // Cód. dirección envío cliente
         storeInvoice: true, // Factura tienda
         vatRegistrationNo: `${x.NIF}`, // CIF/NIF
         invoiceStartDate: `${formattedDate2}`, // Fecha inicio facturación
@@ -333,7 +346,7 @@ export class salesSilemaAbonoService {
             quantity: 1,
             shipmentDate: `${isoDate}`,
             lineTotalAmount: 0,
-            locationCode: `${this.extractNumber(x.Nom)}`,
+            locationCode: `${this.checks.extractNumber(x.Nom)}`,
           };
           lineCounter++;
           salesData.salesLinesBuffer.push(salesLineAlbaran);
@@ -354,7 +367,7 @@ export class salesSilemaAbonoService {
           vatProdPostingGroup: `${x.IVA}`,
           unitPrice: parseFloat(x.PreuUnitari),
           unitPriceExclVat: parseFloat(x.PreuUnitariSenseIVA),
-          locationCode: `${this.extractNumber(x.Nom)}`,
+          locationCode: `${this.checks.extractNumber(x.Nom)}`,
         };
         salesData.salesLinesBuffer.push(salesLine);
         lineCounter++;
@@ -415,11 +428,5 @@ export class salesSilemaAbonoService {
     } else {
       console.log(`Ya existe la ${tipo}: ${salesData.no}`);
     }
-  }
-
-  extractNumber(input: string): string | null {
-    input = input.toUpperCase();
-    const match = input.match(/[TM]--(\d{3})/);
-    return match ? match[1] : null;
   }
 }
