@@ -1,11 +1,57 @@
 import { Injectable } from '@nestjs/common';
 import { runSqlService } from 'src/connection/sqlConnection.service';
+import { helpersService } from 'src/helpers/helpers.service';
 
 @Injectable()
 export class checksService {
     constructor(
         private sql: runSqlService,
+        private helpers: helpersService,
     ) { }
+
+    async validateStore(botiga: string | number, day: string, month: string, year: string, turno: any, companyID: string, entorno: string, database: string, tipoLog: string): Promise<string | false> {
+        // Comprobar si la tienda existe, es una tienda y si tiene el formato correcto
+        let sqlCheckTienda = `
+          SELECT c.codi, c.nom, p.Codi as esTienda 
+          FROM clients c 
+          LEFT JOIN ParamsHw p ON c.codi = p.Codi 
+          WHERE c.codi = ${botiga}`;
+        let queryTienda = await this.sql.runSql(sqlCheckTienda, database);
+
+        if (queryTienda.recordset.length === 0) {
+            await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'error', 'STORE_NOT_FOUND', `La tienda ${botiga} no existe en la tabla de clientes.`, tipoLog, companyID, entorno);
+            console.error(`La tienda ${botiga} no existe en la tabla de clientes.`);
+            return false;
+        }
+
+        if (queryTienda.recordset.length > 1) {
+            await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'error', 'DUPLICATED_STORE', `La tienda ${botiga} está duplicada ${queryTienda.recordset.length} veces en la tabla de clientes. Abortando proceso para evitar importes multiplicados.`, tipoLog, companyID, entorno);
+            console.error(`Tienda ${botiga} duplicada ${queryTienda.recordset.length} veces.`);
+            return false;
+        }
+
+        if (!queryTienda.recordset[0].esTienda) {
+            await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'error', 'NOT_A_STORE', `El código ${botiga} no existe en la tabla ParamsHw. No se considera una tienda válida.`, tipoLog, companyID, entorno);
+            console.error(`El código ${botiga} no es una tienda válida (no existe en ParamsHw).`);
+            return false;
+        }
+
+        const storeName = queryTienda.recordset[0].nom;
+        const locationCode = this.extractNumber(storeName);
+        if (!locationCode) {
+            await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'error', 'INVALID_STORE_NAME', `El nombre de la tienda '${storeName}' no tiene el formato esperado (T--### o M--###). El código de almacén sería NULL. Abortando proceso.`, tipoLog, companyID, entorno);
+            console.error(`Nombre de tienda inválido: '${storeName}'.`);
+            return false;
+        }
+
+        return locationCode;
+    }
+
+    extractNumber(input: string): string | null {
+        input = input.toUpperCase();
+        const match = input.match(/[TM]--(\d{3})/);
+        return match ? match[1] : null;
+    }
 
     async validaCaja(botiga: string | number, year, month, day, horaInicio, horaFin, database, turno): Promise<boolean> {
 

@@ -94,10 +94,14 @@ export class salesSilemaService {
     }
     let token = await this.token.getToken2(client_id, client_secret, tenant);
     let tipo = 'syncSalesSilema';
+
+    const locationCode = await this.checks.validateStore(botiga, day, month, year, turno, companyID, entorno, database, 'Ventas');
+    if (!locationCode) return false;
+
     let sqlQFranquicia = `SELECT * FROM constantsClient WHERE Codi = ${botiga} and Variable = 'Franquicia'`;
     let queryFranquicia = await this.sql.runSql(sqlQFranquicia, database);
     if (queryFranquicia.recordset.length >= 1) return;
-    await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'INIT', `Iniciando sincronización de ventas`, 'Ventas', companyID, entorno);
+    await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'INIT', `Iniciando sincronización de ventas (Almacén: ${locationCode})`, 'Ventas', companyID, entorno);
     let sqlTurnos = `
     SELECT CONVERT(Time, Data) as hora, Tipus_moviment 
     FROM [V_Moviments_${year}-${month}] 
@@ -251,7 +255,7 @@ export class salesSilemaService {
         documentType: 'Invoice',
         dueDate: formattedDate2,
         externalDocumentNo: `${x.Nom}_${turno}_${formattedDate}`,
-        locationCode: `${this.extractNumber(x.Nom)}`,
+        locationCode: `${this.checks.extractNumber(x.Nom)}`,
         orderDate: formattedDate2,
         postingDate: formattedDate2,
         recapInvoice: false,
@@ -259,7 +263,7 @@ export class salesSilemaService {
         amountExclVat: parseFloat(x.TotalSinIVA.toFixed(2)),
         shift: `Shift_x0020_${turno}`,
         sellToCustomerNo: sellToCustomerNo,
-        shipToCode: `${this.extractNumber(x.Nom).toUpperCase()}`,
+        shipToCode: `${this.checks.extractNumber(x.Nom).toUpperCase()}`,
         storeInvoice: true,
         vatRegistrationNo: x.Nif,
         firstSummaryDocNo: x.MinNumTick.toString(),
@@ -268,6 +272,13 @@ export class salesSilemaService {
         invoiceEndDate: formattedDate2,
         salesLinesBuffer: [],
       };
+
+      if (salesData.locationCode === 'null' || !salesData.locationCode) {
+        await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'error', 'NULL_LOCATION', `Se ha detectado un locationCode nulo para el documento ${salesData.no}. Abortando proceso.`, 'Ventas', companyID, entorno);
+        console.error(`locationCode nulo para documento ${salesData.no}`);
+        return false;
+      }
+
       await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno, 'info', 'SALES_DATA', `Procesando venta ${salesData.no} - Total: ${salesData.remainingAmount} - Lineas: ${data.recordset.length}`, 'Ventas', companyID, entorno);
       for (let i = 0; i < data.recordset.length; i++) {
         x = data.recordset[i];
@@ -285,7 +296,7 @@ export class salesSilemaService {
           lineTotalAmount: parseFloat(x.Import),
           vatProdPostingGroup: `${x.Iva}`,
           unitPrice: parseFloat(x.precioUnitario),
-          locationCode: `${this.extractNumber(x.Nom)}`,
+          locationCode: `${this.checks.extractNumber(x.Nom)}`,
         };
         salesData.salesLinesBuffer.push(salesLine);
       }
@@ -354,10 +365,5 @@ export class salesSilemaService {
     }
     await this.helpers.addLog(botiga, `${day}-${month}-${year}`, turno || 0, 'info', 'DELETE_CONTROL', `Eliminando entrada de control para ${day}-${month}-${year} tienda ${botiga}`, 'Ventas');
     await this.sql.runSql(sqlDelete, database);
-  }
-  extractNumber(input: string): string | null {
-    input = input.toUpperCase();
-    const match = input.match(/[TM]--(\d{3})/);
-    return match ? match[1] : null;
   }
 }
