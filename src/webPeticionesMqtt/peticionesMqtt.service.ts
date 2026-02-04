@@ -54,12 +54,14 @@ export class peticionesMqttService {
   }
   async syncSilemaDate(diaInicio: string, diaFin: string, mes: string, anio: string, turno: number, companyID: string, entorno: string, empresa: string, tiendas: string = "") {
 
-    let tiendasArray: number[] = [];
-    if (empresa == 'imeMil' && tiendas === '') {
+    let tiendasArray: any[] = [];
+    if (tiendas && tiendas !== '') {
+      tiendasArray = tiendas.split(',').map(t => t.trim()).filter(t => t !== '');
+    } else if (empresa == 'imeMil') {
       const query = `select codi from clients where codi in (select codi from ParamsHw) and nif = 'B61957189' and nom not like 'no%' order by codi`
       const listaTiendas = await this.sql.runSql(query, 'fac_tena');
       tiendasArray = listaTiendas.recordset.map((item) => item.codi);
-    } else if (empresa == 'filapena' && tiendas === '') {
+    } else if (empresa == 'filapena') {
       const query = `select codi from clients where codi in (select codi from ParamsHw) and nif = 'B66567470' and nom not like 'no%' order by codi`
       const listaTiendas = await this.sql.runSql(query, 'fac_tena');
       tiendasArray = listaTiendas.recordset.map((item) => item.codi);
