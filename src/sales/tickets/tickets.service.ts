@@ -220,7 +220,7 @@ export class ticketsService {
               const ticketsRange = await this.sql.runSql(
                 `SELECT MIN(num_tick) AS primerTick, MAX(num_tick) AS ultimTick
                  FROM [v_venut_${year}-${month}]
-                 WHERE botiga = ${licencia} AND DAY(Data) = ${day}`, database);
+                 WHERE (CASE WHEN estat <> '' THEN estat ELSE botiga END) = ${licencia} AND DAY(Data) = ${day}`, database);
               const pTick = ticketsRange?.recordset[0]?.primerTick;
               const uTick = ticketsRange?.recordset[0]?.ultimTick;
 
@@ -228,9 +228,9 @@ export class ticketsService {
                 const countRes = await this.sql.runSql(
                   `SELECT COUNT(DISTINCT num_tick) AS nTicks
                       FROM (
-                          SELECT Botiga, Data, Num_tick FROM [v_venut_${year}-${month}]
+                          SELECT (CASE WHEN estat <> '' THEN estat ELSE botiga END) AS Botiga, Data, Num_tick FROM [v_venut_${year}-${month}]
                           UNION ALL
-                          SELECT Botiga, Data, Num_tick FROM [V_Anulats_${year}-${month}]
+                          SELECT (CASE WHEN estat <> '' THEN estat ELSE botiga END) AS Botiga, Data, Num_tick FROM [V_Anulats_${year}-${month}]
                       ) v
                       WHERE Botiga = ${licencia} AND DAY(Data) = ${day} AND num_tick BETWEEN ${pTick} AND ${uTick}`, database
                 );
@@ -246,7 +246,7 @@ export class ticketsService {
               const ventasTotal = await this.sql.runSql(
                 `SELECT ISNULL(ROUND(SUM(import), 2),0) AS import
                  FROM [v_venut_${year}-${month}]
-                 WHERE botiga=${licencia} AND DAY(Data)=${day}`, database
+                 WHERE (CASE WHEN estat <> '' THEN estat ELSE botiga END) = ${licencia} AND DAY(Data) = ${day}`, database
               );
               const zMovements = await this.sql.runSql(
                 `SELECT ISNULL(ROUND(SUM(import), 2),0) AS import
