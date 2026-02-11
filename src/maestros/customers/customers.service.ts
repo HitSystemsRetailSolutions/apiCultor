@@ -1,6 +1,7 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { getTokenService } from 'src/connection/getToken.service';
 import { runSqlService } from 'src/connection/sqlConnection.service';
+import { helpersService } from 'src/helpers/helpers.service';
 import axios from 'axios';
 import * as mqtt from 'mqtt';
 
@@ -15,6 +16,7 @@ export class customersService {
   constructor(
     private tokenService: getTokenService,
     private sqlService: runSqlService,
+    private helpers: helpersService,
   ) { }
 
   private async getIdFromAPI(endpoint: string, filter: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
@@ -253,7 +255,7 @@ export class customersService {
         const payMethodId = await this.getPaymentMethodId(customer.FORMAPAGO, companyID, client_id, client_secret, tenant, entorno);
         const taxId = await this.getTaxAreaId(taxArea, companyID, client_id, client_secret, tenant, entorno);
         const payTermId = await this.getPaymentTermId(customer.TERMINOPAGO, companyID, client_id, client_secret, tenant, entorno);
-        customerNumber = `${this.normalizeNIF(customer.NIF)}`;
+        customerNumber = `${this.helpers.normalizeNIF(customer.NIF)}`;
         customerComercial = customer.COMERCIAL || '';
         const customerData1 = {
           number: customerNumber,
@@ -361,7 +363,7 @@ export class customersService {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
     try {
-      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${this.normalizeNIF(codiHIT)}'`, {
+      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${this.helpers.normalizeNIF(codiHIT)}'`, {
         headers: {
           Authorization: 'Bearer ' + token,
           'Content-Type': 'application/json',
@@ -395,35 +397,6 @@ export class customersService {
     this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
     console.error(message, error.response?.data || error.message);
   }
-  private normalizeNIF(nif: string): string {
-    // Limpiar espacios y pasar a mayúsculas
-    nif = nif.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-
-    // Transformamos los patrones usando letra = [A-Z] y número = \d
-    const patterns = [
-      /^ES\d{8}[A-Z]$/,   // ES########@
-      /^\d{8}[A-Z]$/,     // ########@
-      /^ES[A-Z]\d{8}$/,   // ES@########
-      /^[A-Z]\d{8}$/,     // @########
-      /^ES[A-Z]\d{7}[A-Z]$/, // ES@#######@
-      /^[A-Z]\d{7}[A-Z]$/,   // @#######@
-      /^[A-Z]\d{8}[A-Z]$/,   // @########@
-      /^[A-Z]\d{6}[A-Z]$/,   // @######@
-      /^[A-Z]\d{5}[A-Z]$/,   // @#####@
-      /^\d{7}[A-Z]$/,     // #######@
-      /^\d{6}[A-Z]$/,     // ######@
-      /^\d{5}[A-Z]$/,     // #####@
-      /^[A-Z]\d{7}$/,     // @#######
-      /^[A-Z]\d{6}$/,     // @######
-      /^[A-Z]\d{5}$/      // @#####
-    ];
-
-    for (const pattern of patterns) {
-      if (pattern.test(nif)) return nif;
-    }
-
-    throw new Error(`NIF inválido para BC: ${nif}`);
-  }
 
   private sanitizePhone(phone: string): string {
     if (!phone) return '';
@@ -436,5 +409,4 @@ export class customersService {
     const cleaned = iban.replace(/[^A-Z0-9]/gi, '');
     return cleaned.toUpperCase();
   }
-
 }
