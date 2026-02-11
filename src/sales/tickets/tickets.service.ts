@@ -9,6 +9,7 @@ import { locationsService } from 'src/maestros/locations/locations.service';
 import { customersService } from 'src/maestros/customers/customers.service';
 import { itemsService } from 'src/maestros/items/items.service';
 import { invoicesService } from 'src/sales/invoices/invoices.service';
+import { helpersService } from 'src/helpers/helpers.service';
 const { format } = require('@fast-csv/format');
 import { BlobServiceClient } from '@azure/storage-blob';
 import * as path from 'path';
@@ -35,6 +36,7 @@ export class ticketsService {
     private customers: customersService,
     private invoices: invoicesService,
     private items: itemsService,
+    private helpers: helpersService,
   ) { }
 
   private getLock(key: string): Mutex {
@@ -277,6 +279,7 @@ export class ticketsService {
 
               // 4.2 Cargar CSV a tabla intermedia en BC
               const base64Csv = await this.csvToBase64(`./csvTickets/${nombreArchivo}`);
+
               await this.callImport(base64Csv, nombreArchivo, entorno, tenant, client_id, client_secret, companyID);
 
               // 4.3 Consolidar tickets en facturas
@@ -355,7 +358,7 @@ export class ticketsService {
           Tipus_venta: record.Tipus_venta,
           FormaMarcar: record.FormaMarcar,
           MetodoPago: record.MetodoPago,
-          NIF: record.NIF_Client || '',
+          NIF: this.helpers.normalizeNIF(record.NIF_Client || ''),
           Procesado: false
         });
       });
