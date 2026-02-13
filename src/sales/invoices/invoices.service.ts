@@ -350,8 +350,9 @@ export class invoicesService {
                 let unitPrice = line.UnitPrice;
 
                 if (quantity === 0) {
-                  this.logError(`❌ La línea con producto ${line.Plu} tiene cantidad 0`, null);
-                  throw new Error(`La línea con producto ${line.Plu} tiene cantidad 0`);
+                  const errorMsg = `❌ La línea con producto ${line.Plu} tiene cantidad 0`;
+                  this.logError(errorMsg, new Error(errorMsg));
+                  throw new Error(errorMsg);
                 }
 
                 if (endpointline === 'salesInvoiceLines' && line.Quantitat < 0) {
@@ -851,8 +852,9 @@ export class invoicesService {
   }
 
   private logError(message: string, error: any) {
-    this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
-    console.error(message, error.response?.data || error.message);
+    const errorDetail = error?.response?.data || error?.message || 'Error desconocido';
+    this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: errorDetail }));
+    console.error(message, errorDetail);
   }
   private async logBCError(factura: string, error: any, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string) {
     const token = await this.token.getToken2(client_id, client_secret, tenant);

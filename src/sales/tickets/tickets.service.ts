@@ -532,8 +532,9 @@ export class ticketsService {
   }
 
   private logError(message: string, error: any) {
-    this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
-    console.error(message, error.response?.data || error.message);
+    const errorDetail = error?.response?.data || error?.message || 'Error desconocido';
+    this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: errorDetail }));
+    console.error(message, errorDetail);
   }
 
   private escapeXml(unsafe: string): string {
