@@ -60,6 +60,7 @@ export class invoicesService {
         let facturaId_BC: string | null = null;
         let num: string | null = null;
         let endpoint: string = '';
+        let yearPart: string = '';
         try {
           if (this.getLock(idFactura).isLocked()) {
             console.log(`⏳ Esperando liberación del bloqueo para la factura ${idFactura}...`);
@@ -82,7 +83,7 @@ export class invoicesService {
             const endpointline = x.Total >= 0 ? 'salesInvoiceLines' : 'salesCreditMemoLines';
 
             const datePart = x.DataFactura.toISOString().split('T')[0];
-            const yearPart = datePart.split('-')[0];
+            yearPart = datePart.split('-')[0];
             const lastPostingDate = await this.getLastDate(client_id, client_secret, tenant, entorno, companyID, endpoint);
             const facturaDate = new Date(datePart);
             const lastDate = lastPostingDate ? new Date(lastPostingDate) : null;
@@ -111,9 +112,11 @@ export class invoicesService {
             if (customerComercial) {
               await this.salesperson.syncSalespersons(companyID, database, client_id, client_secret, tenant, entorno, customerComercial);
             }
+            const dateField = endpoint === 'salesInvoices' ? 'invoiceDate' : 'creditMemoDate';
+            const yearFilter = `${dateField} ge ${yearPart}-01-01 and ${dateField} le ${yearPart}-12-31`;
             let res;
             try {
-              res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=externalDocumentNumber eq '${num}' and totalAmountIncludingTax ne 0`, {
+              res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=externalDocumentNumber eq '${num}' and totalAmountIncludingTax ne 0 and ${yearFilter}`, {
                 headers: {
                   Authorization: 'Bearer ' + token,
                   'Content-Type': 'application/json',
@@ -229,7 +232,7 @@ export class invoicesService {
             }
           });
         } catch (error) {
-          await this.handleError(error, num, endpoint, token, companyID, tenant, entorno);
+          await this.handleError(error, num, endpoint, token, companyID, tenant, entorno, yearPart);
           i++;
           continue;
         }
@@ -350,8 +353,9 @@ export class invoicesService {
                 let unitPrice = line.UnitPrice;
 
                 if (quantity === 0) {
-                  this.logError(`❌ La línea con producto ${line.Plu} tiene cantidad 0`, null);
-                  throw new Error(`La línea con producto ${line.Plu} tiene cantidad 0`);
+                  const errorMsg = `❌ La línea con producto ${line.Plu} tiene cantidad 0`;
+                  this.logError(errorMsg, new Error(errorMsg));
+                  throw new Error(errorMsg);
                 }
 
                 if (endpointline === 'salesInvoiceLines' && line.Quantitat < 0) {
@@ -640,11 +644,16 @@ export class invoicesService {
     }
   }
 
-  private async handleError(error: any, numFactura: string, endpoint, token: string, companyID: string, tenant: string, entorno: string) {
+  private async handleError(error: any, numFactura: string, endpoint, token: string, companyID: string, tenant: string, entorno: string, yearPart?: string) {
     this.logError(`❌ Error al procesar la factura ${numFactura}`, error);
     if (numFactura && numFactura !== '' && endpoint) {
       try {
-        const factura = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=externalDocumentNumber eq '${numFactura}'`, {
+        const dateField = endpoint === 'salesInvoices' ? 'invoiceDate' : 'creditMemoDate';
+        let filter = `externalDocumentNumber eq '${numFactura}'`;
+        if (yearPart) {
+          filter += ` and ${dateField} ge ${yearPart}-01-01 and ${dateField} le ${yearPart}-12-31`;
+        }
+        const factura = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=${filter}`, {
           headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
         });
         if (!factura.data.value[0]) {
@@ -851,8 +860,9 @@ export class invoicesService {
   }
 
   private logError(message: string, error: any) {
-    this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: error.response?.data || error.message }));
-    console.error(message, error.response?.data || error.message);
+    const errorDetail = error?.response?.data || error?.message || 'Error desconocido';
+    this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: errorDetail }));
+    console.error(message, errorDetail);
   }
   private async logBCError(factura: string, error: any, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string) {
     const token = await this.token.getToken2(client_id, client_secret, tenant);
@@ -903,7 +913,9 @@ export class invoicesService {
       }
       let res;
       try {
-        const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=externalDocumentNumber eq '${externalDocumentNumber}' and totalAmountIncludingTax ne 0`;
+        const dateField = endpoint === 'salesInvoices' ? 'invoiceDate' : 'creditMemoDate';
+        const yearFilter = `${dateField} ge ${year}-01-01 and ${dateField} le ${year}-12-31`;
+        const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=externalDocumentNumber eq '${externalDocumentNumber}' and totalAmountIncludingTax ne 0 and ${yearFilter}`;
         res = await axios.get(url, {
           headers: {
             Authorization: 'Bearer ' + token,
