@@ -237,6 +237,12 @@ export class customersService {
       throw error;
     }
 
+    if (customers.recordset.length === 0 && codiHIT) {
+      this.client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
+      console.error('⚠️ Advertencia: No se encontraron registros de clientes para el código HIT proporcionado');
+      throw new Error('No se encontraron registros de clientes para el código HIT proporcionado');
+    }
+
     if (customers.recordset.length === 0) {
       this.client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
       console.error('⚠️ Advertencia: No se encontraron registros de clientes');
