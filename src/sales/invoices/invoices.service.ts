@@ -186,7 +186,7 @@ export class invoicesService {
               }
             }
 
-            invoiceData = await this.processInvoiceLines(invoiceData, endpointline, companyID, database, tabFacturacioDATA, x.IdFactura, facturaId_BC, client_id, client_secret, tenant, entorno);
+            invoiceData = await this.processInvoiceLines(invoiceData, endpointline, companyID, database, tabFacturacioDATA, x.IdFactura, x.ClientCodi, client_id, client_secret, tenant, entorno);
 
             if (errores.length > 0) {
               console.log(`❌ Error en la factura ${num}, pasamos a la siguiente factura.`);
@@ -246,24 +246,69 @@ export class invoicesService {
     }
   }
 
-  async processInvoiceLines(salesInvoiceData, endpointline, companyID, database, tabFacturacioDATA, Hit_IdFactura, BC_facturaId, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async processInvoiceLines(salesInvoiceData, endpointline, companyID, database, tabFacturacioDATA, Hit_IdFactura, num_cliente: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     console.log(`📦 Procesando líneas de la factura...`);
     try {
-      const sqlQ = `SELECT CASE WHEN CHARINDEX('IdAlbara:', f.referencia) > 0 THEN 
-                    SUBSTRING(f.referencia, CHARINDEX('IdAlbara:', f.referencia) + 9, 
-                    CHARINDEX(']', f.referencia, CHARINDEX('IdAlbara:', f.referencia)) - CHARINDEX('IdAlbara:', f.referencia) - 9)
-                    ELSE NULL END AS IdAlbara, 
-                    c.Nom as Client, FORMAT(f.Data, 'dd/MM/yyyy') AS Data,
-                    (f.Servit - f.Tornat) AS Quantitat, 
-                    ROUND(f.preu, 3) AS UnitPrice, CAST(f.Producte AS VARCHAR) AS Plu, 
-                    f.desconte as Descuento, f.iva as Iva, f.ProducteNom as Nombre,  
-                    RIGHT(f.Referencia, CHARINDEX(']', REVERSE(f.Referencia)) - 1) AS Comentario 
+      const sqlAgrupar = `SELECT 
+                            CASE 
+                                WHEN COALESCE(cfc.valor, cf.valor) = 'albara' THEN 1 
+                                ELSE 0 
+                            END AS agrupar_lineas
+                        FROM configuraFactura cf
+                        LEFT JOIN configuraFacturaclient cfc 
+                            ON cfc.nom = cf.nom 
+                            AND cfc.client = '${num_cliente}'
+                        WHERE cf.nom = 'AGRUPADA';`;
+      const agruparResult = await this.sql.runSql(sqlAgrupar, database);
+      const esAgrupada = agruparResult.recordset[0].agrupar_lineas === 1;
+      let sqlQ = "";
+      if (esAgrupada) {
+        sqlQ = `
+        SELECT 
+          CASE 
+        WHEN CHARINDEX('IdAlbara:', f.referencia) > 0 THEN 
+          SUBSTRING(
+            f.referencia, 
+            CHARINDEX('IdAlbara:', f.referencia) + 9, 
+            CHARINDEX(']', f.referencia, CHARINDEX('IdAlbara:', f.referencia)) - CHARINDEX('IdAlbara:', f.referencia) - 9
+          )
+        ELSE NULL 
+          END AS IdAlbara, 
+          c.Nom as Client, 
+          FORMAT(f.Data, 'dd/MM/yyyy') AS Data,
+          (f.Servit - f.Tornat) AS Quantitat, 
+          ROUND(f.preu, 3) AS UnitPrice, 
+          CAST(f.Producte AS VARCHAR) AS Plu, 
+          f.desconte as Descuento, 
+          f.iva as Iva, 
+          f.ProducteNom as Nombre,  
+          RIGHT(f.Referencia, CHARINDEX(']', REVERSE(f.Referencia)) - 1) AS Comentario 
+        FROM ${tabFacturacioDATA} f
+        LEFT JOIN clients c ON f.client = c.codi
+        WHERE f.idFactura = '${Hit_IdFactura}' 
+        GROUP BY f.Producte, f.Desconte, f.Preu, f.Iva, f.ProducteNom, referencia, c.Nom, f.Data, f.servit, f.tornat
+        ORDER BY f.Data, IdAlbara, Client, Nombre;`;
+      } else {
+        sqlQ = `SELECT 
+                    c.Nom as Client, 
+                    SUM(f.Servit - f.Tornat) AS Quantitat, 
+                    ROUND(f.preu, 3) AS UnitPrice, 
+                    CAST(f.Producte AS VARCHAR) AS Plu, 
+                    f.desconte as Descuento, 
+                    f.iva as Iva, 
+                    f.ProducteNom as Nombre
                 FROM ${tabFacturacioDATA} f
                 LEFT JOIN clients c ON f.client = c.codi
                 WHERE f.idFactura = '${Hit_IdFactura}' 
-                GROUP BY f.Producte, f.Desconte, f.Preu, f.Iva, f.ProducteNom, referencia, c.Nom, f.Data, f.servit, f.tornat
-                ORDER BY f.Data, IdAlbara, Client, Nombre;`;
-
+                GROUP BY 
+                    f.Producte, 
+                    f.Desconte, 
+                    f.Preu, 
+                    f.Iva, 
+                    f.ProducteNom, 
+                    c.Nom
+                ORDER BY Nombre;`;
+      }
       const invoiceLines = await this.sql.runSql(sqlQ, database);
       if (invoiceLines.recordset.length === 0) {
         console.warn(`⚠️ La factura ${Hit_IdFactura} no tiene líneas.`);
@@ -271,8 +316,9 @@ export class invoicesService {
       }
 
       const groupedByDate = invoiceLines.recordset.reduce((acc, line) => {
-        if (!acc[line.Data]) acc[line.Data] = [];
-        acc[line.Data].push(line);
+        const dateKey = esAgrupada ? 'RESUMEN' : line.Data;
+        if (!acc[dateKey]) acc[dateKey] = [];
+        acc[dateKey].push(line);
         return acc;
       }, {});
 
@@ -283,7 +329,7 @@ export class invoicesService {
 
         // Agrupar por IdAlbara
         const groupedByAlbara = lines.reduce((acc, line) => {
-          const albaraKey = line.IdAlbara || 'NO_IDALBARA';
+          const albaraKey = esAgrupada ? 'RESUMEN' : (line.IdAlbara || 'NO_IDALBARA');
           if (!acc[albaraKey]) acc[albaraKey] = [];
           acc[albaraKey].push(line);
           return acc;
@@ -335,13 +381,15 @@ export class invoicesService {
             const firstLine = clientLines[0];
 
             // Crear comentario de cabecera del cliente/albarà
-            const headerComment = albara !== 'NO_IDALBARA'
-              ? `ALBARÀ: ${albara} - (${firstLine.Client}) - ${date}`
-              : `(${firstLine.Client}) - ${date}`;
+            if (esAgrupada) {
+              const headerComment = albara !== 'NO_IDALBARA'
+                ? `ALBARÀ: ${albara} - (${firstLine.Client}) - ${date}`
+                : `(${firstLine.Client}) - ${date}`;
 
-            if (headerComment !== lastClientComment) {
-              pushCommentLines(headerComment);
-              lastClientComment = headerComment;
+              if (headerComment !== lastClientComment) {
+                pushCommentLines(headerComment);
+                lastClientComment = headerComment;
+              }
             }
 
             const promises = clientLines.map((line) =>
