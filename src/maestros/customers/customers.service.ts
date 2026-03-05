@@ -37,11 +37,13 @@ export class customersService {
   }
 
   async getPaymentMethodId(pMethodCode: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    return this.getIdFromAPI('paymentMethods', `code eq '${pMethodCode}'`, companyID, client_id, client_secret, tenant, entorno);
+    const id = await this.getIdFromAPI('paymentMethods', `code eq '${pMethodCode}'`, companyID, client_id, client_secret, tenant, entorno);
+    return id;
   }
 
   async getTaxAreaId(taxCode: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
-    return this.getIdFromAPI('taxAreas', `code eq '${taxCode}'`, companyID, client_id, client_secret, tenant, entorno);
+    const id = await this.getIdFromAPI('taxAreas', `code eq '${taxCode}'`, companyID, client_id, client_secret, tenant, entorno);
+    return id;
   }
 
   async getPaymentTermId(pTermCode: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
@@ -320,6 +322,7 @@ export class customersService {
           }
           const customerData2 = {
             bankAccountCode: `${bankAccountCode}`,
+            taxAreaId: `${taxId}`,
           };
 
           await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers(${customerId})`, customerData2, {
