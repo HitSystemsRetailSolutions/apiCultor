@@ -282,7 +282,9 @@ export class invoicesService {
                             AND cfc.client = '${num_cliente}'
                         WHERE cf.nom = 'AGRUPADA';`;
       const agruparResult = await this.sql.runSql(sqlAgrupar, database);
-      const esAgrupada = agruparResult.recordset[0].agrupar_lineas === 1;
+      const esAgrupada = agruparResult.recordset && agruparResult.recordset.length > 0
+        ? agruparResult.recordset[0].agrupar_lineas === 1
+        : true;
       let sqlQ = "";
       if (esAgrupada) {
         sqlQ = `
@@ -298,7 +300,8 @@ export class invoicesService {
           END AS IdAlbara, 
           c.Nom as Client, 
           FORMAT(f.Data, 'dd/MM/yyyy') AS Data,
-          (f.Servit - f.Tornat) AS Quantitat, 
+          f.Servit AS Servit,
+          f.Tornat AS Tornat,
           ROUND(f.preu, 3) AS UnitPrice, 
           CAST(f.Producte AS VARCHAR) AS Plu, 
           f.desconte as Descuento, 
@@ -313,7 +316,8 @@ export class invoicesService {
       } else {
         sqlQ = `SELECT 
                     c.Nom as Client, 
-                    SUM(f.Servit - f.Tornat) AS Quantitat, 
+                    SUM(f.Servit) AS Servit, 
+                    SUM(f.Tornat) AS Tornat, 
                     ROUND(f.preu, 3) AS UnitPrice, 
                     CAST(f.Producte AS VARCHAR) AS Plu, 
                     f.desconte as Descuento, 
@@ -419,43 +423,60 @@ export class invoicesService {
                 const itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
                 if (itemAPI === 'error') return;
 
-                let quantity = Math.abs(line.Quantitat);
-                let unitPrice = line.UnitPrice;
+                const servit = Number(line.Servit || 0);
+                const tornat = Number(line.Tornat || 0);
 
-                if (quantity === 0) {
+                if (servit === 0 && tornat === 0) {
                   const errorMsg = `❌ La línea con producto ${line.Plu} tiene cantidad 0`;
                   this.logError(errorMsg, new Error(errorMsg));
                   throw new Error(errorMsg);
                 }
 
-                if (endpointline === 'salesInvoiceLines' && line.Quantitat < 0) {
-                  unitPrice *= -1;
+                if (line.UnitPrice === null || line.UnitPrice === undefined) {
+                  const errorMsg = `❌ La línea con producto ${line.Plu} tiene un precio nulo (null o undefined). Sincronización abortada.`;
+                  this.logError(errorMsg, new Error(errorMsg));
+                  throw new Error(errorMsg);
                 }
 
-                if (endpointline === 'salesCreditMemoLines' && line.Quantitat > 0) {
-                  unitPrice *= -1;
-                }
+                const addLineToInvoice = (qtyValue: number, isTornat: boolean) => {
+                  if (qtyValue === 0) return;
 
-                if (itemAPI) {
-                  salesInvoiceData[endpointline].push({
-                    itemId: itemAPI,
-                    lineType: 'Item',
-                    quantity: quantity,
-                    unitPrice: unitPrice,
-                    discountPercent: line.Descuento,
-                    taxCode: `IVA${line.Iva}`,
-                  });
-                } else {
-                  salesInvoiceData[endpointline].push({
-                    lineObjectNumber: line.Quantitat > 0 ? '7000001' : '7090001',
-                    description: line.Nombre,
-                    lineType: 'Account',
-                    quantity: quantity,
-                    unitPrice: unitPrice,
-                    discountPercent: line.Descuento,
-                    taxCode: `IVA${line.Iva}`,
-                  });
-                }
+                  let quantity = Math.abs(qtyValue);
+                  let unitPrice = line.UnitPrice;
+                  let qtySign = isTornat ? -1 : 1;
+
+                  if (endpointline === 'salesInvoiceLines' && qtySign < 0) {
+                    unitPrice *= -1;
+                  }
+
+                  if (endpointline === 'salesCreditMemoLines' && qtySign > 0) {
+                    unitPrice *= -1;
+                  }
+
+                  if (itemAPI) {
+                    salesInvoiceData[endpointline].push({
+                      itemId: itemAPI,
+                      lineType: 'Item',
+                      quantity: quantity,
+                      unitPrice: unitPrice,
+                      discountPercent: line.Descuento,
+                      taxCode: `IVA${line.Iva}`,
+                    });
+                  } else {
+                    salesInvoiceData[endpointline].push({
+                      lineObjectNumber: qtySign > 0 ? '7000001' : '7090001',
+                      description: line.Nombre,
+                      lineType: 'Account',
+                      quantity: quantity,
+                      unitPrice: unitPrice,
+                      discountPercent: line.Descuento,
+                      taxCode: `IVA${line.Iva}`,
+                    });
+                  }
+                };
+
+                addLineToInvoice(servit, false);
+                addLineToInvoice(tornat, true);
 
                 // Comentarios por línea
                 if (line.Comentario) {
