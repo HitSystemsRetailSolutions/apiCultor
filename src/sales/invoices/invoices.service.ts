@@ -316,7 +316,7 @@ export class invoicesService {
       }
 
       const groupedByDate = invoiceLines.recordset.reduce((acc, line) => {
-        const dateKey = esAgrupada ? 'RESUMEN' : line.Data;
+        const dateKey = !esAgrupada ? 'RESUMEN' : line.Data;
         if (!acc[dateKey]) acc[dateKey] = [];
         acc[dateKey].push(line);
         return acc;
@@ -329,7 +329,7 @@ export class invoicesService {
 
         // Agrupar por IdAlbara
         const groupedByAlbara = lines.reduce((acc, line) => {
-          const albaraKey = esAgrupada ? 'RESUMEN' : (line.IdAlbara || 'NO_IDALBARA');
+          const albaraKey = !esAgrupada ? 'RESUMEN' : (line.IdAlbara || 'NO_IDALBARA');
           if (!acc[albaraKey]) acc[albaraKey] = [];
           acc[albaraKey].push(line);
           return acc;
