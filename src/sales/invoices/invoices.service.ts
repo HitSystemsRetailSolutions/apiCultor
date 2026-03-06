@@ -156,6 +156,28 @@ export class invoicesService {
               };
             }
 
+            if (x.DataInici && x.DataFi) {
+              try {
+                const dateIniciPart = x.DataInici.toISOString().split('T')[0];
+                const dateFiPart = x.DataFi.toISOString().split('T')[0];
+
+                if (dateIniciPart !== dateFiPart) {
+                  const formatDate = (dateStr: string) => {
+                    const [year, month, day] = dateStr.split('-');
+                    return `${day}/${month}/${year}`;
+                  };
+                  const periodComment = `Període: ${formatDate(dateIniciPart)} al ${formatDate(dateFiPart)}`;
+
+                  invoiceData[endpointline].push({
+                    lineType: 'Comment',
+                    description: periodComment,
+                  });
+                }
+              } catch (e) {
+                console.error(`⚠️ Error al procesar el periodo de la factura ${num}:`, e);
+              }
+            }
+
             if (x.ClientLliure) {
               console.log(`📜 Añadiendo comentario a la factura ${num}`);
               const text = x.ClientLliure;
