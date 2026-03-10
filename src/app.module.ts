@@ -11,14 +11,7 @@ import { PdfModule } from './pdf/pdf.module';
 import { InvoicesModule } from './sales/invoices/invoices.module';
 import { TicketsModule } from './sales/tickets/tickets.module';
 import { xmlModule } from './sales/xml/xml.module';
-import { InvoicesSilemaModule } from './silema/invoices/invoicesSilema.module';
-import { MaestrosSilemaModule } from './silema/maestros/maestrosSilema.module';
-import { CircuitoTiendasModule } from './silema/circuitoTiendas/circuitoTiendas.module';
-import { SigningsModule } from './silema/signings/signings.module';
-import { TrabajadoresModule } from './silema/trabajadores/trabajadores.module';
-import { PeticionesMqttModule } from './webPeticionesMqtt/peticionesMqtt.module';
 import { noSerieModule } from './sales/noSerie/noSerie.module';
-
 
 @Module({
   imports: [ConfigModule.forRoot(),
@@ -33,12 +26,6 @@ import { noSerieModule } from './sales/noSerie/noSerie.module';
     InvoicesModule,
     TicketsModule,
     xmlModule,
-    InvoicesSilemaModule,
-    MaestrosSilemaModule,
-    CircuitoTiendasModule,
-    SigningsModule,
-    TrabajadoresModule,
-    PeticionesMqttModule,
     noSerieModule,
   ],
   controllers: [],
