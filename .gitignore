@@ -36,3 +36,6 @@ lerna-debug.log*
 
 .env
 *.csv
+
+# SSH keys
+id_ed25519*
