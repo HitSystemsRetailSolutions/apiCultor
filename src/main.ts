@@ -103,6 +103,9 @@ client.on('message', async function (topic, message) {
         SyncItems: () => callSync('syncItems', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de artículos acabada'),
         items: () => callSync('syncItems', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de artículos acabada'),
 
+        SyncVendors: () => callSync('syncVendors', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de proveedores acabada'),
+        vendors: () => callSync('syncVendors', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de proveedores acabada'),
+
         SyncItemscategories: () => callSync('syncItemCategories', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de familias de artículos acabada'),
         itemCategories: () => callSync('syncItemCategories', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de familias de artículos acabada'),
 
@@ -119,33 +122,8 @@ client.on('message', async function (topic, message) {
         empresa: () => callSync('crearEmpresa', { name: msgJson.name, displayName: msgJson.displayName, client_id, client_secret, tenant, entorno, database, empresa_id: msgJson.empresa_id, nif }, '✅ Empresa sincronizada'),
         initConfig: () => callSync('initConfig', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Configuración inicial completada'),
         incidencias: () => callSync('syncIncidencias', { companyID, database, client_id, client_secret, tenant, entorno, }, '✅ Sincronización de incidencias acabada'),
-        syncTickets: () => callSync('syncTickets', { companyID, database, client_id, client_secret, tenant, entorno, botiga: msgJson.botiga, companyNAME }, '✅ Sincronización de tickets acabada'),
+        syncTickets: () => callSync('syncTickets', { companyID, database, client_id, client_secret, tenant, entorno, botiga: msgJson.botiga, companyNAME, dia: msgJson.dia }, '✅ Sincronización de tickets acabada'),
         ventasPrevisiones: () => callSync('syncVentasPrevisiones', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de previsiones y ventas acabada'),
-
-        //----------------------------------------INTEGRACIONES SILEMA----------------------------------------//
-
-        SyncSignings: () => callSync('syncSignings', { companyNAME, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de fichajes acabada'),
-        signings: () => callSync('syncSignings', { companyNAME, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de fichajes acabada'),
-        SyncTrabajadores: () => callSync('syncTrabajadores', { database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de trabajadores acabada'),
-        trabajadores: () => callSync('syncTrabajadores', { database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de trabajadores acabada'),
-
-        silemaDateTurno: () => callSync('syncSalesSilemaDateTurno', { dayStart: msgJson.dayStart, dayEnd: msgJson.dayEnd, month: msgJson.month, year: msgJson.year, companyID, database, botiga: msgJson.botiga, turno, client_id, client_secret, tenant, entorno }, '✅ Sincronización de ventas Silema por fecha y turno acabada'),
-        silema: () => callSync('syncSalesSilema', { day: msgJson.day, month: msgJson.month, year: msgJson.year, companyID, database, botiga: msgJson.botiga, turno, client_id, client_secret, tenant, entorno }, '✅ Sincronización de ventas Silema acabada'),
-        silemaAbono: () => callSync('syncSalesSilemaAbono', { day: msgJson.day, month: msgJson.month, year: msgJson.year, companyID, database, botiga: msgJson.botiga, turno, client_id, client_secret, tenant, entorno }, '✅ Sincronización de abonos Silema acabada'),
-        silemaCierre: () => callSync('syncSalesSilemaCierre', { day: msgJson.day, month: msgJson.month, year: msgJson.year, companyID, database, botiga: msgJson.botiga, turno, client_id, client_secret, tenant, entorno }, '✅ Sincronización de cierre Silema acabada'),
-        silemaRecap: () => callSync('syncSalesSilemaRecapManual', { idFactura: msgJson.idFactura, tabla: msgJson.tabla, companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de recap Silema acabada'),
-        silemaRecapManual: () => callSync('syncSalesSilemaRecapManual', { idFactura: msgJson.idFactura, tabla: msgJson.tabla, companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de recap manual Silema acabada'),
-        silemaIntercompany: () => callSync('syncIntercompanySilema', { companyID, database, idFactura: msgJson.idFactura, tabla: msgJson.tabla, client_id, client_secret, tenant, entorno }, '✅ Sincronización de intercompany Silema acabada'),
-        silemaItems: () => callSync('syncItemsSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de artículos Silema acabada'),
-        silemaCustomers: () => callSync('syncCustomersSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de clientes Silema acabada'),
-        silemaContacts: () => callSync('syncContactsSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de contactos Silema acabada'),
-        silemaVendors: () => callSync('syncVendorsSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de proveedores Silema acabada'),
-        silemaLocations: () => callSync('syncLocationSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de almacenes Silema acabada'),
-        maestros: async () => {
-          await callSync('syncCustomersSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de clientes Silema acabada');
-          await callSync('syncVendorsSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de proveedores Silema acabada');
-          await callSync('syncLocationSilema', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de almacenes Silema acabada');
-        },
       };
 
       // Ejecutar acción según el mensaje
@@ -184,7 +162,7 @@ async function callSync(endpoint, params, successMsg) {
     });
     console.log(successMsg);
   } catch (error) {
-    console.error(`Error al sincronizar en ${endpoint}:`, error);
+    console.error(`Error al sincronizar en ${endpoint}: ${error.message}`);
   }
 }
 

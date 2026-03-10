@@ -212,9 +212,6 @@ export class invoicesService {
 
             if (errores.length > 0) {
               console.log(`❌ Error en la factura ${num}, pasamos a la siguiente factura.`);
-              for (const errorMsg of errores) {
-                await this.logBCError(num, errorMsg, client_id, client_secret, tenant, entorno, companyID);
-              }
               return;
             }
             if (res.data.value.length === 0) {
@@ -955,20 +952,7 @@ export class invoicesService {
     this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: errorDetail }));
     console.error(message, errorDetail);
   }
-  private async logBCError(factura: string, error: any, client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string) {
-    const token = await this.token.getToken2(client_id, client_secret, tenant);
-    const logData = {
-      dateTime: new Date().toISOString(),
-      invoice: factura,
-      error: error,
-    };
-    await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/Silema/v2.0/companies(${companyID})/LogsInvoices`, logData, {
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
-      },
-    });
-  }
+
   private escapeXml(unsafe: string): string {
     if (unsafe == null) return '';
     return unsafe
