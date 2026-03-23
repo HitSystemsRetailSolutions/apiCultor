@@ -16,20 +16,26 @@ export class itemsService {
   constructor(
     private tokenService: getTokenService,
     private sqlService: runSqlService,
-  ) { }
+  ) {}
 
   async syncItems(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, codiHIT?: string) {
     if (tenant === process.env.tenaTenant) return;
     let items;
     try {
       const sqlQuery = `
-        SELECT a.Codi, a.Nom, a.Preu/(1+(t.Iva/100)) PreuSinIva, a.Preu, LEFT(a.Familia, 20) Familia, a.EsSumable, t.Iva 
+        SELECT a.Codi, a.Nom, a.Preu/(1+(t.Iva/100)) PreuSinIva, a.Preu, LEFT(a.Familia, 20) Familia, a.EsSumable, t.Iva , isnull(fe3.valor, isnull(fe2.valor, isnull(fe1.valor, '700000000'))) Cuenta
         FROM (
           SELECT codi, nom, preu, familia, esSumable, tipoIva FROM Articles 
           UNION ALL 
           SELECT codi, nom, preu, familia, esSumable, tipoIva FROM articles_Zombis
-        ) a 
+        ) a          
         LEFT JOIN tipusIva2012 t ON a.Tipoiva=t.Tipus 
+        LEFT JOIN families f3 on a.familia=f3.Nom 
+        LEFT JOIN families f2 on f3.pare=f2.Nom 
+        LEFT JOIN families f1 on f2.pare=f1.Nom 
+        LEFT JOIN familiesextes fe3 on f3.nom=fe3.familia and fe3.variable='CUENTA_CONTABLE'
+        LEFT JOIN familiesextes fe2 on f2.nom=fe2.familia and fe2.variable='CUENTA_CONTABLE'
+        LEFT JOIN familiesextes fe1 on f1.nom=fe1.familia and fe1.variable='CUENTA_CONTABLE'
         ${codiHIT ? `WHERE a.codi = ${codiHIT}` : 'ORDER BY a.codi'}
       `;
       items = await this.sqlService.runSql(sqlQuery, database);
@@ -52,7 +58,7 @@ export class itemsService {
       barIncompleteChar: '\u2591',
       barGlue: '',
       hideCursor: true,
-      noTTYOutput: true
+      noTTYOutput: true,
     });
     bar.start(items.recordset.length, 0, { item: 'N/A' });
     let i = 1;
@@ -66,7 +72,7 @@ export class itemsService {
           type: 'Non_x002D_Inventory',
           baseUnitOfMeasureCode: `${baseUnitOfMeasure}`,
           unitPrice: item.Preu,
-          generalProductPostingGroupCode: 'MERCADERÍA',
+          generalProductPostingGroupCode: item.Cuenta.substring(0, 3) == '705' ? 'SERVICIOS' : 'MERCADERÍA',
           VATProductPostingGroup: 'IVA' + (item.Iva ?? 0),
         };
         //Hay parámetros que no se pueden poner cuando creas el artículo y hay que actualizarlos despues de crearlo
@@ -174,18 +180,16 @@ export class itemsService {
     return value === 0 ? 'KG' : 'UDS';
   }
 
-  async getItemFromAPI(companyID: string, database: string, codiHIT: string, client_id: string, client_secret: string, tenant: string, entorno: string,): Promise<string | false> {
+  async getItemFromAPI(companyID: string, database: string, codiHIT: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string | false> {
     let token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
     try {
-      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq '${codiHIT}'`,
-        {
-          headers: {
-            Authorization: 'Bearer ' + token,
-            'Content-Type': 'application/json',
-          },
+      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq '${codiHIT}'`, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
         },
-      );
+      });
     } catch (error) {
       this.logError(`❌ Error consultando item con codiHIT ${codiHIT}`, error);
       throw error;
@@ -194,13 +198,9 @@ export class itemsService {
     if (res.data.value.length > 0) {
       const item = res.data.value[0];
       const itemId = item.id;
-      const needsUpdate = !item.generalProductPostingGroupCode?.trim() || item.type !== 'Non_x002D_Inventory' || !item.VATProductPostingGroup?.trim();
 
-      if (needsUpdate) {
-        const updatedItemId = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
-        return updatedItemId ? String(updatedItemId) : itemId;
-      }
-      return itemId;
+      const updatedItemId = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+      return updatedItemId ? String(updatedItemId) : itemId;
     }
 
     const newItemId = await this.syncItems(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
