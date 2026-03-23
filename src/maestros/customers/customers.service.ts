@@ -45,6 +45,10 @@ export class customersService {
     const id = await this.getIdFromAPI('taxAreas', `code eq '${taxCode}'`, companyID, client_id, client_secret, tenant, entorno);
     return id;
   }
+  async getCurrencyId(currencyCode: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    const id = await this.getIdFromAPI('currencies', `code eq '${currencyCode}'`, companyID, client_id, client_secret, tenant, entorno);
+    return id;
+  }
 
   async getPaymentTermId(pTermCode: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     let id = '';
@@ -263,6 +267,7 @@ export class customersService {
         const payMethodId = await this.getPaymentMethodId(customer.FORMAPAGO, companyID, client_id, client_secret, tenant, entorno);
         const taxId = await this.getTaxAreaId(taxArea, companyID, client_id, client_secret, tenant, entorno);
         const payTermId = await this.getPaymentTermId(customer.TERMINOPAGO, companyID, client_id, client_secret, tenant, entorno);
+        const currencyId = await this.getCurrencyId('EUR', companyID, client_id, client_secret, tenant, entorno);
         customerNumber = `${this.helpers.normalizeNIF(customer.NIF)}`;
         customerComercial = customer.COMERCIAL || '';
         const customerData1 = {
@@ -277,7 +282,7 @@ export class customersService {
           email: `${customer.EMAIL}`,
           taxAreaId: `${taxId}`,
           taxRegistrationNumber: customerNumber,
-          currencyCode: 'EUR',
+          currencyId: `${currencyId}`,
           paymentMethodId: `${payMethodId}`,
           paymentTermsId: `${payTermId}`,
           formatRegion: 'es-ES_tradnl',
