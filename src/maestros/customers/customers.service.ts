@@ -213,7 +213,7 @@ export class customersService {
                 CASE WHEN COALESCE(NULLIF(ph.Valor1, ''), NULL) IS NULL THEN 'NO' ELSE 'SI' END AS esTienda,
                 CASE c1.[Tipus Iva] WHEN '2' THEN 'si' ELSE 'no' END AS recargo, c2_idioma.valor as idioma,
                 c2_OG.Valor AS OG, c2_UT.Valor AS UT, c2_OC.Valor AS OC,
-                c2_comercial.valor AS COMERCIAL,
+                c2_comercial.valor AS COMERCIAL, c2_nomFactura.valor AS nomFactura,
                 ROW_NUMBER() OVER (PARTITION BY c1.Nif ORDER BY c1.nom) AS rn
           FROM ClienteMare cm
           JOIN Clients c1 ON c1.codi = cm.CODIGO_MARE
@@ -230,9 +230,10 @@ export class customersService {
           LEFT JOIN ParamsHw ph ON ph.codi = c1.codi
           LEFT JOIN ConstantsClient c2_desactiva ON c2_desactiva.codi = c1.codi AND c2_desactiva.variable = 'DesactivaFacturacio'
           LEFT JOIN ConstantsClient c2_comercial ON c2_comercial.codi = c1.codi AND c2_comercial.variable = 'comercial'
+          LEFT JOIN ConstantsClient c2_nomFactura ON c2_nomFactura.codi = c1.codi AND c2_nomFactura.variable = 'NomClientFactura'
           WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9 ${codiHIT ? `AND c1.Nif = '${codiHIT}'` : ''} AND (c2_desactiva.valor IS NULL OR c2_desactiva.valor <> 'DesactivaFacturacio')
         )
-        SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma, OG, UT, OC, COMERCIAL
+        SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma, OG, UT, OC, COMERCIAL, nomFactura 
         FROM ClientesFiltrados
         WHERE rn = 1
         ORDER BY codi;
@@ -273,6 +274,7 @@ export class customersService {
         const customerData1 = {
           number: customerNumber,
           displayName: `${customer.NOMBREFISCAL}` || `${customer.NOMBRE}`,
+          tradeName: customer.nomFactura === 'AMBOS' ? `${customer.NOMBRE}` : '',
           type: 'Company',
           addressLine1: `${customer.DIRECCION}`,
           city: `${customer.CIUDAD}`,
