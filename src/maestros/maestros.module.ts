@@ -4,9 +4,10 @@ import { LocationsModule } from './locations/locations.module';
 import { CustomersModule } from './customers/customer.module';
 import { ItemCategoriesModule } from './itemCategories/itemCategories.module';
 import { SalespersonModule } from './salesperson/salesperson.module';
+import { VendorsModule } from './vendors/vendors.module';
 
 @Module({
-    imports: [ItemsModule, LocationsModule, CustomersModule, ItemCategoriesModule, SalespersonModule],
-    exports: [ItemsModule, LocationsModule, CustomersModule, ItemCategoriesModule, SalespersonModule],
+    imports: [ItemsModule, LocationsModule, CustomersModule, ItemCategoriesModule, SalespersonModule, VendorsModule],
+    exports: [ItemsModule, LocationsModule, CustomersModule, ItemCategoriesModule, SalespersonModule, VendorsModule],
 })
 export class MaestrosModule { }
