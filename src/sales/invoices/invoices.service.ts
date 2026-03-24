@@ -84,7 +84,14 @@ export class invoicesService {
 
             const datePart = x.DataFactura.toISOString().split('T')[0];
             yearPart = datePart.split('-')[0];
-            const lastPostingDate = await this.getLastDate(client_id, client_secret, tenant, entorno, companyID, endpoint);
+            if (!serie || serie === '' || serie === 'RE/') {
+              if (endpoint === 'salesInvoices') {
+                serie = yearPart;
+              } else if (endpoint === 'salesCreditMemos') {
+                serie = 'RE/' + yearPart;
+              }
+            }
+            const lastPostingDate = await this.getLastDate(client_id, client_secret, tenant, entorno, companyID, endpoint, serie);
             const facturaDate = new Date(datePart);
             const lastDate = lastPostingDate ? new Date(lastPostingDate) : null;
             let invoiceDate: string;
@@ -92,13 +99,6 @@ export class invoicesService {
               invoiceDate = lastPostingDate.split('T')[0];
             } else {
               invoiceDate = datePart;
-            }
-            if (!serie || serie === '' || serie === 'RE/') {
-              if (endpoint === 'salesInvoices') {
-                serie = yearPart;
-              } else if (endpoint === 'salesCreditMemos') {
-                serie = 'RE/' + yearPart;
-              }
             }
             console.log(`-------------------SINCRONIZANDO FACTURA NÚMERO ${num} -----------------------`);
             let customerId;
@@ -963,9 +963,9 @@ export class invoicesService {
       .replace(/'/g, "&apos;");
   }
 
-  private async getLastDate(client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string, endpoint: string) {
+  private async getLastDate(client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string, endpoint: string, prefix: string) {
     const token = await this.token.getToken2(client_id, client_secret, tenant);
-    const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=contains(externalDocumentNumber,'VENTAS_') ne true&$orderby=postingDate desc&$top=1`;
+    const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=startswith(number,'${prefix}')&$orderby=postingDate desc&$top=1`;
     const response = await axios.get(url, {
       headers: {
         Authorization: `Bearer ${token}`,
