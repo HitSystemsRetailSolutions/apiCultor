@@ -546,4 +546,61 @@ export class ticketsService {
       .replace(/'/g, "&apos;");
   }
 
+  async automateTicketSync(tenant: string, entorno: string) {
+    try {
+      // 1. Obtener empresas configuradas en bc_params
+      const queryParams = `SELECT HIT_EmpresaNAME, HIT_EmpresaID, HIT_EmpresaDB, BC_CompanyNAME, BC_CompanyID, BC_Tenant, BC_Client_secret, BC_Client_id, BC_Entorno FROM bc_params WHERE BC_Tenant = '${tenant}' AND BC_Entorno = '${entorno}' AND HIT_EmpresaID IS NOT NULL`;
+      const resParams = await this.sql.runSql(queryParams, 'hit');
+
+      if (resParams.recordset.length === 0) {
+        console.log(`No se encontraron empresas para el tenant ${tenant} y entorno ${entorno}`);
+        return { message: 'No se encontraron empresas configuradas' };
+      }
+
+      for (const empresa of resParams.recordset) {
+        const {
+          HIT_EmpresaID,
+          HIT_EmpresaDB,
+          BC_CompanyID,
+          BC_CompanyNAME,
+          BC_Client_id,
+          BC_Client_secret,
+          BC_Tenant,
+          BC_Entorno
+        } = empresa;
+
+        // 2. Obtener tiendas (codi) a sincronizar desde la DB de la empresa
+        const queryStores = `SELECT codi FROM constantsClient WHERE variable = 'EmpresaVendes' AND valor = ${HIT_EmpresaID} AND codi IN (SELECT codi FROM ParamsHw)`;
+        const resStores = await this.sql.runSql(queryStores, HIT_EmpresaDB);
+
+        if (resStores.recordset.length > 0) {
+          const botigues = resStores.recordset.map(s => s.codi.toString());
+
+          // 3. Construir y publicar mensaje MQTT
+          const mqttMessage = {
+            msg: 'syncTickets',
+            companyID: BC_CompanyID,
+            database: HIT_EmpresaDB,
+            client_id: BC_Client_id,
+            client_secret: BC_Client_secret,
+            tenant: BC_Tenant,
+            entorno: BC_Entorno,
+            botiga: botigues
+          };
+
+          const topic = '/Hit/Serveis/Apicultor';
+          this.client.publish(topic, JSON.stringify(mqttMessage));
+          console.log(`Mensaje MQTT enviado para empresa ${BC_CompanyNAME} (${HIT_EmpresaDB}) con tiendas: ${botigues.join(', ')}`);
+          // Añadir pausa de 10 segundos entre mensajes
+          await new Promise(resolve => setTimeout(resolve, 10000));
+        } else {
+          console.log(`No hay tiendas configuradas para sincronizar en ${HIT_EmpresaDB}`);
+        }
+      }
+      return { message: 'Automatización completada. Mensajes MQTT enviados.' };
+    } catch (error) {
+      this.logError('Error en automateTicketSync', error);
+      throw error;
+    }
+  }
 }

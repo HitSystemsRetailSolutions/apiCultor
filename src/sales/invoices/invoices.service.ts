@@ -84,7 +84,14 @@ export class invoicesService {
 
             const datePart = x.DataFactura.toISOString().split('T')[0];
             yearPart = datePart.split('-')[0];
-            const lastPostingDate = await this.getLastDate(client_id, client_secret, tenant, entorno, companyID, endpoint);
+            if (!serie || serie === '' || serie === 'RE/') {
+              if (endpoint === 'salesInvoices') {
+                serie = yearPart;
+              } else if (endpoint === 'salesCreditMemos') {
+                serie = 'RE/' + yearPart;
+              }
+            }
+            const lastPostingDate = await this.getLastDate(client_id, client_secret, tenant, entorno, companyID, endpoint, serie);
             const facturaDate = new Date(datePart);
             const lastDate = lastPostingDate ? new Date(lastPostingDate) : null;
             let invoiceDate: string;
@@ -92,13 +99,6 @@ export class invoicesService {
               invoiceDate = lastPostingDate.split('T')[0];
             } else {
               invoiceDate = datePart;
-            }
-            if (!serie || serie === '' || serie === 'RE/') {
-              if (endpoint === 'salesInvoices') {
-                serie = yearPart;
-              } else if (endpoint === 'salesCreditMemos') {
-                serie = 'RE/' + yearPart;
-              }
             }
             console.log(`-------------------SINCRONIZANDO FACTURA NÚMERO ${num} -----------------------`);
             let customerId;
@@ -267,17 +267,18 @@ export class invoicesService {
 
   async processInvoiceLines(salesInvoiceData, endpointline, companyID, database, tabFacturacioDATA, Hit_IdFactura, num_cliente: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     console.log(`📦 Procesando líneas de la factura...`);
+    const itemCache = new Map<string, string | false>();
     try {
       const sqlAgrupar = `SELECT 
                             CASE 
                                 WHEN COALESCE(cfc.valor, cf.valor) = 'albara' THEN 1 
                                 ELSE 0 
                             END AS agrupar_lineas
-                        FROM configuraFactura cf
-                        LEFT JOIN configuraFacturaclient cfc 
+                          FROM configuraFactura cf
+                          LEFT JOIN configuraFacturaclient cfc 
                             ON cfc.nom = cf.nom 
                             AND cfc.client = '${num_cliente}'
-                        WHERE cf.nom = 'AGRUPADA';`;
+                          WHERE cf.nom = 'AGRUPADA';`;
       const agruparResult = await this.sql.runSql(sqlAgrupar, database);
       const esAgrupada = agruparResult.recordset && agruparResult.recordset.length > 0
         ? agruparResult.recordset[0].agrupar_lineas === 1
@@ -417,7 +418,12 @@ export class invoicesService {
 
             const promises = clientLines.map((line) =>
               limit(async () => {
-                const itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
+                let itemAPI = itemCache.get(line.Plu);
+                if (itemAPI === undefined) {
+                  itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
+                  itemCache.set(line.Plu, itemAPI);
+                }
+
                 if (itemAPI === 'error') return;
 
                 const servit = Number(line.Servit || 0);
@@ -963,9 +969,9 @@ export class invoicesService {
       .replace(/'/g, "&apos;");
   }
 
-  private async getLastDate(client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string, endpoint: string) {
+  private async getLastDate(client_id: string, client_secret: string, tenant: string, entorno: string, companyID: string, endpoint: string, prefix: string) {
     const token = await this.token.getToken2(client_id, client_secret, tenant);
-    const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=contains(externalDocumentNumber,'VENTAS_') ne true&$orderby=postingDate desc&$top=1`;
+    const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=startswith(number,'${prefix}')&$orderby=postingDate desc&$top=1`;
     const response = await axios.get(url, {
       headers: {
         Authorization: `Bearer ${token}`,

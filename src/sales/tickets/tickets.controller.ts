@@ -22,4 +22,12 @@ export class ticketsController {
     if (res == true) return { message: 'Se han sincronizado los tickets correctamente' };
     else return 'Ha habido un error al sincronizar las previsiones de ventas';
   }
+
+  @Get('automateTicketSync')
+  async automateTicketSync(
+    @Query('tenant') tenant: string,
+    @Query('entorno') entorno: string,
+  ) {
+    return await this.ticketsService.automateTicketSync(tenant, entorno);
+  }
 }

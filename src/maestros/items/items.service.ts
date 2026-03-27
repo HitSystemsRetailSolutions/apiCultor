@@ -16,7 +16,7 @@ export class itemsService {
   constructor(
     private tokenService: getTokenService,
     private sqlService: runSqlService,
-  ) {}
+  ) { }
 
   async syncItems(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, codiHIT?: string) {
     if (tenant === process.env.tenaTenant) return;
@@ -52,15 +52,6 @@ export class itemsService {
 
     let token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let itemId = '';
-    const bar = new cliProgress.SingleBar({
-      format: '⏳ Sincronizando producto: {item} |{bar}| {percentage}% | {value}/{total} | ⏰ Tiempo restante: {eta_formatted}',
-      barCompleteChar: '\u2588',
-      barIncompleteChar: '\u2591',
-      barGlue: '',
-      hideCursor: true,
-      noTTYOutput: true,
-    });
-    bar.start(items.recordset.length, 0, { item: 'N/A' });
     let i = 1;
     for (const item of items.recordset) {
       try {
@@ -126,18 +117,33 @@ export class itemsService {
             });
           }
         } else {
-          let etag = res.data.value[0]['@odata.etag'];
+          const existingItem = res.data.value[0];
+          let etag = existingItem['@odata.etag'];
           const { type, ...itemDataWithoutType } = itemData1;
-          const updateItem = await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${res.data.value[0].id})`, itemDataWithoutType, {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-              'If-Match': etag,
-            },
-          });
-          etag = updateItem.data['@odata.etag'];
-          if (updateItem.data.VATProductPostingGroup) {
-            await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${res.data.value[0].id})`, itemData2, {
+
+          // Comprobar si hay cambios en cualquiera de los campos
+          const hasChanged1 =
+            existingItem.displayName !== itemDataWithoutType.displayName ||
+            existingItem.baseUnitOfMeasureCode !== itemDataWithoutType.baseUnitOfMeasureCode ||
+            Number(existingItem.unitPrice) !== Number(itemDataWithoutType.unitPrice) ||
+            existingItem.generalProductPostingGroupCode !== itemDataWithoutType.generalProductPostingGroupCode ||
+            existingItem.VATProductPostingGroup !== itemDataWithoutType.VATProductPostingGroup;
+
+          const hasChanged2 = existingItem.priceIncludesTax !== itemData2.priceIncludesTax;
+
+          if (hasChanged1) {
+            const updateItem = await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemDataWithoutType, {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json',
+                'If-Match': etag,
+              },
+            });
+            etag = updateItem.data['@odata.etag'];
+          }
+
+          if (hasChanged2 && itemDataWithoutType.VATProductPostingGroup) {
+            await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemData2, {
               headers: {
                 Authorization: 'Bearer ' + token,
                 'Content-Type': 'application/json',
@@ -145,7 +151,7 @@ export class itemsService {
               },
             });
           }
-          itemId = res.data.value[0].id;
+          itemId = existingItem.id;
         }
       } catch (error) {
         if (error.response?.status === 401) {
@@ -164,14 +170,12 @@ export class itemsService {
         }
         continue;
       }
-      bar.update(i, { item: item.Nom });
+      console.log(`⏳ Sincronizando producto ${item.Nom} ... -> ${i}/${items.recordset.length} --- ${((i / items.recordset.length) * 100).toFixed(2)}% `);
       i++;
     }
     if (codiHIT) {
-      bar.stop();
       return itemId;
     }
-    bar.stop();
     return true;
   }
 
