@@ -267,17 +267,18 @@ export class invoicesService {
 
   async processInvoiceLines(salesInvoiceData, endpointline, companyID, database, tabFacturacioDATA, Hit_IdFactura, num_cliente: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     console.log(`📦 Procesando líneas de la factura...`);
+    const itemCache = new Map<string, string | false>();
     try {
       const sqlAgrupar = `SELECT 
                             CASE 
                                 WHEN COALESCE(cfc.valor, cf.valor) = 'albara' THEN 1 
                                 ELSE 0 
                             END AS agrupar_lineas
-                        FROM configuraFactura cf
-                        LEFT JOIN configuraFacturaclient cfc 
+                          FROM configuraFactura cf
+                          LEFT JOIN configuraFacturaclient cfc 
                             ON cfc.nom = cf.nom 
                             AND cfc.client = '${num_cliente}'
-                        WHERE cf.nom = 'AGRUPADA';`;
+                          WHERE cf.nom = 'AGRUPADA';`;
       const agruparResult = await this.sql.runSql(sqlAgrupar, database);
       const esAgrupada = agruparResult.recordset && agruparResult.recordset.length > 0
         ? agruparResult.recordset[0].agrupar_lineas === 1
@@ -417,7 +418,12 @@ export class invoicesService {
 
             const promises = clientLines.map((line) =>
               limit(async () => {
-                const itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
+                let itemAPI = itemCache.get(line.Plu);
+                if (itemAPI === undefined) {
+                  itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
+                  itemCache.set(line.Plu, itemAPI);
+                }
+
                 if (itemAPI === 'error') return;
 
                 const servit = Number(line.Servit || 0);
