@@ -24,9 +24,8 @@ export class itemsMPService {
     if (tenant === process.env.tenaTenant) return;
     let items;
     try {
-      //codiHIT = '000300500105323';
       const sqlQuery = `
-        SELECT top 10 mp.Codigo codi, mp.Nombre nom, mp.Precio/(1+(t.Iva/100)) PreuSinIva, mp.Precio, '' Familia, '1' EsSumable, t.Iva ,
+        SELECT mp.Codigo codi, mp.Nombre nom, mp.Precio/(1+(t.Iva/100)) PreuSinIva, mp.Precio, '' Familia, '1' EsSumable, t.Iva ,
         CASE
             WHEN CHARINDEX('|', cc.valor) > 0
             THEN SUBSTRING(cc.valor, CHARINDEX('|', cc.valor) + 1, LEN(cc.valor))
@@ -38,7 +37,7 @@ export class itemsMPService {
         LEFT JOIN ccNombreValor cc on mp.id = cc.id and cc.nombre='Contrapartida'
         LEFT JOIN ccNombreValor cc2 on mp.id = cc2.id and cc2.nombre='Refinterna'
         LEFT JOIN ccProveedores prov ON mp.proveedor = prov.id
-        where mp.activo=1 and isnull(mp.codigo, '')<>'' and mp.proveedor='{004EF489-4450-4F14-ACDC-BF511D880050}'
+        where mp.activo=1 and isnull(mp.codigo, '')<>''
         ${codiHIT ? `AND mp.Codigo = '${codiHIT}'` : 'ORDER BY mp.Codigo'}
       `;
       console.log('📋 SQL Query ItemsMP:', sqlQuery);
