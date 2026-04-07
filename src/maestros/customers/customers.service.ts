@@ -351,18 +351,48 @@ export class customersService {
           if (customer.IBAN) {
             bankAccountCode = await this.getBankAccountCode(customer.IBAN, customerNumber, companyID, client_id, client_secret, tenant, entorno);
           }
-          const customerData = {
+          const customerData: any = {
             ...customerData1,
             bankAccountCode: `${bankAccountCode}`,
           };
-          const etag = res.data.value[0]['@odata.etag'];
-          await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`, customerData, {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-              'If-Match': etag,
-            },
-          });
+          
+          let currentCustomerRes;
+          try {
+            currentCustomerRes = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`, {
+              headers: { Authorization: 'Bearer ' + token },
+            });
+          } catch (error) {
+            this.logError(`❌ Error al re-consultar el cliente ${customerNumber}`, error);
+            throw error;
+          }
+          
+          const existingCustomer = currentCustomerRes.data;
+          const patchData: any = {};
+          let hasChanges = false;
+          
+          for (const key of Object.keys(customerData)) {
+            let newVal = customerData[key];
+            let oldVal = existingCustomer[key];
+
+            if (newVal === null || newVal === undefined) newVal = '';
+            if (oldVal === null || oldVal === undefined) oldVal = '';
+
+            if (String(newVal) !== String(oldVal)) {
+              patchData[key] = customerData[key];
+              hasChanges = true;
+            }
+          }
+
+          if (hasChanges) {
+            const etag = existingCustomer['@odata.etag'];
+            await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`, patchData, {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json',
+                'If-Match': etag,
+              },
+            });
+          }
           customerId = res.data.value[0].id;
         }
       } catch (error) {
