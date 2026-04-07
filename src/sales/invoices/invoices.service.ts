@@ -104,11 +104,11 @@ export class invoicesService {
             let customerId;
             let customerNumber;
             let customerComercial;
-            const customerData = await this.customers.getCustomerFromAPI(companyID, database, x.ClientNif, client_id, client_secret, tenant, entorno);
+            const customerData = await this.customers.getCustomerFromAPI(companyID, database, x.ClientNif, client_id, client_secret, tenant, entorno, x.ClientCodi);
             customerId = customerData.customerId;
             customerNumber = customerData.customerNumber;
             customerComercial = customerData.customerComercial;
-            console.log(customerComercial)
+
             if (customerComercial) {
               await this.salesperson.syncSalespersons(companyID, database, client_id, client_secret, tenant, entorno, customerComercial);
             }
