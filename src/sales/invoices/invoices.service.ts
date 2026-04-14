@@ -784,15 +784,41 @@ export class invoicesService {
       const month = salesData.data.postingDate.split('-')[1];
       console.log(`📅 Actualizando factura del año ${year} y mes ${month}`);
       const number = salesData.data.number;
-      const sqlQuery = `SELECT HIT_IdFactura FROM [BC_SyncSales_${year}] WHERE BC_IdSale = '${idFactura}'`;
+      const sqlQuery = `SELECT HIT_IdFactura, HIT_DataFactura FROM [BC_SyncSales_${year}] WHERE BC_IdSale = '${idFactura}'`;
       const getidHit = await this.sql.runSql(sqlQuery, database);
       const idHit = getidHit.recordset[0].HIT_IdFactura;
+      const hitDataFactura = getidHit.recordset[0].HIT_DataFactura;
+
+      let originalMonth = null;
+      if (hitDataFactura) {
+        const hitDate = new Date(hitDataFactura);
+        if (!isNaN(hitDate.getTime())) {
+          originalMonth = (hitDate.getMonth() + 1).toString().padStart(2, '0');
+        }
+      }
 
       const idFacturaParts = number.split('-');
       const idFacturaSerie = idFacturaParts.slice(0, -1).join('-') + '-';
       const idFacturaNumber = idFacturaParts[idFacturaParts.length - 1];
 
       console.log(`📝 Actualizando factura ${idFactura} con número ${idFacturaNumber} y serie ${idFacturaSerie}`);
+
+      if (originalMonth && originalMonth !== month) {
+        console.log(`🔄 Cambio de mes detectado en BC: moviendo la factura ${idHit} del mes ${originalMonth} al mes ${month}`);
+
+        const tables = ['Data_BC', 'iva_BC', 'Reb_BC'];
+        for (const tbl of tables) {
+          try {
+            const insertSql = `INSERT INTO [facturacio_${year}-${month}_${tbl}] SELECT * FROM [facturacio_${year}-${originalMonth}_${tbl}] WHERE IdFactura = '${idHit}'`;
+            await this.sql.runSql(insertSql, database);
+
+            const deleteSql = `DELETE FROM [facturacio_${year}-${originalMonth}_${tbl}] WHERE IdFactura = '${idHit}'`;
+            await this.sql.runSql(deleteSql, database);
+          } catch (e) {
+            console.error(`❌ Error moviendo datos de la tabla _${tbl} del mes ${originalMonth} al ${month}`, e);
+          }
+        }
+      }
 
       const updateSql = `UPDATE [BC_SyncSales_${year}] 
                          SET Registrada = 'Si', BC_Number='${number}'
