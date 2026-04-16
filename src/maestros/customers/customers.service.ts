@@ -193,7 +193,7 @@ export class customersService {
     }
   }
 
-  async syncCustomers(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, codiHIT?: string) {
+  async syncCustomers(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, nif?: string, codiHIT?: string) {
     if (tenant === process.env.tenaTenant) return;
     let customers;
     try {
@@ -231,7 +231,7 @@ export class customersService {
           LEFT JOIN ConstantsClient c2_desactiva ON c2_desactiva.codi = c1.codi AND c2_desactiva.variable = 'DesactivaFacturacio'
           LEFT JOIN ConstantsClient c2_comercial ON c2_comercial.codi = c1.codi AND c2_comercial.variable = 'comercial'
           LEFT JOIN ConstantsClient c2_nomFactura ON c2_nomFactura.codi = c1.codi AND c2_nomFactura.variable = 'NomClientFactura'
-          WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9 ${codiHIT ? `AND c1.Nif = '${codiHIT}'` : ''} AND (c2_desactiva.valor IS NULL OR c2_desactiva.valor <> 'DesactivaFacturacio')
+          WHERE c1.Nif IS NOT NULL AND c1.Nif <> '' AND LEN(c1.Nif) >= 9 ${nif ? `AND c1.Nif = '${nif}'` : ''} AND (c2_desactiva.valor IS NULL OR c2_desactiva.valor <> 'DesactivaFacturacio')
         )
         SELECT codi AS CODIGO, [Nom Llarg] AS NOMBREFISCAL, [Nom] AS NOMBRE, NIF, Adresa AS DIRECCION, Ciutat AS CIUDAD, Cp AS CP, EMAIL, TELEFONO, IBAN, FORMAPAGO, DIAPAGO, TERMINOPAGO, esTienda, recargo, idioma, OG, UT, OC, COMERCIAL, nomFactura 
         FROM ClientesFiltrados
@@ -244,10 +244,10 @@ export class customersService {
       throw error;
     }
 
-    if (customers.recordset.length === 0 && codiHIT) {
+    if (customers.recordset.length === 0 && nif) {
       this.client.publish('/Hit/Serveis/Apicultor/Log', 'No hay registros');
-      console.error('⚠️ Advertencia: No se encontraron registros de clientes para el código HIT proporcionado');
-      throw new Error('No se encontraron registros de clientes para el código HIT proporcionado');
+      console.error('⚠️ Advertencia: No se encontraron registros de clientes para el NIF proporcionado');
+      throw new Error('No se encontraron registros de clientes para el NIF proporcionado');
     }
 
     if (customers.recordset.length === 0) {
@@ -261,9 +261,16 @@ export class customersService {
     let customerId = '';
     let customerNumber = '';
     let customerComercial = '';
+
     let i = 1;
     for (const customer of customers.recordset) {
+      let tradeName = '';
       try {
+        if (customer.nomFactura === 'AMBOS' && codiHIT) {
+          const query = `SELECT * FROM Clients WHERE codi= ${codiHIT}`;
+          const customerNom = await this.sqlService.runSql(query, database);
+          tradeName = customerNom.recordset[0].Nom;
+        }
         const taxArea = customer.recargo === 'si' ? 'NACRE' : 'NAC';
         const payMethodId = await this.getPaymentMethodId(customer.FORMAPAGO, companyID, client_id, client_secret, tenant, entorno);
         const taxId = await this.getTaxAreaId(taxArea, companyID, client_id, client_secret, tenant, entorno);
@@ -274,7 +281,7 @@ export class customersService {
         const customerData1 = {
           number: customerNumber,
           displayName: `${customer.NOMBREFISCAL}` || `${customer.NOMBRE}`,
-          tradeName: customer.nomFactura === 'AMBOS' ? `${customer.NOMBRE}` : '',
+          tradeName: `${tradeName}`,
           type: 'Company',
           addressLine1: `${customer.DIRECCION}`,
           city: `${customer.CIUDAD}`,
@@ -344,23 +351,53 @@ export class customersService {
           if (customer.IBAN) {
             bankAccountCode = await this.getBankAccountCode(customer.IBAN, customerNumber, companyID, client_id, client_secret, tenant, entorno);
           }
-          const customerData = {
+          const customerData: any = {
             ...customerData1,
             bankAccountCode: `${bankAccountCode}`,
           };
-          const etag = res.data.value[0]['@odata.etag'];
-          await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`, customerData, {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-              'If-Match': etag,
-            },
-          });
+          
+          let currentCustomerRes;
+          try {
+            currentCustomerRes = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`, {
+              headers: { Authorization: 'Bearer ' + token },
+            });
+          } catch (error) {
+            this.logError(`❌ Error al re-consultar el cliente ${customerNumber}`, error);
+            throw error;
+          }
+          
+          const existingCustomer = currentCustomerRes.data;
+          const patchData: any = {};
+          let hasChanges = false;
+          
+          for (const key of Object.keys(customerData)) {
+            let newVal = customerData[key];
+            let oldVal = existingCustomer[key];
+
+            if (newVal === null || newVal === undefined) newVal = '';
+            if (oldVal === null || oldVal === undefined) oldVal = '';
+
+            if (String(newVal) !== String(oldVal)) {
+              patchData[key] = customerData[key];
+              hasChanges = true;
+            }
+          }
+
+          if (hasChanges) {
+            const etag = existingCustomer['@odata.etag'];
+            await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`, patchData, {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json',
+                'If-Match': etag,
+              },
+            });
+          }
           customerId = res.data.value[0].id;
         }
       } catch (error) {
         this.logError(`❌ Error al procesar el cliente ${customer.CODIGO}:`, error);
-        if (codiHIT) {
+        if (nif) {
           throw error;
         }
         continue;
@@ -368,37 +405,37 @@ export class customersService {
       console.log(`⏳ Sincronizando cliente ${customer.NOMBREFISCAL} ... -> ${i}/${customers.recordset.length} --- ${((i / customers.recordset.length) * 100).toFixed(2)}% `);
       i++;
     }
-    if (codiHIT) {
+    if (nif) {
       return { customerNumber, customerId, customerComercial };
     }
     return true;
   }
 
-  async getCustomerFromAPI(companyID, database, codiHIT, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async getCustomerFromAPI(companyID, database, nif, client_id: string, client_secret: string, tenant: string, entorno: string, codiHIT?: string) {
     let customerData;
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
     try {
-      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${this.helpers.normalizeNIF(codiHIT)}'`, {
+      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers?$filter=number eq '${this.helpers.normalizeNIF(nif)}'`, {
         headers: {
           Authorization: 'Bearer ' + token,
           'Content-Type': 'application/json',
         },
       });
     } catch (error) {
-      this.logError(`❌ Error consultando cliente con código ${codiHIT}`, error);
+      this.logError(`❌ Error consultando cliente con código ${nif}`, error);
       throw error;
     }
 
     if (res.data.value.length > 0) {
 
       // Si el cliente ya existe, forzar sincronización para actualizar datos
-      customerData = await this.syncCustomers(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+      customerData = await this.syncCustomers(companyID, database, client_id, client_secret, tenant, entorno, nif, codiHIT);
       console.log('📘 Cliente existente en la API con ID:', customerData.customerId);
       return customerData;
     }
 
-    const newCustomer = await this.syncCustomers(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
+    const newCustomer = await this.syncCustomers(companyID, database, client_id, client_secret, tenant, entorno, nif, codiHIT);
     if (newCustomer && typeof newCustomer !== 'boolean') {
       console.log('📘 Nuevo cliente sincronizado con ID:', newCustomer.customerId);
       customerData = newCustomer;
