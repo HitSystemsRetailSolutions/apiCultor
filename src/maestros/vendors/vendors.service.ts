@@ -209,13 +209,12 @@ export class vendorsService {
     let i = 1;
     for (const vendor of vendors.recordset) {
       try {
-        vendorNumber = `${this.helpers.normalizeNIF(vendor.NIF)}`;
+        const nif = `${this.helpers.normalizeNIF(vendor.NIF)}`;
         const payMethodId = await this.getPaymentMethodId(vendor.FORMAPAGO, companyID, client_id, client_secret, tenant, entorno);
         const payTermId = await this.getPaymentTermId(vendor.TERMINOPAGO, companyID, client_id, client_secret, tenant, entorno);
         const currencyId = await this.getCurrencyId('EUR', companyID, client_id, client_secret, tenant, entorno);
 
         const vendorData = {
-          number: vendorNumber,
           displayName: vendor.NOMBRE,
           addressLine1: vendor.DIRECCION,
           city: vendor.CIUDAD,
@@ -223,7 +222,7 @@ export class vendorsService {
           country: vendor.PAIS || 'ES',
           phoneNumber: this.sanitizePhone(vendor.TELEFONO),
           email: vendor.EMAIL,
-          taxRegistrationNumber: vendorNumber,
+          taxRegistrationNumber: nif,
           currencyId: currencyId || undefined,
           paymentMethodId: payMethodId || undefined,
           paymentTermsId: payTermId || undefined,
@@ -233,14 +232,16 @@ export class vendorsService {
 
         let res;
         try {
-          res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/vendors?$filter=number eq '${vendorNumber}'`, {
+          const allVendors = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/vendors`, {
             headers: {
               Authorization: 'Bearer ' + token,
               'Content-Type': 'application/json',
             },
           });
+          const matched = allVendors.data.value.filter((v: any) => v.taxRegistrationNumber === nif);
+          res = { data: { value: matched } };
         } catch (error) {
-          this.logError(`❌ Error consultando el proveedor en BC con NIF ${vendorNumber}`, error);
+          this.logError(`❌ Error consultando el proveedor en BC con NIF ${nif}`, error);
           continue;
         }
 
@@ -252,6 +253,7 @@ export class vendorsService {
             },
           });
           vendorBCId = createRes.data.id;
+          vendorNumber = createRes.data.number;
           const etag = createRes.data['@odata.etag'];
           let bankAccountCode = '';
           if (vendor.IBAN) {
@@ -269,6 +271,7 @@ export class vendorsService {
           });
         } else {
           vendorBCId = res.data.value[0].id;
+          vendorNumber = res.data.value[0].number;
           const etag = res.data.value[0]['@odata.etag'];
           let bankAccountCode = '';
           if (vendor.IBAN) {
@@ -308,12 +311,15 @@ export class vendorsService {
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
     try {
-      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/vendors?$filter=number eq '${this.helpers.normalizeNIF(codiHIT)}'`, {
+      const allVendors = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/vendors`, {
         headers: {
           Authorization: 'Bearer ' + token,
           'Content-Type': 'application/json',
         },
       });
+      const nif = this.helpers.normalizeNIF(codiHIT);
+      const matched = allVendors.data.value.filter((v: any) => v.taxRegistrationNumber === nif);
+      res = { data: { value: matched } };
     } catch (error) {
       this.logError(`❌ Error consultando proveedor con código ${codiHIT}`, error);
       throw error;
