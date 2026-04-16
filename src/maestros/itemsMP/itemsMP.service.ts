@@ -40,9 +40,9 @@ export class itemsMPService {
         where mp.activo=1 and isnull(mp.codigo, '')<>''
         ${codiHIT ? `AND mp.Codigo = '${codiHIT}'` : 'ORDER BY mp.Codigo'}
       `;
-      console.log('📋 SQL Query ItemsMP:', sqlQuery);
+
       items = await this.sqlService.runSql(sqlQuery, database);
-      console.log(`📦 Registros obtenidos: ${items.recordset.length}`);
+
       if (items.recordset.length > 0) console.log('🔍 Primer registro:', JSON.stringify(items.recordset[0]));
     } catch (error) {
       this.logError(`❌ Error al ejecutar la consulta SQL en la base de datos '${database}'`, error);
@@ -57,15 +57,7 @@ export class itemsMPService {
 
     let token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let itemId = '';
-    const bar = new cliProgress.SingleBar({
-      format: '⏳ Sincronizando producto compra: {item} |{bar}| {percentage}% | {value}/{total} | ⏰ Tiempo restante: {eta_formatted}',
-      barCompleteChar: '\u2588',
-      barIncompleteChar: '\u2591',
-      barGlue: '',
-      hideCursor: true,
-      noTTYOutput: true,
-    });
-    bar.start(items.recordset.length, 0, { item: 'N/A' });
+
     let i = 1;
     for (const item of items.recordset) {
       try {
@@ -125,7 +117,7 @@ export class itemsMPService {
           this.logError(`❌ Error consultando articulo en BC con plu ${item.codi}`, error);
           continue;
         }
-        console.log(`📡 Respuesta BC para ${item.codi}: ${res.data.value.length} resultados`);
+
         if (res.data.value.length > 0) console.log('🔍 Campos disponibles en item BC:', JSON.stringify(res.data.value[0], null, 2));
         if (res.data.value.length === 0) {
           const createItem = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items`, itemData1, {
@@ -185,14 +177,11 @@ export class itemsMPService {
         }
         continue;
       }
-      bar.update(i, { item: item.nom });
       i++;
     }
     if (codiHIT) {
-      bar.stop();
       return itemId;
     }
-    bar.stop();
     return true;
   }
 
