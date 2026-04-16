@@ -17,7 +17,7 @@ export class vendorsService {
     private tokenService: getTokenService,
     private sqlService: runSqlService,
     private helpers: helpersService,
-  ) { }
+  ) {}
 
   private async getIdFromAPI(endpoint: string, filter: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
     try {
@@ -139,7 +139,7 @@ export class vendorsService {
           },
         });
 
-        const newCode = lastAccounts.data.value.length === 0 ? "1" : (parseInt(lastAccounts.data.value[0].code, 10) + 1).toString();
+        const newCode = lastAccounts.data.value.length === 0 ? '1' : (parseInt(lastAccounts.data.value[0].code, 10) + 1).toString();
         const bankAccountData = {
           number: `${vendorNumber}`,
           code: `${newCode}`,
@@ -227,6 +227,7 @@ export class vendorsService {
           paymentMethodId: payMethodId || undefined,
           paymentTermsId: payTermId || undefined,
           vendorPostingGroup: 'NAC',
+          pricesIncludingVAT: 'false',
           genBusPostingGroup: 'NAC',
         };
 
@@ -289,7 +290,6 @@ export class vendorsService {
             },
           });
         }
-
       } catch (error) {
         this.logError(`❌ Error al procesar el proveedor ${vendor.NOMBRE}:`, error);
         if (codiHIT) {
