@@ -33,8 +33,8 @@ client.on('connect', function () {
   console.log('Conectado al broker MQTT');
 
   // Suscribirse a un tema
-  //let tema = '/Hit/Serveis/Apicultor';
-  let tema = '/Testinggg/Hit/Serveis/Apicultor';
+  let tema = '/Hit/Serveis/Apicultor';
+  //let tema = '/Ana/Hit/Serveis/Apicultor';
   client.subscribe(tema, function (err) {
     if (err) {
       console.error('Error al suscribirse al tema', err);
@@ -91,17 +91,18 @@ client.on('message', async function (topic, message) {
 
     if (!test) {
       const actions = {
-
-        SyncEmployees: () => callSync('syncEmployees', { companyID, database, client_id, client_secret, tenant, entorno, }, '✅ Sincronización de empleados acabada'),
-        SyncDependentes: () => callSync('syncEmployees', { companyID, database, client_id, client_secret, tenant, entorno, }, '✅ Sincronización de empleados acabada'),
-        employees: () => callSync('syncEmployees', { companyID, database, client_id, client_secret, tenant, entorno, }, '✅ Sincronización de empleados acabada'),
-
+        SyncEmployees: () => callSync('syncEmployees', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de empleados acabada'),
+        SyncDependentes: () => callSync('syncEmployees', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de empleados acabada'),
+        employees: () => callSync('syncEmployees', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de empleados acabada'),
 
         SyncCustomers: () => callSync('syncCustomers', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de clientes acabada'),
         customers: () => callSync('syncCustomers', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de clientes acabada'),
 
         SyncItems: () => callSync('syncItems', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de artículos acabada'),
         items: () => callSync('syncItems', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de artículos acabada'),
+
+        SyncItemsMP: () => callSync('syncItemsMP', { companyID, database, client_id, client_secret, tenant, entorno, codiHIT: msgJson.codiHIT }, '✅ Sincronización de artículos MP acabada'),
+        itemsMP: () => callSync('syncItemsMP', { companyID, database, client_id, client_secret, tenant, entorno, codiHIT: msgJson.codiHIT }, '✅ Sincronización de artículos MP acabada'),
 
         SyncVendors: () => callSync('syncVendors', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de proveedores acabada'),
         vendors: () => callSync('syncVendors', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de proveedores acabada'),
@@ -116,12 +117,17 @@ client.on('message', async function (topic, message) {
         updateRegistro: () => callSync('updateRegistro', { companyID, database, idFactura: msgJson.idFactura, client_id, client_secret, tenant, entorno, endpoint: msgJson.endpoint }, '✅ Registro de factura actualizado'),
         rellenarBCSyncSales: () => callSync('rellenarBCSyncSales', { companyID, database, idFactura: msgJson.idFactura, client_id, client_secret, tenant, entorno, year: msgJson.year }, '✅ Relleno de BC_SyncSales realizado'),
 
+        facturaCompra: () => callSync('syncPurchaseFacturas', { companyID, database, idFactura: msgJson.idFactura, tabla: msgJson.tabla, client_id, client_secret, tenant, entorno }, '✅ Sincronización de facturas de compra acabada'),
+        purchaseInvoiceByNumber: () => callSync('getPurchaseInvoiceByNumber', { companyID, invoiceNumber: msgJson.invoiceNumber, client_id, client_secret, tenant, entorno, database }, '✅ Factura de compra obtenida por número'),
+        updateRegistroPurchase: () => callSync('updateRegistroPurchase', { companyID, database, idFactura: msgJson.idFactura, client_id, client_secret, tenant, entorno, endpoint: msgJson.endpoint }, '✅ Registro de factura de compra actualizado'),
+        rellenarBCSyncPurchase: () => callSync('rellenarBCSyncPurchase', { companyID, database, idFactura: msgJson.idFactura, client_id, client_secret, tenant, entorno, year: msgJson.year }, '✅ Relleno de BC_SyncPurchase realizado'),
+
         Companies: () => callSync('getCompaniesId', { client_id, client_secret, tenant, entorno }, '✅ Información de empresas obtenida'),
         mail: () => callSync('sendMail', { database, mailTo: msgJson.mailTo, idFactura: msgJson.idFactura }, '✅ Envío de correo electrónico realizado'),
 
         empresa: () => callSync('crearEmpresa', { name: msgJson.name, displayName: msgJson.displayName, client_id, client_secret, tenant, entorno, database, empresa_id: msgJson.empresa_id, nif }, '✅ Empresa sincronizada'),
         initConfig: () => callSync('initConfig', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Configuración inicial completada'),
-        incidencias: () => callSync('syncIncidencias', { companyID, database, client_id, client_secret, tenant, entorno, }, '✅ Sincronización de incidencias acabada'),
+        incidencias: () => callSync('syncIncidencias', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de incidencias acabada'),
         syncTickets: () => callSync('syncTickets', { companyID, database, client_id, client_secret, tenant, entorno, botiga: msgJson.botiga, dia: msgJson.dia }, '✅ Sincronización de tickets acabada'),
         automateTicketSync: () => callSync('automateTicketSync', { tenant, entorno }, '✅ Automatización de tickets acabada'),
         ventasPrevisiones: () => callSync('syncVentasPrevisiones', { companyID, database, client_id, client_secret, tenant, entorno }, '✅ Sincronización de previsiones y ventas acabada'),
@@ -159,7 +165,7 @@ async function callSync(endpoint, params, successMsg) {
   console.log(`🔄 Llamando a la función de sincronización: ${endpoint}`);
   try {
     await axios.get(endpoint, {
-      params
+      params,
     });
     console.log(successMsg);
   } catch (error) {

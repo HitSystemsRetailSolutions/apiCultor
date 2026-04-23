@@ -25,7 +25,7 @@ export class itemsMPService {
     let items;
     try {
       const sqlQuery = `
-        SELECT mp.Codigo codi, mp.Nombre nom, mp.Precio/(1+(t.Iva/100)) PreuSinIva, mp.Precio, '' Familia, '1' EsSumable, t.Iva ,
+        SELECT 'MP_' + mp.Codigo codi, mp.Nombre nom, mp.Precio/(1+(t.Iva/100)) PreuSinIva, mp.Precio, '' Familia, '1' EsSumable, t.Iva ,
         CASE
             WHEN CHARINDEX('|', cc.valor) > 0
             THEN SUBSTRING(cc.valor, CHARINDEX('|', cc.valor) + 1, LEN(cc.valor))
@@ -40,7 +40,7 @@ export class itemsMPService {
         where mp.activo=1 and isnull(mp.codigo, '')<>''
         ${codiHIT ? `AND mp.Codigo = '${codiHIT}'` : 'ORDER BY mp.Codigo'}
       `;
-
+      //console.log('Ejecutando consulta SQL para obtener artículos MP...');
       items = await this.sqlService.runSql(sqlQuery, database);
 
       if (items.recordset.length > 0) console.log('🔍 Primer registro:', JSON.stringify(items.recordset[0]));
@@ -62,12 +62,14 @@ export class itemsMPService {
     for (const item of items.recordset) {
       try {
         const baseUnitOfMeasure = this.getBaseUnitOfMeasure(item.EsSumable);
+        const inventoryPostingGroupId = await this.getInventoryPostingGroupId('MERCADERÍA', companyID, client_id, client_secret, tenant, entorno);
         //Datos para crear el artículo
         console.log(`🔄 Procesando artículo MP: ${item.codi} - ${item.nom}`);
         const itemData1 = {
           number: `${item.codi}`,
           displayName: `${item.nom.substring(0, 100)}`,
-          type: 'Non_x002D_Inventory',
+          type: item.Cuenta.substring(0, 3) == '705' ? 'Non_x002D_Inventory' : 'Inventory',
+          inventoryPostingGroupId: item.Cuenta.substring(0, 3) == '705' ? '' : `${inventoryPostingGroupId}`,
           baseUnitOfMeasureCode: `${baseUnitOfMeasure}`,
           unitPrice: item.Precio,
           generalProductPostingGroupCode: item.Cuenta.substring(0, 3) == '705' ? 'SERVICIOS' : 'MERCADERÍA',
@@ -185,9 +187,31 @@ export class itemsMPService {
     return true;
   }
 
+  private async getIdFromAPI(endpoint: string, filter: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
+    try {
+      const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
+      const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=${filter}`;
+      const res = await axios.get(url, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+      return res.data.value.length === 0 ? '' : res.data.value[0].id;
+    } catch (error) {
+      this.logError(`❌ Error obteniendo ID desde API para endpoint ${endpoint}`, error);
+      throw error;
+    }
+  }
+
   private getBaseUnitOfMeasure(esSumable: number | boolean): string {
     const value = typeof esSumable === 'boolean' ? Number(esSumable) : esSumable;
     return value === 0 ? 'KG' : 'UDS';
+  }
+
+  async getInventoryPostingGroupId(pInventoryGroupCode: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+    const id = await this.getIdFromAPI('inventoryPostingGroups', `code eq '${pInventoryGroupCode}'`, companyID, client_id, client_secret, tenant, entorno);
+    return id;
   }
 
   async getItemFromAPI(companyID: string, database: string, codiHIT: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string | false> {
