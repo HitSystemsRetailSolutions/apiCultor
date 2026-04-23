@@ -15,8 +15,9 @@ export class itemsMPController {
     @Query('client_secret') client_secret: string,
     @Query('tenant') tenant: string,
     @Query('entorno') entorno: string,
+    @Query('codiHIT') codiHIT?: string,
   ) {
-    let res = await this.itemsMPService.syncItemsMP(companyID, database, client_id, client_secret, tenant, entorno);
+    let res = await this.itemsMPService.syncItemsMP(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
     if (res == true) return 'Se han sincronizado los artículos de compras correctamente';
     else return 'Ha habido un error al sincronizar los artículos de compras';
   }
