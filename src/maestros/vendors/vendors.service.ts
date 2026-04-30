@@ -144,6 +144,7 @@ export class vendorsService {
           number: `${vendorNumber}`,
           code: `${newCode}`,
           IBAN: `${IBANsinGuiones}`,
+          electronicPayments: true,
         };
 
         bankAccount = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VendorBankAccount`, bankAccountData, {
