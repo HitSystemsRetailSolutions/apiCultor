@@ -50,219 +50,226 @@ export class invoicesService {
     if (tenant === process.env.tenaTenant) {
       return true;
     }
-    try {
-      const token = await this.token.getToken2(client_id, client_secret, tenant);
-      const tabFacturacioIVA = `[FACTURACIO_${tabla}_IVA]`;
-      const tabFacturacioDATA = `[FACTURACIO_${tabla}_DATA]`;
-      let i = 1;
-      for (const idFactura of idFacturas) {
-        errores = [];
-        let facturaId_BC: string | null = null;
-        let num: string | null = null;
-        let endpoint: string = '';
-        let yearPart: string = '';
-        try {
-          if (this.getLock(idFactura).isLocked()) {
-            console.log(`⏳ Esperando liberación del bloqueo para la factura ${idFactura}...`);
-          }
-          await this.getLock(idFactura).runExclusive(async () => {
-            const sqlQ = `SELECT * FROM ${tabFacturacioIVA} WHERE idFactura = '${idFactura}'`;
-            const facturas = await this.sql.runSql(sqlQ, database);
 
-            if (facturas.recordset.length === 0) {
-              console.warn(`⚠️ Factura con ID ${idFactura} no encontrada en la base de datos.`);
-              return;
+    const dbLock = this.getLock(`db:${database}`);
+    if (dbLock.isLocked()) {
+      console.log(`⏳ Ya hay una sincronización en curso para la base de datos "${database}". Esperando...`);
+    }
+    return await dbLock.runExclusive(async () => {
+      try {
+        const token = await this.token.getToken2(client_id, client_secret, tenant);
+        const tabFacturacioIVA = `[FACTURACIO_${tabla}_IVA]`;
+        const tabFacturacioDATA = `[FACTURACIO_${tabla}_DATA]`;
+        let i = 1;
+        for (const idFactura of idFacturas) {
+          errores = [];
+          let facturaId_BC: string | null = null;
+          let num: string | null = null;
+          let endpoint: string = '';
+          let yearPart: string = '';
+          try {
+            if (this.getLock(idFactura).isLocked()) {
+              console.log(`⏳ Esperando liberación del bloqueo para la factura ${idFactura}...`);
             }
+            await this.getLock(idFactura).runExclusive(async () => {
+              const sqlQ = `SELECT * FROM ${tabFacturacioIVA} WHERE idFactura = '${idFactura}'`;
+              const facturas = await this.sql.runSql(sqlQ, database);
 
-            const x = facturas.recordset[0];
-
-            let serie = x.Serie || '';
-            num = serie.length <= 0 ? x.NumFactura : serie + x.NumFactura;
-
-            endpoint = x.Total >= 0 ? 'salesInvoices' : 'salesCreditMemos';
-            const endpointline = x.Total >= 0 ? 'salesInvoiceLines' : 'salesCreditMemoLines';
-
-            const datePart = x.DataFactura.toISOString().split('T')[0];
-            yearPart = datePart.split('-')[0];
-            if (!serie || serie === '' || serie === 'RE/') {
-              if (endpoint === 'salesInvoices') {
-                serie = yearPart;
-              } else if (endpoint === 'salesCreditMemos') {
-                serie = 'RE/' + yearPart;
+              if (facturas.recordset.length === 0) {
+                console.warn(`⚠️ Factura con ID ${idFactura} no encontrada en la base de datos.`);
+                return;
               }
-            }
-            const lastPostingDate = await this.getLastDate(client_id, client_secret, tenant, entorno, companyID, endpoint, serie);
-            const facturaDate = new Date(datePart);
-            const lastDate = lastPostingDate ? new Date(lastPostingDate) : null;
-            let invoiceDate: string;
-            if (lastDate && facturaDate < lastDate) {
-              invoiceDate = lastPostingDate.split('T')[0];
-            } else {
-              invoiceDate = datePart;
-            }
-            console.log(`-------------------SINCRONIZANDO FACTURA NÚMERO ${num} -----------------------`);
-            let customerId;
-            let customerNumber;
-            let customerComercial;
-            const customerData = await this.customers.getCustomerFromAPI(companyID, database, x.ClientNif, client_id, client_secret, tenant, entorno, x.ClientCodi);
-            customerId = customerData.customerId;
-            customerNumber = customerData.customerNumber;
-            customerComercial = customerData.customerComercial;
 
-            if (customerComercial) {
-              await this.salesperson.syncSalespersons(companyID, database, client_id, client_secret, tenant, entorno, customerComercial);
-            }
-            const dateField = endpoint === 'salesInvoices' ? 'invoiceDate' : 'creditMemoDate';
-            const yearFilter = `${dateField} ge ${yearPart}-01-01 and ${dateField} le ${yearPart}-12-31`;
-            let res;
-            try {
-              res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=externalDocumentNumber eq '${num}' and totalAmountIncludingTax ne 0 and ${yearFilter}`, {
-                headers: {
-                  Authorization: 'Bearer ' + token,
-                  'Content-Type': 'application/json',
-                },
-              });
-            } catch (error) {
-              this.logError(`❌ Error consultando factura en BC con número ${num}, pasamos a la siguiente factura`, error);
-              return;
-            }
+              const x = facturas.recordset[0];
 
-            if (!res.data || !res.data.value) {
-              console.error(`❌ Error: La respuesta de la API no contiene datos válidos para la factura ${num}, pasamos a la siguiente factura.`);
-              return;
-            }
-            await this.noSerieService.getNoSerie(companyID, client_id, client_secret, tenant, entorno, serie);
+              let serie = x.Serie || '';
+              num = serie.length <= 0 ? x.NumFactura : serie + x.NumFactura;
 
-            let invoiceData;
-            if (x.Total >= 0) {
-              invoiceData = {
-                externalDocumentNumber: num.toString(),
-                invoiceDate: invoiceDate,
-                postingDate: invoiceDate,
-                customerNumber: customerNumber,
-                invoiceType: serie.includes('RC/') ? "F3" : "F1",
-                customerComercial: customerComercial || '',
-                salesInvoiceLines: [],
-              };
-            } else {
-              invoiceData = {
-                externalDocumentNumber: num.toString(),
-                creditMemoDate: invoiceDate,
-                postingDate: invoiceDate,
-                customerNumber: customerNumber,
-                creditMemoType: "R4",
-                customerComercial: customerComercial || '',
-                salesCreditMemoLines: [],
-              };
-            }
+              endpoint = x.Total >= 0 ? 'salesInvoices' : 'salesCreditMemos';
+              const endpointline = x.Total >= 0 ? 'salesInvoiceLines' : 'salesCreditMemoLines';
 
-            if (x.DataInici && x.DataFi) {
-              try {
-                const dateIniciPart = x.DataInici.toISOString().split('T')[0];
-                const dateFiPart = x.DataFi.toISOString().split('T')[0];
-
-                if (dateIniciPart !== dateFiPart) {
-                  const formatDate = (dateStr: string) => {
-                    const [year, month, day] = dateStr.split('-');
-                    return `${day}/${month}/${year}`;
-                  };
-                  const periodComment = `Període: ${formatDate(dateIniciPart)} al ${formatDate(dateFiPart)}`;
-
-                  invoiceData[endpointline].push({
-                    lineType: 'Comment',
-                    description: periodComment,
-                  });
-                }
-              } catch (e) {
-                console.error(`⚠️ Error al procesar el periodo de la factura ${num}:`, e);
-              }
-            }
-
-            if (x.ClientLliure) {
-              console.log(`📜 Añadiendo comentario a la factura ${num}`);
-              const text = x.ClientLliure;
-              const maxLength = 100;
-              const words = text.split(' ');
-              let currentLine = '';
-              for (const word of words) {
-                // Si al agregar esta palabra, la línea se pasa de largo...
-                if ((currentLine + word).length > maxLength) {
-                  // Guarda la línea actual
-                  invoiceData[endpointline].push({
-                    lineType: 'Comment',
-                    description: currentLine.trim(),
-                  });
-                  // Comienza una nueva línea con la palabra actual
-                  currentLine = word + ' ';
-                } else {
-                  currentLine += word + ' ';
+              const datePart = x.DataFactura.toISOString().split('T')[0];
+              yearPart = datePart.split('-')[0];
+              if (!serie || serie === '' || serie === 'RE/') {
+                if (endpoint === 'salesInvoices') {
+                  serie = yearPart;
+                } else if (endpoint === 'salesCreditMemos') {
+                  serie = 'RE/' + yearPart;
                 }
               }
-
-              // Agrega la última línea si quedó algo
-              if (currentLine.trim().length > 0) {
-                invoiceData[endpointline].push({
-                  lineType: 'Comment',
-                  description: currentLine.trim(),
-                });
+              const lastPostingDate = await this.getLastDate(client_id, client_secret, tenant, entorno, companyID, endpoint, serie);
+              const facturaDate = new Date(datePart);
+              const lastDate = lastPostingDate ? new Date(lastPostingDate) : null;
+              let invoiceDate: string;
+              if (lastDate && facturaDate < lastDate) {
+                invoiceDate = lastPostingDate.split('T')[0];
+              } else {
+                invoiceDate = datePart;
               }
-            }
+              console.log(`-------------------SINCRONIZANDO FACTURA NÚMERO ${num} -----------------------`);
+              let customerId;
+              let customerNumber;
+              let customerComercial;
+              const customerData = await this.customers.getCustomerFromAPI(companyID, database, x.ClientNif, client_id, client_secret, tenant, entorno, x.ClientCodi);
+              customerId = customerData.customerId;
+              customerNumber = customerData.customerNumber;
+              customerComercial = customerData.customerComercial;
 
-            invoiceData = await this.processInvoiceLines(invoiceData, endpointline, companyID, database, tabFacturacioDATA, x.IdFactura, x.ClientCodi, client_id, client_secret, tenant, entorno);
-
-            if (errores.length > 0) {
-              console.log(`❌ Error en la factura ${num}, pasamos a la siguiente factura.`);
-              return;
-            }
-            if (res.data.value.length === 0) {
-              facturaId_BC = await this.createInvoice(serie, endpoint, invoiceData, x.ClientCodi, database, entorno, tenant, client_id, client_secret, companyID);
-              await this.createInvoiceLines(facturaId_BC, invoiceData, endpoint, token, tenant, entorno, companyID);
-            } else {
-              facturaId_BC = res.data.value[0]['id'];
+              if (customerComercial) {
+                await this.salesperson.syncSalespersons(companyID, database, client_id, client_secret, tenant, entorno, customerComercial);
+              }
+              const dateField = endpoint === 'salesInvoices' ? 'invoiceDate' : 'creditMemoDate';
+              const yearFilter = `${dateField} ge ${yearPart}-01-01 and ${dateField} le ${yearPart}-12-31`;
+              let res;
               try {
-                await axios.delete(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${facturaId_BC})`, {
+                res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=externalDocumentNumber eq '${num}' and totalAmountIncludingTax ne 0 and ${yearFilter}`, {
                   headers: {
                     Authorization: 'Bearer ' + token,
                     'Content-Type': 'application/json',
                   },
                 });
-                console.log(`🗑️  La factura ${num} se ha eliminado de BC porque ya existia, la volvemos a crear.`);
-              } catch (deleteError) {
-                this.logError(`❌ Error eliminando la factura existente ${num} de BC: ${deleteError.message}`, deleteError);
-                throw deleteError;
+              } catch (error) {
+                this.logError(`❌ Error consultando factura en BC con número ${num}, pasamos a la siguiente factura`, error);
+                return;
               }
-              facturaId_BC = await this.createInvoice(serie, endpoint, invoiceData, x.ClientCodi, database, entorno, tenant, client_id, client_secret, companyID);
-              await this.createInvoiceLines(facturaId_BC, invoiceData, endpoint, token, tenant, entorno, companyID);
-            }
-            if (x.Total < 0 && x.ClientNif != '22222222J') {
-              await this.updateCorrectedInvoice(companyID, facturaId_BC, tenant, entorno, database, token, idFactura);
-            }
-            await this.updateYourReference(companyID, facturaId_BC, tenant, entorno, token);
-            await this.updateSQLSale(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno, x.IdFactura, database);
-            const post = await this.postInvoice(companyID, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
-            if (post.status === 204) {
-              const facturaData = await this.getSaleFromAPI(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno);
-              await this.verifactu.verifactu(facturaData.data.number, endpoint, entorno, tenant, client_id, client_secret, companyID);
-              console.log(`✅ Factura ${num} sincronizada correctamente.`);
-              await this.pdfService.esperaYVeras();
-              await this.updateRegistro(companyID, database, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
-              await this.pdfService.reintentarSubidaPdf([facturaId_BC], database, client_id, client_secret, tenant, entorno, companyID, endpoint);
-              await this.xmlService.getXML(companyID, database, client_id, client_secret, tenant, entorno, facturaId_BC, endpoint);
-            }
-          });
-        } catch (error) {
-          await this.handleError(error, num, endpoint, token, companyID, tenant, entorno, yearPart);
+
+              if (!res.data || !res.data.value) {
+                console.error(`❌ Error: La respuesta de la API no contiene datos válidos para la factura ${num}, pasamos a la siguiente factura.`);
+                return;
+              }
+              await this.noSerieService.getNoSerie(companyID, client_id, client_secret, tenant, entorno, serie);
+
+              let invoiceData;
+              if (x.Total >= 0) {
+                invoiceData = {
+                  externalDocumentNumber: num.toString(),
+                  invoiceDate: invoiceDate,
+                  postingDate: invoiceDate,
+                  customerNumber: customerNumber,
+                  invoiceType: serie.includes('RC/') ? "F3" : "F1",
+                  customerComercial: customerComercial || '',
+                  salesInvoiceLines: [],
+                };
+              } else {
+                invoiceData = {
+                  externalDocumentNumber: num.toString(),
+                  creditMemoDate: invoiceDate,
+                  postingDate: invoiceDate,
+                  customerNumber: customerNumber,
+                  creditMemoType: "R4",
+                  customerComercial: customerComercial || '',
+                  salesCreditMemoLines: [],
+                };
+              }
+
+              if (x.DataInici && x.DataFi) {
+                try {
+                  const dateIniciPart = x.DataInici.toISOString().split('T')[0];
+                  const dateFiPart = x.DataFi.toISOString().split('T')[0];
+
+                  if (dateIniciPart !== dateFiPart) {
+                    const formatDate = (dateStr: string) => {
+                      const [year, month, day] = dateStr.split('-');
+                      return `${day}/${month}/${year}`;
+                    };
+                    const periodComment = `Període: ${formatDate(dateIniciPart)} al ${formatDate(dateFiPart)}`;
+
+                    invoiceData[endpointline].push({
+                      lineType: 'Comment',
+                      description: periodComment,
+                    });
+                  }
+                } catch (e) {
+                  console.error(`⚠️ Error al procesar el periodo de la factura ${num}:`, e);
+                }
+              }
+
+              if (x.ClientLliure) {
+                console.log(`📜 Añadiendo comentario a la factura ${num}`);
+                const text = x.ClientLliure;
+                const maxLength = 100;
+                const words = text.split(' ');
+                let currentLine = '';
+                for (const word of words) {
+                  // Si al agregar esta palabra, la línea se pasa de largo...
+                  if ((currentLine + word).length > maxLength) {
+                    // Guarda la línea actual
+                    invoiceData[endpointline].push({
+                      lineType: 'Comment',
+                      description: currentLine.trim(),
+                    });
+                    // Comienza una nueva línea con la palabra actual
+                    currentLine = word + ' ';
+                  } else {
+                    currentLine += word + ' ';
+                  }
+                }
+
+                // Agrega la última línea si quedó algo
+                if (currentLine.trim().length > 0) {
+                  invoiceData[endpointline].push({
+                    lineType: 'Comment',
+                    description: currentLine.trim(),
+                  });
+                }
+              }
+
+              invoiceData = await this.processInvoiceLines(invoiceData, endpointline, companyID, database, tabFacturacioDATA, x.IdFactura, x.ClientCodi, client_id, client_secret, tenant, entorno);
+
+              if (errores.length > 0) {
+                console.log(`❌ Error en la factura ${num}, pasamos a la siguiente factura.`);
+                return;
+              }
+              if (res.data.value.length === 0) {
+                facturaId_BC = await this.createInvoice(serie, endpoint, invoiceData, x.ClientCodi, database, entorno, tenant, client_id, client_secret, companyID);
+                await this.createInvoiceLines(facturaId_BC, invoiceData, endpoint, token, tenant, entorno, companyID);
+              } else {
+                facturaId_BC = res.data.value[0]['id'];
+                try {
+                  await axios.delete(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}(${facturaId_BC})`, {
+                    headers: {
+                      Authorization: 'Bearer ' + token,
+                      'Content-Type': 'application/json',
+                    },
+                  });
+                  console.log(`🗑️  La factura ${num} se ha eliminado de BC porque ya existia, la volvemos a crear.`);
+                } catch (deleteError) {
+                  this.logError(`❌ Error eliminando la factura existente ${num} de BC: ${deleteError.message}`, deleteError);
+                  throw deleteError;
+                }
+                facturaId_BC = await this.createInvoice(serie, endpoint, invoiceData, x.ClientCodi, database, entorno, tenant, client_id, client_secret, companyID);
+                await this.createInvoiceLines(facturaId_BC, invoiceData, endpoint, token, tenant, entorno, companyID);
+              }
+              if (x.Total < 0 && x.ClientNif != '22222222J') {
+                await this.updateCorrectedInvoice(companyID, facturaId_BC, tenant, entorno, database, token, idFactura);
+              }
+              await this.updateYourReference(companyID, facturaId_BC, tenant, entorno, token);
+              await this.updateSQLSale(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno, x.IdFactura, database);
+              const post = await this.postInvoice(companyID, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
+              if (post.status === 204) {
+                const facturaData = await this.getSaleFromAPI(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno);
+                await this.verifactu.verifactu(facturaData.data.number, endpoint, entorno, tenant, client_id, client_secret, companyID);
+                console.log(`✅ Factura ${num} sincronizada correctamente.`);
+                await this.pdfService.esperaYVeras();
+                await this.updateRegistro(companyID, database, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
+                await this.pdfService.reintentarSubidaPdf([facturaId_BC], database, client_id, client_secret, tenant, entorno, companyID, endpoint);
+                await this.xmlService.getXML(companyID, database, client_id, client_secret, tenant, entorno, facturaId_BC, endpoint);
+              }
+            });
+          } catch (error) {
+            await this.handleError(error, num, endpoint, token, companyID, tenant, entorno, yearPart);
+            i++;
+            continue;
+          }
+          console.log(`⏳ Sincronizando facturas... -> ${i}/${idFacturas.length} --- ${((i / idFacturas.length) * 100).toFixed(2)}% `);
           i++;
-          continue;
         }
-        console.log(`⏳ Sincronizando facturas... -> ${i}/${idFacturas.length} --- ${((i / idFacturas.length) * 100).toFixed(2)}% `);
-        i++;
+        return true;
+      } catch (error) {
+        this.logError(`❌ Error procesando las facturas`, error);
+        return false;
       }
-      return true;
-    } catch (error) {
-      this.logError(`❌ Error procesando las facturas`, error);
-      return false;
-    }
+    });
   }
 
   async processInvoiceLines(salesInvoiceData, endpointline, companyID, database, tabFacturacioDATA, Hit_IdFactura, num_cliente: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
