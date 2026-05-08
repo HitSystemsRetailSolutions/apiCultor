@@ -948,7 +948,8 @@ export class invoicesService {
     }
 
   }
-  async getInvoiceByNumber(companyID: string, invoiceNumber: string, endpoint: string, client_id: string, client_secret: string, tenant: string, entorno: string, database: string) {
+  async getInvoiceByNumber(companyID: string, invoiceNumber: string, client_id: string, client_secret: string, tenant: string, entorno: string, database: string) {
+    let endpoint = 'salesInvoices';
     try {
       const token = await this.token.getToken2(client_id, client_secret, tenant);
       const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=number eq '${invoiceNumber}'`;
@@ -959,9 +960,23 @@ export class invoicesService {
         },
       });
 
-      const factura = response.data.value[0];
+      let factura = response.data.value[0];
       if (!factura) {
-        console.warn(`⚠️ No se encontró la factura con número ${invoiceNumber}`);
+        endpoint = 'salesCreditMemos';
+        console.warn(`⚠️ No se encontró la factura con número ${invoiceNumber} en ${endpoint}, buscando en abonos...`);
+        const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=number eq '${invoiceNumber}'`;
+        const responseCreditMemos = await axios.get(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        factura = responseCreditMemos.data.value[0];
+        if (!factura) {
+          console.warn(`⚠️ Tampoco se encontró la factura con número ${invoiceNumber} en ${endpoint}. Se aborta el proceso.`);
+          return;
+        }
+
       }
       const year = factura.postingDate.split('-')[0];
 

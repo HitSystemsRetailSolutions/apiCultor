@@ -114,7 +114,7 @@ client.on('message', async function (topic, message) {
 
         factura: () => callSync('syncSalesFacturas', { companyID, database, idFactura: msgJson.idFactura, tabla: msgJson.tabla, client_id, client_secret, tenant, entorno }, '✅ Sincronización de facturas acabada'),
         reintentarPDF: () => callSync('reintentarPDF', { idFactura: msgJson.idFactura, database, client_id, client_secret, tenant, entorno, companyID, endpoint: msgJson.endpoint }, '✅ Reintento de subida de PDF realizado'),
-        invoiceByNumber: () => callSync('getInvoiceByNumber', { companyID, invoiceNumber: msgJson.invoiceNumber, endpoint: msgJson.endpoint, client_id, client_secret, tenant, entorno, database }, '✅ Factura obtenida por número'),
+        invoiceByNumber: () => callSync('getInvoiceByNumber', { companyID, invoiceNumber: msgJson.invoiceNumber, client_id, client_secret, tenant, entorno, database }, '✅ Factura obtenida por número'),
         xml: () => callSync('getXML', { companyID, database, client_id, client_secret, tenant, entorno, id: msgJson.id, endpoint: msgJson.endpoint }, '✅ XML de factura obtenido'),
         updateRegistro: () => callSync('updateRegistro', { companyID, database, idFactura: msgJson.idFactura, client_id, client_secret, tenant, entorno, endpoint: msgJson.endpoint }, '✅ Registro de factura actualizado'),
         rellenarBCSyncSales: () => callSync('rellenarBCSyncSales', { companyID, database, idFactura: msgJson.idFactura, client_id, client_secret, tenant, entorno, year: msgJson.year }, '✅ Relleno de BC_SyncSales realizado'),
