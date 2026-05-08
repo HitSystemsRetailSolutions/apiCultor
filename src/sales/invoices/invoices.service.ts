@@ -948,8 +948,7 @@ export class invoicesService {
     }
 
   }
-  async getInvoiceByNumber(companyID: string, invoiceNumber: string, client_id: string, client_secret: string, tenant: string, entorno: string, database: string) {
-    const endpoint = invoiceNumber.startsWith('RE/') ? 'salesCreditMemos' : 'salesInvoices';
+  async getInvoiceByNumber(companyID: string, invoiceNumber: string, endpoint: string, client_id: string, client_secret: string, tenant: string, entorno: string, database: string) {
     try {
       const token = await this.token.getToken2(client_id, client_secret, tenant);
       const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=number eq '${invoiceNumber}'`;

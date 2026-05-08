@@ -57,8 +57,9 @@ export class invoicesController {
     @Query('tenant') tenant: string,
     @Query('entorno') entorno: string,
     @Query('database') database: string,
+    @Query('endpoint') endpoint: string,
   ) {
-    let res = await this.invoicesService.getInvoiceByNumber(companyID, invoiceNumber, client_id, client_secret, tenant, entorno, database);
+    let res = await this.invoicesService.getInvoiceByNumber(companyID, invoiceNumber, endpoint, client_id, client_secret, tenant, entorno, database);
     return res;
   }
   @Get('rellenarBCSyncSales')
