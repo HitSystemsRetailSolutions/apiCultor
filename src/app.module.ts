@@ -12,6 +12,7 @@ import { InvoicesModule } from './sales/invoices/invoices.module';
 import { TicketsModule } from './sales/tickets/tickets.module';
 import { xmlModule } from './sales/xml/xml.module';
 import { noSerieModule } from './sales/noSerie/noSerie.module';
+import { PurchaseInvoicesModule } from './purchase/invoices/purchaseInvoices.module';
 
 @Module({
   imports: [ConfigModule.forRoot(),
@@ -27,6 +28,7 @@ import { noSerieModule } from './sales/noSerie/noSerie.module';
     TicketsModule,
     xmlModule,
     noSerieModule,
+    PurchaseInvoicesModule,
   ],
   controllers: [],
   providers: [],
