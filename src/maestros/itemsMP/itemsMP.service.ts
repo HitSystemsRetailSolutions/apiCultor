@@ -22,28 +22,30 @@ export class itemsMPService {
 
   async syncItemsMP(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, codiHIT?: string) {
     if (tenant === process.env.tenaTenant) return;
+
     let items;
     try {
       const sqlQuery = `
-        SELECT 'MP_' + mp.Codigo codi, mp.Nombre nom, mp.Precio/(1+(t.Iva/100)) PreuSinIva, mp.Precio, '' Familia, '1' EsSumable, t.Iva ,
+        SELECT 'MP_' + case when isnull(mp.Codigo, '')='' then left(mp.Nombre, 5) else mp.Codigo end codi, mp.Nombre nom, mp.Precio/(1+(t.Iva/100)) PreuSinIva, mp.Precio, '' Familia, '1' EsSumable, t.Iva ,
         CASE
             WHEN CHARINDEX('|', cc.valor) > 0
             THEN SUBSTRING(cc.valor, CHARINDEX('|', cc.valor) + 1, LEN(cc.valor))
             ELSE isnull(cc.valor, '')
         END AS Cuenta,
-        isnull(prov.NIF, '') as NIFProveedor, cc2.valor Refinterna
+        isnull(prov.NIF, '') as NIFProveedor, cc2.valor Refinterna, isnull(cc3.valor, '') Inventari
         FROM ccMateriasPrimas mp
         LEFT JOIN tipusIva2012 t ON mp.iva=t.Tipus
         LEFT JOIN ccNombreValor cc on mp.id = cc.id and cc.nombre='Contrapartida'
         LEFT JOIN ccNombreValor cc2 on mp.id = cc2.id and cc2.nombre='Refinterna'
+        LEFT JOIN ccNombreValor cc3 on mp.id = cc3.id and cc3.nombre='Inventari'
         LEFT JOIN ccProveedores prov ON mp.proveedor = prov.id
         where mp.activo=1 and isnull(mp.codigo, '')<>''
         ${codiHIT ? `AND mp.Codigo = '${codiHIT}'` : 'ORDER BY mp.Codigo'}
       `;
-      //console.log('Ejecutando consulta SQL para obtener artículos MP...');
+      //console.log('Ejecutando consulta SQL para obtener artículos MP...' + sqlQuery);
       items = await this.sqlService.runSql(sqlQuery, database);
 
-      if (items.recordset.length > 0) console.log('🔍 Primer registro:', JSON.stringify(items.recordset[0]));
+      //if (items.recordset.length > 0) console.log('🔍 Primer registro:', JSON.stringify(items.recordset[0]));
     } catch (error) {
       this.logError(`❌ Error al ejecutar la consulta SQL en la base de datos '${database}'`, error);
       return false;
@@ -63,17 +65,19 @@ export class itemsMPService {
       try {
         const baseUnitOfMeasure = this.getBaseUnitOfMeasure(item.EsSumable);
         const inventoryPostingGroupId = await this.getInventoryPostingGroupId('MERCADERÍA', companyID, client_id, client_secret, tenant, entorno);
+        const itemTrackingCode = await this.getItemTrackingCode(companyID, client_id, client_secret, tenant, entorno);
         //Datos para crear el artículo
         console.log(`🔄 Procesando artículo MP: ${item.codi} - ${item.nom}`);
         const itemData1 = {
           number: `${item.codi}`,
           displayName: `${item.nom.substring(0, 100)}`,
-          type: item.Cuenta.substring(0, 3) == '705' ? 'Non_x002D_Inventory' : 'Inventory',
-          inventoryPostingGroupId: item.Cuenta.substring(0, 3) == '705' ? '' : `${inventoryPostingGroupId}`,
+          type: item.Inventari == 'on' ? 'Inventory' : 'Non_x002D_Inventory',
+          ...(item.Inventari == 'on' ? { inventoryPostingGroupId: `${inventoryPostingGroupId}` } : {}),
           baseUnitOfMeasureCode: `${baseUnitOfMeasure}`,
           unitPrice: item.Precio,
           generalProductPostingGroupCode: item.Cuenta.substring(0, 3) == '705' ? 'SERVICIOS' : 'MERCADERÍA',
           VATProductPostingGroup: 'IVA' + (item.Iva ?? 0),
+          ...(item.Inventari == 'on' ? { itemTrackingCode: `${itemTrackingCode}` } : {}),
         };
         //Hay parámetros que no se pueden poner cuando creas el artículo y hay que actualizarlos despues de crearlo
         let vendorNo = '';
@@ -91,6 +95,7 @@ export class itemsMPService {
           priceIncludesTax: true,
           vendorNo: vendorNo,
           vendorItemNo: item.Refinterna || '',
+          ...(item.Inventari == 'on' ? { itemTrackingCode: 'CS00001' } : {}),
         };
 
         let res;
@@ -120,7 +125,7 @@ export class itemsMPService {
           continue;
         }
 
-        if (res.data.value.length > 0) console.log('🔍 Campos disponibles en item BC:', JSON.stringify(res.data.value[0], null, 2));
+        //if (res.data.value.length > 0) console.log('🔍 Campos disponibles en item BC:', JSON.stringify(res.data.value[0], null, 2));
         if (res.data.value.length === 0) {
           const createItem = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items`, itemData1, {
             headers: {
@@ -141,26 +146,56 @@ export class itemsMPService {
             });
           }
         } else {
-          let etag = res.data.value[0]['@odata.etag'];
-          const { type, ...itemDataWithoutType } = itemData1;
-          const updateItem = await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${res.data.value[0].id})`, itemDataWithoutType, {
-            headers: {
-              Authorization: 'Bearer ' + token,
-              'Content-Type': 'application/json',
-              'If-Match': etag,
-            },
-          });
-          etag = updateItem.data['@odata.etag'];
-          if (updateItem.data.VATProductPostingGroup) {
-            await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${res.data.value[0].id})`, itemData2, {
+          const existingItem = res.data.value[0];
+          const existingType = existingItem.type;
+
+          if (existingType !== itemData1.type) {
+            // BC no permite cambiar el tipo: borrar y recrear
+            //console.log(`🔄 Tipo cambiado (${existingType} → ${itemData1.type}), borrando y recreando ${item.codi}`);
+            await axios.delete(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'If-Match': existingItem['@odata.etag'],
+              },
+            });
+            const createItem = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items`, itemData1, {
+              headers: {
+                Authorization: 'Bearer ' + token,
+                'Content-Type': 'application/json',
+              },
+            });
+            itemId = createItem.data.id;
+            if (createItem.data.VATProductPostingGroup) {
+              await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${itemId})`, itemData2, {
+                headers: {
+                  Authorization: 'Bearer ' + token,
+                  'Content-Type': 'application/json',
+                  'If-Match': createItem.data['@odata.etag'],
+                },
+              });
+            }
+          } else {
+            let etag = existingItem['@odata.etag'];
+            const { type, ...itemDataWithoutType } = itemData1;
+            const updateItem = await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemDataWithoutType, {
               headers: {
                 Authorization: 'Bearer ' + token,
                 'Content-Type': 'application/json',
                 'If-Match': etag,
               },
             });
+            etag = updateItem.data['@odata.etag'];
+            if (updateItem.data.VATProductPostingGroup) {
+              await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemData2, {
+                headers: {
+                  Authorization: 'Bearer ' + token,
+                  'Content-Type': 'application/json',
+                  'If-Match': etag,
+                },
+              });
+            }
+            itemId = existingItem.id;
           }
-          itemId = res.data.value[0].id;
         }
       } catch (error) {
         if (error.response?.status === 401) {
@@ -185,6 +220,51 @@ export class itemsMPService {
       return itemId;
     }
     return true;
+  }
+
+  private async getItemTrackingCode(companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
+    try {
+      const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
+      const code = 'CS00001';
+      const res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/itemTrackingCode?$filter=code eq '${code}'`, {
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      });
+      if (res.data.value.length === 0) {
+        await axios.post(
+          `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/itemTrackingCode`,
+          {
+            code: code,
+            description: code,
+            SNSpecificTracking: true,
+            CreateSNInfoonPosting: true,
+            SNInfoInboundMustExist: true,
+            SNPurchaseInboundTracking: true,
+            SNSalesInboundTracking: true,
+            SNPosAdjmtInbTracking: true,
+            SNNegAdjmtInbTracking: true,
+            SNManufInboundTracking: true,
+            SNAssemblyInboundTracking: true,
+            SNWarehouseTracking: true,
+            SNTransferTracking: true,
+            SNInfoOutboundMustExist: true,
+            SNPurchaseOutboundTracking: true,
+            SNSalesOutboundTracking: true,
+            SNPosAdjmtOutbTracking: true,
+            SNNegAdjmtOutbTracking: true,
+            SNManufOutboundTracking: true,
+            SNAssemblyOutboundTracking: true,
+          },
+          {
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          },
+        );
+        return res.data.value.length === 0 ? '' : res.data.value[0].code;
+        console.log(`✅ ItemTrackingCode '${code}' creado`);
+      }
+      return code;
+    } catch (error) {
+      this.logError('❌ Error obteniendo itemTrackingCode CS00001', error);
+    }
   }
 
   private async getIdFromAPI(endpoint: string, filter: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
@@ -218,7 +298,7 @@ export class itemsMPService {
     let token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     let res;
     try {
-      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq '${codiHIT}'`, {
+      res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items?$filter=number eq 'MP_${codiHIT}'`, {
         headers: {
           Authorization: 'Bearer ' + token,
           'Content-Type': 'application/json',
@@ -239,7 +319,7 @@ export class itemsMPService {
 
     const newItemId = await this.syncItemsMP(companyID, database, client_id, client_secret, tenant, entorno, codiHIT);
     if (!newItemId) {
-      console.warn(`⚠️ No se pudo crear el artículo con codiHIT ${codiHIT}`);
+      console.warn(`⚠️ No se pudo crear el artículo con codiHIT MP_${codiHIT}`);
       return false;
     }
     return String(newItemId);
