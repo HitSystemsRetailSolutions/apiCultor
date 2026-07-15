@@ -212,7 +212,7 @@ export class purchaseInvoicesService {
 
   async processInvoiceLines(purchaseInvoiceData, endpointline, companyID, database, tabCompresDATA, Hit_IdFactura, empNif: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     console.log(`📦 Procesando líneas de la factura de compra...`);
-    const itemCache = new Map<string, string | false>();
+    const itemCache = new Map<string, Promise<string | false>>();
     try {
       const sqlQ = `SELECT
                     SUM(f.Servit) AS Servit,
@@ -253,13 +253,19 @@ export class purchaseInvoicesService {
       }
 
       const limit = pLimit(15);
+      const getCachedItem = (plu: string): Promise<string | false> => {
+        if (!itemCache.has(plu)) {
+          itemCache.set(plu, this.itemsMP.getItemFromAPI(companyID, database, plu, client_id, client_secret, tenant, entorno));
+        }
+        return itemCache.get(plu);
+      };
 
       const promises = invoiceLines.recordset.map((line) =>
         limit(async () => {
           //console.log(`🔎 Línea factura: Producto=${line.Producto}, Plu=${line.Plu}, Nombre=${line.Nombre}`);
           let itemAPI: string | false = false;
           if (line.Plu) {
-            itemAPI = itemCache.get(line.Plu);
+            itemAPI = await getCachedItem(line.Plu);
             if (itemAPI === undefined) {
               itemAPI = await this.itemsMP.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
               if (!itemAPI) {
@@ -270,7 +276,7 @@ export class purchaseInvoicesService {
                   //console.log(`✅ Artículo MP ${line.Plu} registrado. ID: ${itemAPI}`);
                 }
               }
-              itemCache.set(line.Plu, itemAPI);
+              itemCache.set(line.Plu, Promise.resolve(itemAPI));
             }
           }
 
