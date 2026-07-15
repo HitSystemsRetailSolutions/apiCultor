@@ -6,6 +6,7 @@ import { vendorsService } from 'src/maestros/vendors/vendors.service';
 import { itemsMPService } from 'src/maestros/itemsMP/itemsMP.service';
 import { locationsService } from 'src/maestros/locations/locations.service';
 import { noSerieService } from 'src/sales/noSerie/noSerie.service';
+import { documentAttachmentsService } from '../documentAttachments/documentAttachments.service';
 import { parseStringPromise } from 'xml2js';
 import { Mutex } from 'async-mutex';
 import * as mqtt from 'mqtt';
@@ -27,9 +28,10 @@ export class purchaseInvoicesService {
     private sql: runSqlService,
     private vendors: vendorsService,
     private itemsMP: itemsMPService,
+    private documentAttachments: documentAttachmentsService,
     private locations: locationsService,
     private noSerieService: noSerieService,
-  ) {}
+  ) { }
 
   private getLock(key: string): Mutex {
     if (!this.locks.has(key)) {
@@ -186,6 +188,7 @@ export class purchaseInvoicesService {
               await this.createTrackingSpecifications(invoiceNumber, facturaId_BC, endpoint, trackingLines, token, tenant, entorno, companyID);
             }
             await this.updateSQLPurchase(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno, x.IdFactura, database);
+            await this.documentAttachments.syncDocumentAttachments(companyID, database, num, facturaId_BC, client_id, client_secret, tenant, entorno);
             /*const post = await this.postInvoice(companyID, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
             if (post.status === 204) {
               console.log(`✅ Factura de compra ${num} sincronizada correctamente.`);
