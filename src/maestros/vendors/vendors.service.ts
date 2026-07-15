@@ -17,7 +17,7 @@ export class vendorsService {
     private tokenService: getTokenService,
     private sqlService: runSqlService,
     private helpers: helpersService,
-  ) {}
+  ) { }
 
   private async getIdFromAPI(endpoint: string, filter: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
     try {
@@ -127,7 +127,6 @@ export class vendorsService {
       this.logError(`❌ Error al obtener el código de la cuenta bancaria para el IBAN ${IBAN} y el proveedor ${vendorNumber}`, error);
       throw error;
     }
-    console.log(`Respuesta de la API para cuentas bancarias con IBAN ${IBAN} y proveedor ${vendorNumber}:`, res.data);
     if (res.data.value.length === 0) {
       let bankAccount;
       try {
@@ -340,6 +339,32 @@ export class vendorsService {
       return vendorData;
     } else {
       console.log('⚠️ No se pudo sincronizar el nuevo proveedor.');
+      return false;
+    }
+  }
+
+  async getVendorNOFromAPI(companyID, database, codiHIT, client_id: string, client_secret: string, tenant: string, entorno: string,) {
+    let vendorData;
+    const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
+    let res;
+    try {
+      const allVendors = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/vendors`, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+      const nif = this.helpers.normalizeNIF(codiHIT);
+      const matched = allVendors.data.value.filter((v: any) => v.taxRegistrationNumber === nif);
+      res = { data: { value: matched } };
+    } catch (error) {
+      this.logError(`❌ Error consultando proveedor con código ${codiHIT}`, error);
+      throw error;
+    }
+
+    if (res.data.value.length > 0) {
+      return res.data.value[0].number;
+    } else {
       return false;
     }
   }
