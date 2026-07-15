@@ -18,7 +18,7 @@ export class itemsMPService {
     private tokenService: getTokenService,
     private sqlService: runSqlService,
     private vendors: vendorsService,
-  ) {}
+  ) { }
 
   async syncItemsMP(companyID: string, database: string, client_id: string, client_secret: string, tenant: string, entorno: string, codiHIT?: string) {
     if (tenant === process.env.tenaTenant) return;
@@ -42,10 +42,7 @@ export class itemsMPService {
         where mp.activo=1 and isnull(mp.codigo, '')<>''
         ${codiHIT ? `AND mp.Codigo = '${codiHIT}'` : 'ORDER BY mp.Codigo'}
       `;
-      //console.log('Ejecutando consulta SQL para obtener artículos MP...' + sqlQuery);
       items = await this.sqlService.runSql(sqlQuery, database);
-
-      //if (items.recordset.length > 0) console.log('🔍 Primer registro:', JSON.stringify(items.recordset[0]));
     } catch (error) {
       this.logError(`❌ Error al ejecutar la consulta SQL en la base de datos '${database}'`, error);
       return false;
@@ -83,9 +80,9 @@ export class itemsMPService {
         let vendorNo = '';
         if (item.NIFProveedor) {
           try {
-            const vendorData = await this.vendors.getVendorFromAPI(companyID, database, item.NIFProveedor, client_id, client_secret, tenant, entorno);
+            const vendorData = await this.vendors.getVendorNOFromAPI(companyID, database, item.NIFProveedor, client_id, client_secret, tenant, entorno);
             if (vendorData && typeof vendorData !== 'boolean') {
-              vendorNo = vendorData.vendorNumber;
+              vendorNo = vendorData;
             }
           } catch (error) {
             this.logError(`⚠️ No se pudo crear/obtener el proveedor con NIF ${item.NIFProveedor}`, error);
@@ -125,7 +122,6 @@ export class itemsMPService {
           continue;
         }
 
-        //if (res.data.value.length > 0) console.log('🔍 Campos disponibles en item BC:', JSON.stringify(res.data.value[0], null, 2));
         if (res.data.value.length === 0) {
           const createItem = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items`, itemData1, {
             headers: {
@@ -150,29 +146,64 @@ export class itemsMPService {
           const existingType = existingItem.type;
 
           if (existingType !== itemData1.type) {
-            // BC no permite cambiar el tipo: borrar y recrear
-            //console.log(`🔄 Tipo cambiado (${existingType} → ${itemData1.type}), borrando y recreando ${item.codi}`);
-            await axios.delete(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, {
-              headers: {
-                Authorization: 'Bearer ' + token,
-                'If-Match': existingItem['@odata.etag'],
-              },
-            });
-            const createItem = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items`, itemData1, {
-              headers: {
-                Authorization: 'Bearer ' + token,
-                'Content-Type': 'application/json',
-              },
-            });
-            itemId = createItem.data.id;
-            if (createItem.data.VATProductPostingGroup) {
-              await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${itemId})`, itemData2, {
+            try {
+              // BC no permite cambiar el tipo directamente, intentamos borrar y recrear
+              await axios.delete(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, {
+                headers: {
+                  Authorization: 'Bearer ' + token,
+                  'If-Match': existingItem['@odata.etag'],
+                },
+              });
+
+              const createItem = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items`, itemData1, {
                 headers: {
                   Authorization: 'Bearer ' + token,
                   'Content-Type': 'application/json',
-                  'If-Match': createItem.data['@odata.etag'],
                 },
               });
+              itemId = createItem.data.id;
+              if (createItem.data.VATProductPostingGroup) {
+                await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${itemId})`, itemData2, {
+                  headers: {
+                    Authorization: 'Bearer ' + token,
+                    'Content-Type': 'application/json',
+                    'If-Match': createItem.data['@odata.etag'],
+                  },
+                });
+              }
+            } catch (deleteError) {
+              // Si falla el borrado porque está siendo usado en una factura, interceptamos el error
+              const isOutstandingInvoiceError = deleteError.response?.data?.error?.code === 'Application_DialogException' ||
+                deleteError.response?.data?.error?.message?.includes('outstanding');
+
+              if (isOutstandingInvoiceError) {
+                this.logError(`⚠️ No se pudo cambiar el tipo de ${item.codi} de '${existingType}' a '${itemData1.type}' porque está asociado a documentos pendientes en BC. Se actualiza el resto de campos conservando el tipo original.`, deleteError);
+
+                // Hacemos el PATCH alternativo sin intentar alterar el 'type'
+                let etag = existingItem['@odata.etag'];
+                const { type, ...itemDataWithoutType } = itemData1;
+                const updateItem = await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemDataWithoutType, {
+                  headers: {
+                    Authorization: 'Bearer ' + token,
+                    'Content-Type': 'application/json',
+                    'If-Match': etag,
+                  },
+                });
+                etag = updateItem.data['@odata.etag'];
+                if (updateItem.data.VATProductPostingGroup) {
+                  await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemData2, {
+                    headers: {
+                      Authorization: 'Bearer ' + token,
+                      'Content-Type': 'application/json',
+                      'If-Match': etag,
+                    },
+                  });
+                }
+                itemId = existingItem.id;
+              } else {
+                // Si es un error distinto al de documentos pendientes, lo relanzamos
+                throw deleteError;
+              }
             }
           } else {
             let etag = existingItem['@odata.etag'];
@@ -259,7 +290,6 @@ export class itemsMPService {
           },
         );
         return res.data.value.length === 0 ? '' : res.data.value[0].code;
-        console.log(`✅ ItemTrackingCode '${code}' creado`);
       }
       return code;
     } catch (error) {
