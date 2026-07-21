@@ -17,7 +17,7 @@ export class documentAttachmentsService {
     private sql: runSqlService,
   ) { }
 
-  async syncDocumentAttachments(companyID: string, database: string, nombreFactura: string, id: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
+  async syncDocumentAttachments(companyID: string, database: string, nombreFactura: string, id: string, client_id: string, client_secret: string, tenant: string, entorno: string, endpoint: string = 'purchaseInvoices') {
     const token = await this.token.getToken2(client_id, client_secret, tenant);
 
     const safeNombreFactura = String(nombreFactura).replace(/'/g, "''");
@@ -44,7 +44,7 @@ export class documentAttachmentsService {
 
     const body = {
       parentId: id,
-      parentType: 'Purchase Invoice',
+      parentType: this.getParentType(endpoint),
       fileName,
     };
 
@@ -78,6 +78,10 @@ export class documentAttachmentsService {
       throw new Error('Business Central no devolvio el id del documentAttachment creado');
     }
     return `${url}(${attachmentId})`;
+  }
+
+  private getParentType(endpoint: string): string {
+    return endpoint === 'purchaseCreditMemos' ? 'Purchase Credit Memo' : 'Purchase Invoice';
   }
 
   private async uploadAttachmentContent(attachmentUrl: string, pdfBuffer: Buffer, token: string) {
