@@ -33,7 +33,7 @@ client.on('connect', function () {
   console.log('Conectado al broker MQTT');
 
   // Suscribirse a un tema
-  let tema = '/Hit/Serveis/Apicultor';
+  let tema = '/Hit/Serveis/Apicultorrrr';
   //let tema = '/Ana/Hit/Serveis/Apicultor';
   //let tema = '/Testinggg/Hit/Serveis/Apicultor';
 
