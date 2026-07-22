@@ -173,7 +173,7 @@ export class ticketsService {
           const plus = Array.from(new Set(tickets.recordset.map((ticket: any) => ticket.Plu as string))).filter(plu => plu);
           for (const plu of plus as string[]) {
             try {
-              await this.items.getItemFromAPI(companyID, database, plu, client_id, client_secret, tenant, entorno);
+              await this.items.getItemFromAPI(companyID, database, plu, client_id, client_secret, tenant, entorno, 'sale');
             } catch (err) {
               this.logError(`⚠️ Error al obtener el artículo con PLU ${plu} para la tienda ${licencia}`, err);
             }

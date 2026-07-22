@@ -427,7 +427,7 @@ export class invoicesService {
               limit(async () => {
                 let itemAPI = itemCache.get(line.Plu);
                 if (itemAPI === undefined) {
-                  itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
+                  itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno, 'sale');
                   itemCache.set(line.Plu, itemAPI);
                 }
 

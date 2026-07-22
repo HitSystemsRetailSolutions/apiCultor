@@ -3,14 +3,13 @@ import { getTokenService } from 'src/connection/getToken.service';
 import { runSqlService } from 'src/connection/sqlConnection.service';
 import axios from 'axios';
 import { vendorsService } from 'src/maestros/vendors/vendors.service';
-import { itemsMPService } from 'src/maestros/itemsMP/itemsMP.service';
+import { itemsService } from 'src/maestros/items/items.service';
 import { locationsService } from 'src/maestros/locations/locations.service';
 import { noSerieService } from 'src/sales/noSerie/noSerie.service';
 import { documentAttachmentsService } from '../documentAttachments/documentAttachments.service';
 import { parseStringPromise } from 'xml2js';
 import { Mutex } from 'async-mutex';
 import * as mqtt from 'mqtt';
-import * as pLimit from 'p-limit';
 import { createHash } from 'crypto';
 
 let errores: string[] = [];
@@ -27,7 +26,7 @@ export class purchaseInvoicesService {
     private token: getTokenService,
     private sql: runSqlService,
     private vendors: vendorsService,
-    private itemsMP: itemsMPService,
+    private items: itemsService,
     private documentAttachments: documentAttachmentsService,
     private locations: locationsService,
     private noSerieService: noSerieService,
@@ -114,10 +113,11 @@ export class purchaseInvoicesService {
             }
 
             const dateField = endpoint === 'purchaseInvoices' ? 'invoiceDate' : 'creditMemoDate';
+            const vendorDocumentNumberField = this.getVendorDocumentNumberField(endpoint);
             const yearFilter = `${dateField} ge ${yearPart}-01-01 and ${dateField} le ${yearPart}-12-31`;
             let res;
             try {
-              res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=vendorInvoiceNumber eq '${num}' and totalAmountIncludingTax ne 0 and ${yearFilter}`, {
+              res = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=${vendorDocumentNumberField} eq '${num}' and totalAmountIncludingTax ne 0 and ${yearFilter}`, {
                 headers: {
                   Authorization: 'Bearer ' + token,
                   'Content-Type': 'application/json',
@@ -188,7 +188,7 @@ export class purchaseInvoicesService {
               await this.createTrackingSpecifications(invoiceNumber, facturaId_BC, endpoint, trackingLines, token, tenant, entorno, companyID);
             }
             await this.updateSQLPurchase(companyID, facturaId_BC, endpoint, client_id, client_secret, tenant, entorno, x.IdFactura, database);
-            await this.documentAttachments.syncDocumentAttachments(companyID, database, num, facturaId_BC, client_id, client_secret, tenant, entorno);
+            await this.documentAttachments.syncDocumentAttachments(companyID, database, num, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
             /*const post = await this.postInvoice(companyID, facturaId_BC, client_id, client_secret, tenant, entorno, endpoint);
             if (post.status === 204) {
               console.log(`✅ Factura de compra ${num} sincronizada correctamente.`);
@@ -213,13 +213,14 @@ export class purchaseInvoicesService {
   async processInvoiceLines(purchaseInvoiceData, endpointline, companyID, database, tabCompresDATA, Hit_IdFactura, empNif: string, client_id: string, client_secret: string, tenant: string, entorno: string) {
     console.log(`📦 Procesando líneas de la factura de compra...`);
     const itemCache = new Map<string, Promise<string | false>>();
+    const itemNumberCache = new Map<string, Promise<string>>();
     try {
       const sqlQ = `SELECT
                     SUM(f.Servit) AS Servit,
                     SUM(f.Tornat) AS Tornat,
                     ROUND(f.preu, 3) AS UnitPrice,
                     CAST(f.Producte AS VARCHAR) AS Producto,
-                    case when mp.codigo<>'' then mp.codigo else left(mp.nombre, 5) end AS Plu,
+                    mp.codigo AS Plu,
                     f.desconte as Descuento,
                     f.iva as Iva,
                     f.ProducteNom as Nombre,
@@ -252,31 +253,40 @@ export class purchaseInvoicesService {
         }
       }
 
-      const limit = pLimit(15);
       const getCachedItem = (plu: string): Promise<string | false> => {
         if (!itemCache.has(plu)) {
-          itemCache.set(plu, this.itemsMP.getItemFromAPI(companyID, database, plu, client_id, client_secret, tenant, entorno));
+          itemCache.set(plu, this.items.getItemFromAPI(companyID, database, plu, client_id, client_secret, tenant, entorno, 'purchase'));
         }
         return itemCache.get(plu);
       };
+      const getCachedItemNumber = (itemId: string): Promise<string> => {
+        if (!itemNumberCache.has(itemId)) {
+          itemNumberCache.set(itemId, this.items.getItemNumberFromAPI(companyID, itemId, client_id, client_secret, tenant, entorno));
+        }
+        return itemNumberCache.get(itemId);
+      };
 
-      const promises = invoiceLines.recordset.map((line) =>
-        limit(async () => {
+      for (const line of invoiceLines.recordset) {
           //console.log(`🔎 Línea factura: Producto=${line.Producto}, Plu=${line.Plu}, Nombre=${line.Nombre}`);
           let itemAPI: string | false = false;
-          if (line.Plu) {
-            itemAPI = await getCachedItem(line.Plu);
+          let itemNo = '';
+          const itemLookup = line.Plu;
+          if (itemLookup) {
+            itemAPI = await getCachedItem(itemLookup);
             if (itemAPI === undefined) {
-              itemAPI = await this.itemsMP.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
+              itemAPI = await this.items.getItemFromAPI(companyID, database, itemLookup, client_id, client_secret, tenant, entorno, 'purchase');
               if (!itemAPI) {
                 //console.warn(`⚠️ Artículo MP_${line.Plu} no encontrado en API, intentando registrarlo...`);
-                const registeredId = await this.itemsMP.syncItemsMP(companyID, database, client_id, client_secret, tenant, entorno, line.Plu);
+                const registeredId = await this.items.syncItems(companyID, database, client_id, client_secret, tenant, entorno, itemLookup, 'purchase');
                 if (registeredId) {
                   itemAPI = String(registeredId);
                   //console.log(`✅ Artículo MP ${line.Plu} registrado. ID: ${itemAPI}`);
                 }
               }
-              itemCache.set(line.Plu, Promise.resolve(itemAPI));
+              itemCache.set(itemLookup, Promise.resolve(itemAPI));
+            }
+            if (itemAPI) {
+              itemNo = await getCachedItemNumber(itemAPI);
             }
           }
 
@@ -321,7 +331,7 @@ export class purchaseInvoicesService {
                 discountPercent: line.Descuento,
                 taxCode: `IVA${line.Iva}`,
                 _nSerie: line.nSerie || '',
-                _itemNo: line.Plu ? `MP_${line.Plu}` : '',
+                _itemNo: itemNo,
               });
             } else {
               purchaseInvoiceData[endpointline].push({
@@ -338,10 +348,7 @@ export class purchaseInvoicesService {
 
           addLineToInvoice(servit, false);
           addLineToInvoice(tornat, true);
-        }),
-      );
-
-      await Promise.all(promises);
+      }
 
       console.log(`✅ Todas las líneas de la factura de compra procesadas`);
       return purchaseInvoiceData;
@@ -354,6 +361,10 @@ export class purchaseInvoicesService {
   private shortCodigo(producte: string): string {
     if (producte.length <= 17) return producte;
     return createHash('sha1').update(producte).digest('hex').substring(0, 8).toUpperCase();
+  }
+
+  private getVendorDocumentNumberField(endpoint: string): string {
+    return endpoint === 'purchaseCreditMemos' ? 'vendorCreditMemoNumber' : 'vendorInvoiceNumber';
   }
 
   private async ensureMateriaPrima(database: string, codigo: string, nombre: string, precio: number, iva: number, empNif: string) {
@@ -376,9 +387,10 @@ export class purchaseInvoicesService {
 
   private async createPurchaseInvoice(endpoint: string, invoiceData, token: string, tenant: string, entorno: string, companyID: string) {
     console.log(`📡 Enviando factura de compra ${invoiceData.vendorInvoiceNumber} a la API de Business Central...`);
+    const vendorDocumentNumberField = this.getVendorDocumentNumberField(endpoint);
     const body: any = {
       vendorNumber: invoiceData.vendorNumber,
-      vendorInvoiceNumber: invoiceData.vendorInvoiceNumber,
+      [vendorDocumentNumberField]: invoiceData.vendorInvoiceNumber,
       postingDate: invoiceData.postingDate,
       currencyCode: invoiceData.currencyCode || '',
     };
@@ -393,12 +405,32 @@ export class purchaseInvoicesService {
       body.creditMemoDate = invoiceData.creditMemoDate;
     }
 
-    const response = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}`, body, {
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/json',
-      },
-    });
+    let response;
+    try {
+      response = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}`, body, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      const isDueDatePaymentTermsError =
+        error.response?.data?.error?.code === 'Application_DialogException' &&
+        error.response?.data?.error?.message?.includes('Due Date exceeds the Max. No. of Days till Due Date');
+
+      if (!isDueDatePaymentTermsError || !body.dueDate) {
+        throw error;
+      }
+
+      console.warn(`⚠️ BC rechaza la fecha de vencimiento ${body.dueDate} para la factura de compra ${invoiceData.vendorInvoiceNumber}. Reintentando sin dueDate.`);
+      const { dueDate, ...bodyWithoutDueDate } = body;
+      response = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}`, bodyWithoutDueDate, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+    }
 
     const id = response.data.id;
     const number = response.data.number;
@@ -590,7 +622,8 @@ export class purchaseInvoicesService {
     if (numFactura && numFactura !== '' && endpoint) {
       try {
         const dateField = endpoint === 'purchaseInvoices' ? 'invoiceDate' : 'creditMemoDate';
-        let filter = `vendorInvoiceNumber eq '${numFactura}'`;
+        const vendorDocumentNumberField = this.getVendorDocumentNumberField(endpoint);
+        let filter = `${vendorDocumentNumberField} eq '${numFactura}'`;
         if (yearPart) {
           filter += ` and ${dateField} ge ${yearPart}-01-01 and ${dateField} le ${yearPart}-12-31`;
         }
@@ -716,7 +749,8 @@ export class purchaseInvoicesService {
       try {
         const dateField = endpoint === 'purchaseInvoices' ? 'invoiceDate' : 'creditMemoDate';
         const yearFilter = `${dateField} ge ${year}-01-01 and ${dateField} le ${year}-12-31`;
-        const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=vendorInvoiceNumber eq '${vendorInvoiceNumber}' and totalAmountIncludingTax ne 0 and ${yearFilter}`;
+        const vendorDocumentNumberField = this.getVendorDocumentNumberField(endpoint);
+        const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}?$filter=${vendorDocumentNumberField} eq '${vendorInvoiceNumber}' and totalAmountIncludingTax ne 0 and ${yearFilter}`;
         res = await axios.get(url, {
           headers: {
             Authorization: 'Bearer ' + token,
