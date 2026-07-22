@@ -427,7 +427,7 @@ export class invoicesService {
               limit(async () => {
                 let itemAPI = itemCache.get(line.Plu);
                 if (itemAPI === undefined) {
-                  itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno);
+                  itemAPI = await this.items.getItemFromAPI(companyID, database, line.Plu, client_id, client_secret, tenant, entorno, 'sale');
                   itemCache.set(line.Plu, itemAPI);
                 }
 
@@ -835,11 +835,12 @@ export class invoicesService {
 
       for (const line of salesDataLines.data.value) {
         const lineImport = endpoint === 'salesCreditMemos' ? -Math.abs(line.amountExcludingTax) : line.amountExcludingTax;
+        const hitProductCode = this.getHitProductCodeFromBCLine(line.lineObjectNumber);
         const updateLineSql = `UPDATE [facturacio_${year}-${month}_Data_BC] 
                                SET IdFactura = '${idFactura}', 
                                    Import = ${lineImport}
                                WHERE IdFactura = '${idHit}' 
-                               AND Producte = ${line.lineObjectNumber}
+                               AND Producte = ${hitProductCode}
                                AND Preu = ${line.unitPrice}
                                AND Desconte = ${line.discountPercent}`;
         // console.log(`➡ Ejecutando SQL:\n${updateLineSql}`);
@@ -1004,6 +1005,12 @@ export class invoicesService {
     const errorDetail = error?.response?.data || error?.message || 'Error desconocido';
     this.client.publish('/Hit/Serveis/Apicultor/Log', JSON.stringify({ message, error: errorDetail }));
     console.error(message, errorDetail);
+  }
+
+  private getHitProductCodeFromBCLine(lineObjectNumber: string | number): string {
+    const value = String(lineObjectNumber ?? '');
+    const normalized = value.startsWith('ART_') ? value.substring(4) : value;
+    return /^-?\d+(\.\d+)?$/.test(normalized) ? normalized : `'${normalized.replace(/'/g, "''")}'`;
   }
 
   private escapeXml(unsafe: string): string {

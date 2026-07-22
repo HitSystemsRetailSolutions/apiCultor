@@ -72,16 +72,7 @@ export class vendorsService {
     if (res.data.value.length === 0) {
       let paymentTerm;
       try {
-        let dueDateCalculation = '';
-        const formulaPart = normalizedCode.replace(' DÍAS', '').trim();
-
-        if (formulaPart === 'CON') {
-          dueDateCalculation = '0D';
-        } else if (/^[0-9]+$/.test(formulaPart)) {
-          dueDateCalculation = `${formulaPart}D`;
-        } else {
-          dueDateCalculation = formulaPart;
-        }
+        const dueDateCalculation = this.normalizeDueDateCalculation(normalizedCode);
 
         const paymentTermData = {
           code: `${normalizedCode}`,
@@ -385,5 +376,15 @@ export class vendorsService {
     if (!iban) return '';
     const cleaned = iban.replace(/[^A-Z0-9]/gi, '');
     return cleaned.toUpperCase();
+  }
+
+  private normalizeDueDateCalculation(termCode: string): string {
+    const formulaPart = String(termCode || 'CON').replace(' DÍAS', '').trim().toUpperCase();
+    if (formulaPart === 'CON') return '0D';
+    if (formulaPart === 'MENSUAL' || formulaPart === 'MENSUALMENTE') return '1M';
+    if (/^[0-9]+$/.test(formulaPart)) return `${formulaPart}D`;
+    if (/^[0-9]+(D|WD|W|M|Q|Y)$/.test(formulaPart)) return formulaPart;
+    if (/^C(D|WD|W|M|Q|Y)$/.test(formulaPart)) return formulaPart;
+    return '0D';
   }
 }
