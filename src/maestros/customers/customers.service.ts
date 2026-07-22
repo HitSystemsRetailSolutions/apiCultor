@@ -68,19 +68,7 @@ export class customersService {
     if (res.data.value.length === 0) {
       let paymentTerm;
       try {
-        let dueDateCalculation = '';
-        // Extraer la parte antes de ' DÍAS'
-        const formulaPart = pTermCode.replace(' DÍAS', '').trim();
-        // Si es 'CON', la fórmula de fecha en BC debe ser '0D'
-        if (formulaPart === 'CON') {
-          dueDateCalculation = '0D';
-        } else if (/^[0-9]+$/.test(formulaPart)) {
-          // Si es solo un número, le añadimos 'D'.
-          dueDateCalculation = `${formulaPart}D`;
-        } else {
-          // Si ya tiene una unidad de tiempo (D, W, M, Q, Y), lo dejamos tal cual.
-          dueDateCalculation = formulaPart;
-        }
+        const dueDateCalculation = this.normalizeDueDateCalculation(pTermCode);
 
         const paymentTermData = {
           code: `${pTermCode}`,
@@ -462,5 +450,15 @@ export class customersService {
     if (!iban) return '';
     const cleaned = iban.replace(/[^A-Z0-9]/gi, '');
     return cleaned.toUpperCase();
+  }
+
+  private normalizeDueDateCalculation(termCode: string): string {
+    const formulaPart = String(termCode || 'CON').replace(' DÍAS', '').trim().toUpperCase();
+    if (formulaPart === 'CON') return '0D';
+    if (formulaPart === 'MENSUAL' || formulaPart === 'MENSUALMENTE') return '1M';
+    if (/^[0-9]+$/.test(formulaPart)) return `${formulaPart}D`;
+    if (/^[0-9]+(D|WD|W|M|Q|Y)$/.test(formulaPart)) return formulaPart;
+    if (/^C(D|WD|W|M|Q|Y)$/.test(formulaPart)) return formulaPart;
+    return '0D';
   }
 }
