@@ -13,6 +13,7 @@ export class itemsService {
     username: process.env.MQTT_USER,
     password: process.env.MQTT_PASSWORD,
   });
+  private itemTrackingCodePromises = new Map<string, Promise<string>>();
 
   constructor(
     private tokenService: getTokenService,
@@ -501,6 +502,19 @@ export class itemsService {
   // --- Helpers de compras/inventario ---
 
   private async getItemTrackingCode(companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
+    const cacheKey = `${tenant}|${entorno}|${companyID}|CS00001`;
+    if (!this.itemTrackingCodePromises.has(cacheKey)) {
+      const promise = this.ensureItemTrackingCode(companyID, client_id, client_secret, tenant, entorno)
+        .catch((error) => {
+          this.itemTrackingCodePromises.delete(cacheKey);
+          throw error;
+        });
+      this.itemTrackingCodePromises.set(cacheKey, promise);
+    }
+    return this.itemTrackingCodePromises.get(cacheKey);
+  }
+
+  private async ensureItemTrackingCode(companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
     try {
       const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
       const code = 'CS00001';
@@ -512,12 +526,19 @@ export class itemsService {
         `consultar itemTrackingCode ${code}`,
       );
       if (res.data.value.length === 0) {
-        await this.requestWithRetry(() =>
-          axios.post(baseUrl, { code: code, description: code }, {
-            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-          }),
-          `crear itemTrackingCode ${code}`,
-        );
+        try {
+          await this.requestWithRetry(() =>
+            axios.post(baseUrl, { code: code, description: code }, {
+              headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            }),
+            `crear itemTrackingCode ${code}`,
+          );
+        } catch (createError) {
+          const alreadyExists = createError.response?.data?.error?.code === 'Internal_EntityWithSameKeyExists';
+          if (!alreadyExists) {
+            throw createError;
+          }
+        }
       }
 
       const trackingCode = await this.getItemTrackingCodeRecord(baseUrl, code, token);
@@ -575,7 +596,7 @@ export class itemsService {
           headers: {
             Authorization: 'Bearer ' + token,
             'Content-Type': 'application/json',
-            'If-Match': etag || trackingCode['@odata.etag'] || '*',
+            'If-Match': '*',
           },
         }),
         `actualizar itemTrackingCode ${code}`,
