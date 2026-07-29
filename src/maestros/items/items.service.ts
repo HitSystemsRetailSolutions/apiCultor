@@ -539,10 +539,9 @@ export class itemsService {
             throw createError;
           }
         }
+        const trackingCode = await this.getItemTrackingCodeRecord(baseUrl, code, token);
+        await this.ensureItemTrackingCodeForSerials(baseUrl, trackingCode, code, token);
       }
-
-      const trackingCode = await this.getItemTrackingCodeRecord(baseUrl, code, token);
-      await this.ensureItemTrackingCodeForSerials(baseUrl, trackingCode, code, token);
       return code;
     } catch (error) {
       this.logError('❌ Error obteniendo itemTrackingCode CS00001', error);
