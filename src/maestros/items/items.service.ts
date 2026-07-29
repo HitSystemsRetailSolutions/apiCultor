@@ -214,6 +214,7 @@ export class itemsService {
           ...(item.Refinterna ? { vendorItemNo: item.Refinterna } : {}),
           ...(isInventory && itemTrackingCode ? { itemTrackingCode: itemTrackingCode } : {}),
         };
+        const { itemTrackingCode: _existingItemTrackingCode2, ...itemData2WithoutTrackingCode } = itemData2;
 
         let res;
         try {
@@ -309,7 +310,7 @@ export class itemsService {
 
                 // Hacemos el PATCH alternativo sin intentar alterar el 'type'
                 let etag = existingItem['@odata.etag'];
-                const { type, ...itemDataWithoutType } = itemData1;
+                const { type, itemTrackingCode: _existingItemTrackingCode1, ...itemDataWithoutType } = itemData1;
                 const updateItem = await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemDataWithoutType, {
                   headers: {
                     Authorization: 'Bearer ' + token,
@@ -319,7 +320,7 @@ export class itemsService {
                 });
                 etag = updateItem.data['@odata.etag'];
                 if (updateItem.data.VATProductPostingGroup) {
-                  await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemData2, {
+                  await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemData2WithoutTrackingCode, {
                     headers: {
                       Authorization: 'Bearer ' + token,
                       'Content-Type': 'application/json',
@@ -336,7 +337,7 @@ export class itemsService {
           } else {
             // Mismo tipo — actualizar campos
             let etag = existingItem['@odata.etag'];
-            const { type, ...itemDataWithoutType } = itemData1;
+            const { type, itemTrackingCode: _existingItemTrackingCode1, ...itemDataWithoutType } = itemData1;
 
             // Comprobar si hay cambios en cualquiera de los campos
             const hasChanged1 =
@@ -348,9 +349,8 @@ export class itemsService {
 
             const hasChanged2 =
               existingItem.priceIncludesTax !== itemData2.priceIncludesTax ||
-              (itemData2.vendorNo && existingItem.vendorNo !== itemData2.vendorNo) ||
-              (itemData2.vendorItemNo && existingItem.vendorItemNo !== itemData2.vendorItemNo) ||
-              (itemData2.itemTrackingCode && existingItem.itemTrackingCode !== itemData2.itemTrackingCode);
+              (itemData2WithoutTrackingCode.vendorNo && existingItem.vendorNo !== itemData2WithoutTrackingCode.vendorNo) ||
+              (itemData2WithoutTrackingCode.vendorItemNo && existingItem.vendorItemNo !== itemData2WithoutTrackingCode.vendorItemNo);
 
             if (hasChanged1) {
               const updateItem = await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemDataWithoutType, {
@@ -364,7 +364,7 @@ export class itemsService {
             }
 
             if (hasChanged2 && itemDataWithoutType.VATProductPostingGroup) {
-              await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemData2, {
+              await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemData2WithoutTrackingCode, {
                 headers: {
                   Authorization: 'Bearer ' + token,
                   'Content-Type': 'application/json',
