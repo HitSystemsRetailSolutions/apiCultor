@@ -102,6 +102,7 @@ export class vendorsService {
 
   async getBankAccountCode(IBAN: string, vendorNumber: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
     const IBANsinGuiones = this.sanitizeIBAN(IBAN);
+    const bankFields = this.getSpanishBankFieldsFromIBAN(IBANsinGuiones);
     let code = '';
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     // Note: Vendors use vendorBankAccounts endpoint
@@ -136,6 +137,7 @@ export class vendorsService {
           IBAN: `${IBANsinGuiones}`,
           electronicPayments: true,
           RegionCode: 'ES',
+          ...bankFields,
         };
 
         bankAccount = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VendorBankAccount`, bankAccountData, {
@@ -150,6 +152,13 @@ export class vendorsService {
         throw error;
       }
     } else {
+      await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VendorBankAccount(${res.data.value[0].id})`, bankFields, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+          'If-Match': res.data.value[0]['@odata.etag'] || '*',
+        },
+      });
       code = res.data.value[0].code;
     }
     return code;
@@ -204,8 +213,6 @@ export class vendorsService {
         const nif = `${this.helpers.normalizeNIF(vendor.NIF)}`;
         const payMethodId = await this.getPaymentMethodId(vendor.FORMAPAGO, companyID, client_id, client_secret, tenant, entorno);
         const payTermId = await this.getPaymentTermId(vendor.TERMINOPAGO, companyID, client_id, client_secret, tenant, entorno);
-        const currencyId = await this.getCurrencyId('EUR', companyID, client_id, client_secret, tenant, entorno);
-
         const vendorData = {
           displayName: vendor.NOMBRE,
           addressLine1: vendor.DIRECCION,
@@ -215,7 +222,6 @@ export class vendorsService {
           phoneNumber: this.sanitizePhone(vendor.TELEFONO),
           email: vendor.EMAIL,
           taxRegistrationNumber: nif,
-          currencyId: currencyId || undefined,
           paymentMethodId: payMethodId || undefined,
           paymentTermsId: payTermId || undefined,
           vendorPostingGroup: 'NAC',
@@ -273,6 +279,7 @@ export class vendorsService {
           const vendorData1 = {
             ...vendorData,
             bankAccountCode: `${bankAccountCode}`,
+            currencyId: null,
           };
           await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/vendors(${vendorBCId})`, vendorData1, {
             headers: {
@@ -377,6 +384,62 @@ export class vendorsService {
     if (!iban) return '';
     const cleaned = iban.replace(/[^A-Z0-9]/gi, '');
     return cleaned.toUpperCase();
+  }
+
+  private getSpanishBankFieldsFromIBAN(iban: string) {
+    const ccc = iban?.startsWith('ES') && iban.length >= 24 ? iban.substring(4, 24) : '';
+    const bankNo = ccc.substring(0, 4);
+    const branchNo = ccc.substring(4, 8);
+    const controlDigit = ccc.substring(8, 10);
+    const accountNo = ccc.substring(10, 20);
+
+    return {
+      bankBranchNo: branchNo,
+      bankAccountNo: accountNo,
+      swiftCode: this.getSwiftCodeFromBankNo(bankNo),
+    };
+  }
+
+  private getSwiftCodeFromBankNo(bankNo: string): string {
+    const swiftByBankNo: Record<string, string> = {
+      '0019': 'DEUTESBBXXX',
+      '0049': 'ESPBESMMXXX',
+      '0058': 'BNPAESMMXXX',
+      '0061': 'BMARES2MXXX',
+      '0065': 'BARCESMMXXX',
+      '0081': 'BSABESBBXXX',
+      '0128': 'BKBKESMMXXX',
+      '0182': 'BBVAESMMXXX',
+      '0186': 'BFIVESBBXXX',
+      '0198': 'BCOEESMMXXX',
+      '0225': 'CETEESMMXXX',
+      '0234': 'BCOEESMM107',
+      '0235': 'PICIESMMXXX',
+      '1465': 'INGDESMMXXX',
+      '2045': 'CECAESMM048',
+      '2056': 'CECAESMM086',
+      '2080': 'CAGLESMMXXX',
+      '2085': 'CAZRES2ZXXX',
+      '2095': 'BASKES2BXXX',
+      '2100': 'CAIXESBBXXX',
+      '2103': 'UCJAES2MXXX',
+      '3005': 'BCOEESMM103',
+      '3008': 'BNCANESMXXX',
+      '3023': 'BCOEESMM023',
+      '3025': 'CDENESBBXXX',
+      '3035': 'CLPEES2MXXX',
+      '3046': 'BCOEESMM046',
+      '3048': 'BCOEESMM048',
+      '3049': 'BCOEESMM049',
+      '3055': 'BCOEESMM055',
+      '3058': 'CCRIES2AXXX',
+      '3065': 'BCOEESMM065',
+      '3073': 'BCOEESMM073',
+      '3140': 'CAXIES21XXX',
+      '3183': 'CASDESBBXXX',
+    };
+
+    return swiftByBankNo[bankNo] || '';
   }
 
   private normalizeDueDateCalculation(termCode: string): string {
