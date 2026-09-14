@@ -152,13 +152,6 @@ export class vendorsService {
         throw error;
       }
     } else {
-      await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/VendorBankAccount(${res.data.value[0].id})`, bankFields, {
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-          'If-Match': res.data.value[0]['@odata.etag'] || '*',
-        },
-      });
       code = res.data.value[0].code;
     }
     return code;
