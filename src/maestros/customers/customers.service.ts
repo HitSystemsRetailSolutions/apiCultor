@@ -98,6 +98,7 @@ export class customersService {
 
   async getBankAccountCode(IBAN: string, client: string, companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
     const IBANsinGuiones = this.sanitizeIBAN(IBAN);
+    const bankFields = this.getSpanishBankFieldsFromIBAN(IBANsinGuiones);
     let code = '';
     const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
     const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/CustomerBankAccount?$filter=IBAN eq '${IBANsinGuiones}' and number eq '${client}'`;
@@ -129,6 +130,7 @@ export class customersService {
           code: `${newCode}`,
           IBAN: `${IBANsinGuiones}`,
           RegionCode: 'ES',
+          ...bankFields,
         };
         bankAccount = await axios.post(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/CustomerBankAccount`, bankAccountData, {
           headers: {
@@ -142,6 +144,13 @@ export class customersService {
       }
       code = bankAccount.data.code;
     } else {
+      await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/CustomerBankAccount(${res.data.value[0].id})`, bankFields, {
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+          'If-Match': res.data.value[0]['@odata.etag'] || '*',
+        },
+      });
       code = res.data.value[0].code;
     }
     return code;
@@ -263,7 +272,6 @@ export class customersService {
         const payMethodId = await this.getPaymentMethodId(customer.FORMAPAGO, companyID, client_id, client_secret, tenant, entorno);
         const taxId = await this.getTaxAreaId(taxArea, companyID, client_id, client_secret, tenant, entorno);
         const payTermId = await this.getPaymentTermId(customer.TERMINOPAGO, companyID, client_id, client_secret, tenant, entorno);
-        const currencyId = await this.getCurrencyId('EUR', companyID, client_id, client_secret, tenant, entorno);
         customerNumber = `${this.helpers.normalizeNIF(customer.NIF)}`;
         customerComercial = customer.COMERCIAL || '';
         const customerData1 = {
@@ -279,7 +287,6 @@ export class customersService {
           email: `${customer.EMAIL}`,
           taxAreaId: `${taxId}`,
           taxRegistrationNumber: customerNumber,
-          currencyId: `${currencyId}`,
           paymentMethodId: `${payMethodId}`,
           paymentTermsId: `${payTermId}`,
           formatRegion: 'es-ES_tradnl',
@@ -342,8 +349,9 @@ export class customersService {
           const customerData: any = {
             ...customerData1,
             bankAccountCode: `${bankAccountCode}`,
+            currencyId: null,
           };
-          
+
           let currentCustomerRes;
           try {
             currentCustomerRes = await axios.get(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/customers(${res.data.value[0].id})`, {
@@ -353,11 +361,11 @@ export class customersService {
             this.logError(`❌ Error al re-consultar el cliente ${customerNumber}`, error);
             throw error;
           }
-          
+
           const existingCustomer = currentCustomerRes.data;
           const patchData: any = {};
           let hasChanges = false;
-          
+
           for (const key of Object.keys(customerData)) {
             let newVal = customerData[key];
             let oldVal = existingCustomer[key];
@@ -450,6 +458,62 @@ export class customersService {
     if (!iban) return '';
     const cleaned = iban.replace(/[^A-Z0-9]/gi, '');
     return cleaned.toUpperCase();
+  }
+
+  private getSpanishBankFieldsFromIBAN(iban: string) {
+    const ccc = iban?.startsWith('ES') && iban.length >= 24 ? iban.substring(4, 24) : '';
+    const bankNo = ccc.substring(0, 4);
+    const branchNo = ccc.substring(4, 8);
+    const controlDigit = ccc.substring(8, 10);
+    const accountNo = ccc.substring(10, 20);
+
+    return {
+      bankBranchNo: branchNo,
+      bankAccountNo: accountNo,
+      swiftCode: this.getSwiftCodeFromBankNo(bankNo),
+    };
+  }
+
+  private getSwiftCodeFromBankNo(bankNo: string): string {
+    const swiftByBankNo: Record<string, string> = {
+      '0019': 'DEUTESBBXXX',
+      '0049': 'ESPBESMMXXX',
+      '0058': 'BNPAESMMXXX',
+      '0061': 'BMARES2MXXX',
+      '0065': 'BARCESMMXXX',
+      '0081': 'BSABESBBXXX',
+      '0128': 'BKBKESMMXXX',
+      '0182': 'BBVAESMMXXX',
+      '0186': 'BFIVESBBXXX',
+      '0198': 'BCOEESMMXXX',
+      '0225': 'CETEESMMXXX',
+      '0234': 'BCOEESMM107',
+      '0235': 'PICIESMMXXX',
+      '1465': 'INGDESMMXXX',
+      '2045': 'CECAESMM048',
+      '2056': 'CECAESMM086',
+      '2080': 'CAGLESMMXXX',
+      '2085': 'CAZRES2ZXXX',
+      '2095': 'BASKES2BXXX',
+      '2100': 'CAIXESBBXXX',
+      '2103': 'UCJAES2MXXX',
+      '3005': 'BCOEESMM103',
+      '3008': 'BNCANESMXXX',
+      '3023': 'BCOEESMM023',
+      '3025': 'CDENESBBXXX',
+      '3035': 'CLPEES2MXXX',
+      '3046': 'BCOEESMM046',
+      '3048': 'BCOEESMM048',
+      '3049': 'BCOEESMM049',
+      '3055': 'BCOEESMM055',
+      '3058': 'CCRIES2AXXX',
+      '3065': 'BCOEESMM065',
+      '3073': 'BCOEESMM073',
+      '3140': 'CAXIES21XXX',
+      '3183': 'CASDESBBXXX',
+    };
+
+    return swiftByBankNo[bankNo] || '';
   }
 
   private normalizeDueDateCalculation(termCode: string): string {

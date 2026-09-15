@@ -13,6 +13,7 @@ export class itemsService {
     username: process.env.MQTT_USER,
     password: process.env.MQTT_PASSWORD,
   });
+  private itemTrackingCodePromises = new Map<string, Promise<string>>();
 
   constructor(
     private tokenService: getTokenService,
@@ -213,6 +214,7 @@ export class itemsService {
           ...(item.Refinterna ? { vendorItemNo: item.Refinterna } : {}),
           ...(isInventory && itemTrackingCode ? { itemTrackingCode: itemTrackingCode } : {}),
         };
+        const { itemTrackingCode: _existingItemTrackingCode2, ...itemData2WithoutTrackingCode } = itemData2;
 
         let res;
         try {
@@ -308,7 +310,7 @@ export class itemsService {
 
                 // Hacemos el PATCH alternativo sin intentar alterar el 'type'
                 let etag = existingItem['@odata.etag'];
-                const { type, ...itemDataWithoutType } = itemData1;
+                const { type, itemTrackingCode: _existingItemTrackingCode1, ...itemDataWithoutType } = itemData1;
                 const updateItem = await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemDataWithoutType, {
                   headers: {
                     Authorization: 'Bearer ' + token,
@@ -318,7 +320,7 @@ export class itemsService {
                 });
                 etag = updateItem.data['@odata.etag'];
                 if (updateItem.data.VATProductPostingGroup) {
-                  await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemData2, {
+                  await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemData2WithoutTrackingCode, {
                     headers: {
                       Authorization: 'Bearer ' + token,
                       'Content-Type': 'application/json',
@@ -335,7 +337,7 @@ export class itemsService {
           } else {
             // Mismo tipo — actualizar campos
             let etag = existingItem['@odata.etag'];
-            const { type, ...itemDataWithoutType } = itemData1;
+            const { type, itemTrackingCode: _existingItemTrackingCode1, ...itemDataWithoutType } = itemData1;
 
             // Comprobar si hay cambios en cualquiera de los campos
             const hasChanged1 =
@@ -347,9 +349,8 @@ export class itemsService {
 
             const hasChanged2 =
               existingItem.priceIncludesTax !== itemData2.priceIncludesTax ||
-              (itemData2.vendorNo && existingItem.vendorNo !== itemData2.vendorNo) ||
-              (itemData2.vendorItemNo && existingItem.vendorItemNo !== itemData2.vendorItemNo) ||
-              (itemData2.itemTrackingCode && existingItem.itemTrackingCode !== itemData2.itemTrackingCode);
+              (itemData2WithoutTrackingCode.vendorNo && existingItem.vendorNo !== itemData2WithoutTrackingCode.vendorNo) ||
+              (itemData2WithoutTrackingCode.vendorItemNo && existingItem.vendorItemNo !== itemData2WithoutTrackingCode.vendorItemNo);
 
             if (hasChanged1) {
               const updateItem = await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemDataWithoutType, {
@@ -363,7 +364,7 @@ export class itemsService {
             }
 
             if (hasChanged2 && itemDataWithoutType.VATProductPostingGroup) {
-              await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemData2, {
+              await axios.patch(`${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/HitSystems/HitSystems/v2.0/companies(${companyID})/items(${existingItem.id})`, itemData2WithoutTrackingCode, {
                 headers: {
                   Authorization: 'Bearer ' + token,
                   'Content-Type': 'application/json',
@@ -501,6 +502,19 @@ export class itemsService {
   // --- Helpers de compras/inventario ---
 
   private async getItemTrackingCode(companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
+    const cacheKey = `${tenant}|${entorno}|${companyID}|CS00001`;
+    if (!this.itemTrackingCodePromises.has(cacheKey)) {
+      const promise = this.ensureItemTrackingCode(companyID, client_id, client_secret, tenant, entorno)
+        .catch((error) => {
+          this.itemTrackingCodePromises.delete(cacheKey);
+          throw error;
+        });
+      this.itemTrackingCodePromises.set(cacheKey, promise);
+    }
+    return this.itemTrackingCodePromises.get(cacheKey);
+  }
+
+  private async ensureItemTrackingCode(companyID: string, client_id: string, client_secret: string, tenant: string, entorno: string): Promise<string> {
     try {
       const token = await this.tokenService.getToken2(client_id, client_secret, tenant);
       const code = 'CS00001';
@@ -512,16 +526,22 @@ export class itemsService {
         `consultar itemTrackingCode ${code}`,
       );
       if (res.data.value.length === 0) {
-        await this.requestWithRetry(() =>
-          axios.post(baseUrl, { code: code, description: code }, {
-            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-          }),
-          `crear itemTrackingCode ${code}`,
-        );
+        try {
+          await this.requestWithRetry(() =>
+            axios.post(baseUrl, { code: code, description: code }, {
+              headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            }),
+            `crear itemTrackingCode ${code}`,
+          );
+        } catch (createError) {
+          const alreadyExists = createError.response?.data?.error?.code === 'Internal_EntityWithSameKeyExists';
+          if (!alreadyExists) {
+            throw createError;
+          }
+        }
+        const trackingCode = await this.getItemTrackingCodeRecord(baseUrl, code, token);
+        await this.ensureItemTrackingCodeForSerials(baseUrl, trackingCode, code, token);
       }
-
-      const trackingCode = await this.getItemTrackingCodeRecord(baseUrl, code, token);
-      await this.ensureItemTrackingCodeForSerials(baseUrl, trackingCode, code, token);
       return code;
     } catch (error) {
       this.logError('❌ Error obteniendo itemTrackingCode CS00001', error);
@@ -575,7 +595,7 @@ export class itemsService {
           headers: {
             Authorization: 'Bearer ' + token,
             'Content-Type': 'application/json',
-            'If-Match': etag || trackingCode['@odata.etag'] || '*',
+            'If-Match': '*',
           },
         }),
         `actualizar itemTrackingCode ${code}`,
