@@ -141,7 +141,6 @@ export class purchaseInvoicesService {
                 postingDate: invoiceDate,
                 dueDate: dueDate,
                 vendorNumber: vendorNumber,
-                currencyCode: currencyCode,
                 purchaseInvoiceLines: [],
               };
             } else {
@@ -151,7 +150,6 @@ export class purchaseInvoicesService {
                 postingDate: invoiceDate,
                 dueDate: dueDate,
                 vendorNumber: vendorNumber,
-                currencyCode: currencyCode,
                 purchaseCreditMemoLines: [],
               };
             }
@@ -267,87 +265,87 @@ export class purchaseInvoicesService {
       };
 
       for (const line of invoiceLines.recordset) {
-          //console.log(`🔎 Línea factura: Producto=${line.Producto}, Plu=${line.Plu}, Nombre=${line.Nombre}`);
-          let itemAPI: string | false = false;
-          let itemNo = '';
-          const itemLookup = line.Plu;
-          if (itemLookup) {
-            itemAPI = await getCachedItem(itemLookup);
-            if (itemAPI === undefined) {
-              itemAPI = await this.items.getItemFromAPI(companyID, database, itemLookup, client_id, client_secret, tenant, entorno, 'purchase');
-              if (!itemAPI) {
-                //console.warn(`⚠️ Artículo MP_${line.Plu} no encontrado en API, intentando registrarlo...`);
-                const registeredId = await this.items.syncItems(companyID, database, client_id, client_secret, tenant, entorno, itemLookup, 'purchase');
-                if (registeredId) {
-                  itemAPI = String(registeredId);
-                  //console.log(`✅ Artículo MP ${line.Plu} registrado. ID: ${itemAPI}`);
-                }
+        //console.log(`🔎 Línea factura: Producto=${line.Producto}, Plu=${line.Plu}, Nombre=${line.Nombre}`);
+        let itemAPI: string | false = false;
+        let itemNo = '';
+        const itemLookup = line.Plu;
+        if (itemLookup) {
+          itemAPI = await getCachedItem(itemLookup);
+          if (itemAPI === undefined) {
+            itemAPI = await this.items.getItemFromAPI(companyID, database, itemLookup, client_id, client_secret, tenant, entorno, 'purchase');
+            if (!itemAPI) {
+              //console.warn(`⚠️ Artículo MP_${line.Plu} no encontrado en API, intentando registrarlo...`);
+              const registeredId = await this.items.syncItems(companyID, database, client_id, client_secret, tenant, entorno, itemLookup, 'purchase');
+              if (registeredId) {
+                itemAPI = String(registeredId);
+                //console.log(`✅ Artículo MP ${line.Plu} registrado. ID: ${itemAPI}`);
               }
-              itemCache.set(itemLookup, Promise.resolve(itemAPI));
             }
-            if (itemAPI) {
-              itemNo = await getCachedItemNumber(itemAPI);
-            }
+            itemCache.set(itemLookup, Promise.resolve(itemAPI));
+          }
+          if (itemAPI) {
+            itemNo = await getCachedItemNumber(itemAPI);
+          }
+        }
+
+        if (itemAPI === 'error') return;
+
+        const servit = Number(line.Servit || 0);
+        const tornat = Number(line.Tornat || 0);
+
+        if (servit === 0 && tornat === 0) {
+          const errorMsg = `❌ La línea con producto ${line.Plu} tiene cantidad 0`;
+          this.logError(errorMsg, new Error(errorMsg));
+          throw new Error(errorMsg);
+        }
+
+        if (line.UnitPrice === null || line.UnitPrice === undefined) {
+          const errorMsg = `❌ La línea con producto ${line.Plu} tiene un precio nulo. Sincronización abortada.`;
+          this.logError(errorMsg, new Error(errorMsg));
+          throw new Error(errorMsg);
+        }
+
+        const addLineToInvoice = (qtyValue: number, isTornat: boolean) => {
+          if (qtyValue === 0) return;
+
+          let quantity = Math.abs(qtyValue);
+          let unitPrice = line.UnitPrice;
+          let qtySign = isTornat ? -1 : 1;
+
+          if (endpointline === 'purchaseInvoiceLines' && qtySign < 0) {
+            unitPrice *= -1;
           }
 
-          if (itemAPI === 'error') return;
-
-          const servit = Number(line.Servit || 0);
-          const tornat = Number(line.Tornat || 0);
-
-          if (servit === 0 && tornat === 0) {
-            const errorMsg = `❌ La línea con producto ${line.Plu} tiene cantidad 0`;
-            this.logError(errorMsg, new Error(errorMsg));
-            throw new Error(errorMsg);
+          if (endpointline === 'purchaseCreditMemoLines' && qtySign > 0) {
+            unitPrice *= -1;
           }
 
-          if (line.UnitPrice === null || line.UnitPrice === undefined) {
-            const errorMsg = `❌ La línea con producto ${line.Plu} tiene un precio nulo. Sincronización abortada.`;
-            this.logError(errorMsg, new Error(errorMsg));
-            throw new Error(errorMsg);
+          if (itemAPI) {
+            purchaseInvoiceData[endpointline].push({
+              itemId: itemAPI,
+              lineType: 'Item',
+              quantity: quantity,
+              unitCost: unitPrice,
+              discountPercent: line.Descuento,
+              taxCode: `IVA${line.Iva}`,
+              _nSerie: line.nSerie || '',
+              _itemNo: itemNo,
+            });
+          } else {
+            purchaseInvoiceData[endpointline].push({
+              lineObjectNumber: qtySign > 0 ? '6000001' : '6090001',
+              description: (line.Nombre || '').substring(0, 100),
+              lineType: 'Account',
+              quantity: quantity,
+              unitCost: unitPrice,
+              discountPercent: line.Descuento,
+              taxCode: `IVA${line.Iva}`,
+            });
           }
+        };
 
-          const addLineToInvoice = (qtyValue: number, isTornat: boolean) => {
-            if (qtyValue === 0) return;
-
-            let quantity = Math.abs(qtyValue);
-            let unitPrice = line.UnitPrice;
-            let qtySign = isTornat ? -1 : 1;
-
-            if (endpointline === 'purchaseInvoiceLines' && qtySign < 0) {
-              unitPrice *= -1;
-            }
-
-            if (endpointline === 'purchaseCreditMemoLines' && qtySign > 0) {
-              unitPrice *= -1;
-            }
-
-            if (itemAPI) {
-              purchaseInvoiceData[endpointline].push({
-                itemId: itemAPI,
-                lineType: 'Item',
-                quantity: quantity,
-                unitCost: unitPrice,
-                discountPercent: line.Descuento,
-                taxCode: `IVA${line.Iva}`,
-                _nSerie: line.nSerie || '',
-                _itemNo: itemNo,
-              });
-            } else {
-              purchaseInvoiceData[endpointline].push({
-                lineObjectNumber: qtySign > 0 ? '6000001' : '6090001',
-                description: (line.Nombre || '').substring(0, 100),
-                lineType: 'Account',
-                quantity: quantity,
-                unitCost: unitPrice,
-                discountPercent: line.Descuento,
-                taxCode: `IVA${line.Iva}`,
-              });
-            }
-          };
-
-          addLineToInvoice(servit, false);
-          addLineToInvoice(tornat, true);
+        addLineToInvoice(servit, false);
+        addLineToInvoice(tornat, true);
       }
 
       console.log(`✅ Todas las líneas de la factura de compra procesadas`);
