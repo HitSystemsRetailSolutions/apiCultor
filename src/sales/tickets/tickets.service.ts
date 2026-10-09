@@ -229,22 +229,31 @@ export class ticketsService {
               const day = Number(diaStr.split('-')[2]);
 
               // Comprobar saltos de ticket (números consecutivos)
+
+              const queryUnion = `
+                SELECT * FROM [v_venut_${year}-${month}]
+                UNION ALL
+                SELECT * FROM [v_rectificats_${year}-${month}]
+                UNION ALL
+                SELECT * FROM [v_anulats_${year}-${month}]
+                `;
+
               const ticketsRange = await this.sql.runSql(
                 `SELECT MIN(num_tick) AS primerTick, MAX(num_tick) AS ultimTick
-                 FROM [v_venut_${year}-${month}]
+                 FROM (${queryUnion}) v
                  WHERE (CASE WHEN estat <> '' THEN estat ELSE botiga END) = ${licencia} AND DAY(Data) = ${day}`, database);
               const pTick = ticketsRange?.recordset[0]?.primerTick;
               const uTick = ticketsRange?.recordset[0]?.ultimTick;
 
-              if (pTick && uTick) {
+              if (pTick != null && uTick != null) {
                 const countRes = await this.sql.runSql(
                   `SELECT COUNT(DISTINCT num_tick) AS nTicks
                       FROM (
-                          SELECT (CASE WHEN estat <> '' THEN estat ELSE botiga END) AS Botiga, Data, Num_tick FROM [v_venut_${year}-${month}]
-                          UNION ALL
-                          SELECT (CASE WHEN estat <> '' THEN estat ELSE botiga END) AS Botiga, Data, Num_tick FROM [V_Anulats_${year}-${month}]
+                          ${queryUnion}
                       ) v
-                      WHERE Botiga = ${licencia} AND DAY(Data) = ${day} AND num_tick BETWEEN ${pTick} AND ${uTick}`, database
+                      WHERE (CASE WHEN estat <> '' THEN estat ELSE botiga END) = ${licencia}
+                        AND DAY(Data) = ${day}
+                        AND num_tick BETWEEN ${pTick} AND ${uTick}`, database
                 );
                 const nTicks = countRes.recordset[0]?.nTicks ?? 0;
                 const esperat = uTick - pTick + 1;
