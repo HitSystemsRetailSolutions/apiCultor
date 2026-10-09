@@ -53,7 +53,7 @@ export class itemsService {
           UNION ALL 
           SELECT codi, nom, preu, familia, esSumable, tipoIva FROM articles_Zombis
         ) a          
-        LEFT JOIN tipusIva2012 t ON a.Tipoiva=t.Tipus 
+        LEFT JOIN tipusiva t ON a.Tipoiva=t.Tipus 
         LEFT JOIN families f3 on a.familia=f3.Nom 
         LEFT JOIN families f2 on f3.pare=f2.Nom 
         LEFT JOIN families f1 on f2.pare=f1.Nom 
@@ -89,7 +89,7 @@ export class itemsService {
           isnull(cc3.valor, '') Inventari,
           'mp' as Origen
         FROM ccMateriasPrimas mp
-        LEFT JOIN tipusIva2012 t ON mp.iva=t.Tipus
+        LEFT JOIN tipusiva t ON mp.iva=t.Tipus
         LEFT JOIN ccNombreValor cc on mp.id = cc.id and cc.nombre='Contrapartida'
         LEFT JOIN ccNombreValor cc2 on mp.id = cc2.id and cc2.nombre='Refinterna'
         LEFT JOIN ccNombreValor cc3 on mp.id = cc3.id and cc3.nombre='Inventari'
@@ -125,7 +125,7 @@ export class itemsService {
           FROM ccMateriasPrimas mp
           INNER JOIN articlespropietats ap ON ap.Valor = mp.id AND ap.Variable = 'MatPri'
           INNER JOIN Articles a ON a.Codi = ap.CodiArticle
-          LEFT JOIN tipusIva2012 t ON a.Tipoiva=t.Tipus
+          LEFT JOIN tipusiva t ON a.Tipoiva=t.Tipus
           LEFT JOIN families f3 on a.familia=f3.Nom 
           LEFT JOIN families f2 on f3.pare=f2.Nom 
           LEFT JOIN families f1 on f2.pare=f1.Nom 
