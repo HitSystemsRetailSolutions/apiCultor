@@ -171,12 +171,22 @@ export class ticketsService {
           }
 
           const plus = Array.from(new Set(tickets.recordset.map((ticket: any) => ticket.Plu as string))).filter(plu => plu);
+          let itemSyncFailed = false;
           for (const plu of plus as string[]) {
             try {
-              await this.items.getItemFromAPI(companyID, database, plu, client_id, client_secret, tenant, entorno, 'sale');
+              // El CSV conserva el PLU numérico; el codeunit lo transforma a ART_<PLU>.
+              const itemId = await this.items.getItemFromAPI(companyID, database, plu, client_id, client_secret, tenant, entorno, 'sale');
+              if (!itemId) {
+                throw new Error(`No se pudo obtener ni crear el artículo de tickets ${plu} en BC`);
+              }
             } catch (err) {
               this.logError(`⚠️ Error al obtener el artículo con PLU ${plu} para la tienda ${licencia}`, err);
+              itemSyncFailed = true;
             }
+          }
+          if (itemSyncFailed) {
+            this.logError(`❌ Se cancela el procesamiento de tickets de la tienda ${licencia} porque faltan artículos en BC`, {});
+            return;
           }
 
           // --- PASO 2: Preparación de Días a Procesar ---
@@ -374,16 +384,13 @@ export class ticketsService {
 
       tickets.recordset.forEach(record => {
         const tmst = moment.utc(record.Data).tz('Europe/Madrid', true).format('YYYY-MM-DDTHH:mm:ss.SSSZ');
-        const plu = String(record.Plu ?? '');
 
         csvStream.write({
           Botiga: record.Botiga,
           Data: tmst,
           Dependenta: record.Dependenta,
           Num_tick: record.Num_tick,
-          // Los artículos de venta se crean en BC como ART_<PLU>. El codeunit usa
-          // este campo directamente como Item No., por lo que debe llevar el prefijo.
-          Plu: plu.startsWith('ART_') ? plu : `ART_${plu}`,
+          Plu: record.Plu,
           Quantitat: record.Quantitat,
           Import: record.Import,
           IVA: `IVA${record.Iva}`,
@@ -545,17 +552,15 @@ export class ticketsService {
       this.logError('Error al obtener el token', { client_id, tenant });
       return null;
     }
-    const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices?$filter=startswith(externalDocumentNumber, '${invoiceNumber}')`;
+    const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/salesInvoices`;
     try {
-      const response = await axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (response?.data?.value && response.data.value.length > 0) {
-        //devolver todos los ids si hay más de uno
-        return response?.data?.value?.map(inv => inv.id) ?? [];
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+      const invoices = await this.getTicketInvoices(url, headers, invoiceNumber);
+      if (invoices.length > 0) {
+        return invoices.map(invoice => invoice.id);
       }
     } catch (error) {
       this.logError('Error al obtener el ID de la factura', { companyID, invoiceNumber, error });
@@ -582,18 +587,56 @@ export class ticketsService {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     };
-    const response = await axios.get(
-      `${url}?$filter=startswith(externalDocumentNumber, '${invoiceNumber}')`,
-      { headers },
-    );
-    const invoices = response?.data?.value ?? [];
 
+    const invoices = await this.getTicketInvoices(url, headers, invoiceNumber);
+
+    const deleteErrors: any[] = [];
+    let deleted = 0;
     for (const invoice of invoices) {
-      await axios.delete(`${url}(${invoice.id})`, { headers });
-      console.log(`🗑️ Factura borrador ${invoice.id} (${invoice.externalDocumentNumber}) eliminada de BC.`);
+      try {
+        await axios.delete(`${url}(${invoice.id})`, { headers });
+        deleted++;
+        console.log(`🗑️ Factura borrador ${invoice.id} (${invoice.externalDocumentNumber}) eliminada de BC.`);
+      } catch (error) {
+        deleteErrors.push({ invoice, error });
+        this.logError(`❌ No se pudo eliminar la factura ${invoice.id} (${invoice.externalDocumentNumber})`, error);
+      }
     }
 
-    return invoices.length;
+    if (deleteErrors.length > 0) {
+      throw new Error(`No se pudieron eliminar ${deleteErrors.length} de ${invoices.length} facturas de ${invoiceNumber}`);
+    }
+
+    return deleted;
+  }
+
+  private async getTicketInvoices(
+    url: string,
+    headers: Record<string, string>,
+    invoiceNumber: string,
+  ): Promise<any[]> {
+    // El codeunit puede insertar el método de pago en distintas posiciones del
+    // número externo. Recuperamos todos los borradores VENTAS_ y filtramos localmente
+    // por tienda y fecha, siguiendo también todas las páginas de OData.
+    const invoiceParts = invoiceNumber.split('_');
+    const locationCode = invoiceParts[1];
+    const invoiceDate = invoiceParts[2];
+    const invoices: any[] = [];
+    let nextUrl: string | null = `${url}?$select=id,externalDocumentNumber&$filter=startswith(externalDocumentNumber, 'VENTAS_')`;
+
+    while (nextUrl) {
+      const response = await axios.get(nextUrl, { headers });
+      const pageInvoices = response?.data?.value ?? [];
+      invoices.push(...pageInvoices.filter(invoice => {
+        const externalNumber = String(invoice.externalDocumentNumber ?? '');
+        const parts = externalNumber.split('_');
+        return externalNumber.startsWith(invoiceNumber)
+          || (parts.includes(locationCode) && parts.includes(invoiceDate));
+      }));
+      nextUrl = response?.data?.['@odata.nextLink'] ?? null;
+    }
+
+    return invoices;
   }
 
   private logError(message: string, error: any) {
