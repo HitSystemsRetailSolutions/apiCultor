@@ -558,14 +558,29 @@ export class ticketsService {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       };
-      const invoices = await this.getTicketInvoices(url, headers, invoiceNumber);
-      if (invoices.length > 0) {
-        return invoices.map(invoice => invoice.id);
+      const maxAttempts = 10;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const invoices = await this.getTicketInvoices(url, headers, invoiceNumber);
+        if (invoices.length > 0) {
+          if (attempt > 1) {
+            console.log(`✅ Se encontraron ${invoices.length} facturas de ${invoiceNumber} en el intento ${attempt}.`);
+          }
+          return invoices.map(invoice => invoice.id);
+        }
+
+        if (attempt < maxAttempts) {
+          console.log(`⏳ Las facturas de ${invoiceNumber} aún no son visibles en BC. Reintento ${attempt}/${maxAttempts}...`);
+          await this.wait(2000);
+        }
       }
     } catch (error) {
       this.logError('Error al obtener el ID de la factura', { companyID, invoiceNumber, error });
     }
     return null;
+  }
+
+  private wait(milliseconds: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
   }
 
   private async deleteInvoicesByExternalDocumentNumber(
