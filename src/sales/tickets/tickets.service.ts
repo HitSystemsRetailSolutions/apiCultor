@@ -268,10 +268,25 @@ export class ticketsService {
             }
 
             // --- PASO 4: Transferencia a Business Central ---
+            const ultimaFechaSincronizada = ultimoTicket.Data;
+            // Usamos VENTAS_ por consistencia, truncando a 35 para BC.
+            const rawInvoiceNumber = `VENTAS_${licencia}_${formatDate(ultimaFechaSincronizada, "YYYYMMDD")}`;
+            const invoiceNumber = rawInvoiceNumber.length > 35 ? rawInvoiceNumber.substring(0, 35) : rawInvoiceNumber;
+
             try {
-              const ultimaFechaSincronizada = ultimoTicket.Data;
               const nombreArchivo = `v_venut_${licencia}_${formatDateUTC(primerTicket.Data)}-${formatDateUTC(ultimoTicket.Data)}.csv`;
               console.log(`Generando CSV para los tickets del día ${dia} en la tienda ${licencia}: ${nombreArchivo}`);
+
+              // Puede haber quedado una factura borrador de un intento anterior. Hay que
+              // eliminarla antes de volver a consolidar para no duplicar documentos en BC.
+              await this.deleteInvoicesByExternalDocumentNumber(
+                companyID,
+                invoiceNumber,
+                client_id,
+                client_secret,
+                tenant,
+                entorno,
+              );
 
               // 4.1 Generar CSV temporal
               console.log(`Exportando ${ticketsDia.recordset.length} tickets a CSV...`);
@@ -286,14 +301,14 @@ export class ticketsService {
               await this.ticketsToInvoice(licencia, formatDate(ultimoTicket.Data), entorno, tenant, client_id, client_secret, companyID);
 
               // 4.4 Registrar (Post) facturas creadas
-              // Usamos VENTAS_ por consistencia, truncando a 35 para BC.
-              const rawInvoiceNumber = `VENTAS_${licencia}_${formatDate(ultimaFechaSincronizada, "YYYYMMDD")}`;
-              const invoiceNumber = rawInvoiceNumber.length > 35 ? rawInvoiceNumber.substring(0, 35) : rawInvoiceNumber;
               console.log(`Buscando factura con externalDocumentNumber: ${invoiceNumber}`);
 
               const idsFactura = await this.getInvoiceID(companyID, invoiceNumber, client_id, client_secret, tenant, entorno);
+              if (!idsFactura?.length) {
+                throw new Error(`No se encontró ninguna factura borrador en BC para ${invoiceNumber}`);
+              }
 
-              for (const idFactura of idsFactura || []) {
+              for (const idFactura of idsFactura) {
                 await this.invoices.postInvoice(companyID, idFactura, client_id, client_secret, tenant, entorno, "salesInvoices");
               }
 
@@ -310,7 +325,21 @@ export class ticketsService {
               });
 
             } catch (error) {
-              // Si algo falló en BC, la transacción en BC se ha revertido.
+              // La API de BC no agrupa todo el flujo en una transacción. Si falla la
+              // consolidación o el registro, eliminamos todos los borradores del intento.
+              try {
+                await this.deleteInvoicesByExternalDocumentNumber(
+                  companyID,
+                  invoiceNumber,
+                  client_id,
+                  client_secret,
+                  tenant,
+                  entorno,
+                );
+              } catch (deleteError) {
+                this.logError(`❌ Error limpiando las facturas de ${invoiceNumber} después del fallo`, deleteError);
+              }
+
               // No actualizamos timestamp local, así que reintentará el día entero en la próxima ejecución.
               this.logError(`❌ Error procesando tickets del día ${dia} en la tienda ${licencia}`, error);
               continue;
@@ -345,13 +374,16 @@ export class ticketsService {
 
       tickets.recordset.forEach(record => {
         const tmst = moment.utc(record.Data).tz('Europe/Madrid', true).format('YYYY-MM-DDTHH:mm:ss.SSSZ');
+        const plu = String(record.Plu ?? '');
 
         csvStream.write({
           Botiga: record.Botiga,
           Data: tmst,
           Dependenta: record.Dependenta,
           Num_tick: record.Num_tick,
-          Plu: record.Plu,
+          // Los artículos de venta se crean en BC como ART_<PLU>. El codeunit usa
+          // este campo directamente como Item No., por lo que debe llevar el prefijo.
+          Plu: plu.startsWith('ART_') ? plu : `ART_${plu}`,
           Quantitat: record.Quantitat,
           Import: record.Import,
           IVA: `IVA${record.Iva}`,
@@ -529,6 +561,39 @@ export class ticketsService {
       this.logError('Error al obtener el ID de la factura', { companyID, invoiceNumber, error });
     }
     return null;
+  }
+
+  private async deleteInvoicesByExternalDocumentNumber(
+    companyID: string,
+    invoiceNumber: string,
+    client_id: string,
+    client_secret: string,
+    tenant: string,
+    entorno: string,
+  ): Promise<number> {
+    const token = await this.token.getToken2(client_id, client_secret, tenant);
+    if (!token) {
+      throw new Error('Error al obtener el token para eliminar facturas existentes');
+    }
+
+    const endpoint = 'salesInvoices';
+    const url = `${process.env.baseURL}/v2.0/${tenant}/${entorno}/api/v2.0/companies(${companyID})/${endpoint}`;
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+    const response = await axios.get(
+      `${url}?$filter=startswith(externalDocumentNumber, '${invoiceNumber}')`,
+      { headers },
+    );
+    const invoices = response?.data?.value ?? [];
+
+    for (const invoice of invoices) {
+      await axios.delete(`${url}(${invoice.id})`, { headers });
+      console.log(`🗑️ Factura borrador ${invoice.id} (${invoice.externalDocumentNumber}) eliminada de BC.`);
+    }
+
+    return invoices.length;
   }
 
   private logError(message: string, error: any) {
